@@ -4,7 +4,7 @@
 
 - **Sprint 1**: In progress — AI Memory System (T4 Complex)
 - **Plan file**: `docs/plans/2026-03-04-open-brain-sprint1.md`
-- **Repository**: https://github.com/DarkNite-AI/open-brain
+- **Repository**: https://github.com/dagonet/open-brain
 
 ## Sprint 1 Tasks
 

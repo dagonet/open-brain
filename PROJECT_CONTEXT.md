@@ -4,7 +4,7 @@
 
 - **Name**: Open Brain (AI Memory)
 - **Tech stack**: TypeScript, Deno (edge functions), Node.js (MCP server + CLI), PostgreSQL + pgvector, Supabase, OpenAI API, Slack Events API, MCP SDK
-- **Repository**: https://github.com/DarkNite-AI/open-brain
+- **Repository**: https://github.com/dagonet/open-brain
 - **Branch strategy**: `main` is protected; feature branches per task (see AGENT_TEAM.md Mode Behavior Table for naming convention)
 
 ## Commands
