@@ -1,4 +1,4 @@
-﻿# Claude Code -- General Behavior
+# Claude Code -- General Behavior
 
 ---
 
@@ -8,6 +8,7 @@ At the start of every session:
 1. Read `AGENT_TEAM.md` — assume the **PO role** per Session Initialization
 2. Read `PROJECT_CONTEXT.md` — load build commands and workflow config
 3. Present current state (from MEMORY.md) and ask what to work on
+4. **Enter plan mode** for any non-trivial task (T2+). The PO MUST use `EnterPlanMode` before implementation. T1 trivial fixes (< 10 lines, config/style) may skip plan mode.
 
 ## Workflow TL;DR
 
@@ -27,6 +28,8 @@ Claude operates as **Product Owner (PO)** — the orchestrator who plans sprints
 | Task Domain | subagent_type | When |
 |---|---|---|
 | **All tasks** | `coder` | Default for all development work |
+
+**Every plan MUST declare its tier.** The PO enforces the correct team setup per tier before spawning agents.
 
 **Per-workstream pipeline:** Developer -> Code Reviewer -> Tester -> Developer merges PR
 
@@ -67,14 +70,29 @@ Avoid incremental guess-and-check fixes.
 
 # Plan Challenge Protocol
 
-Before executing any implementation plan, challenge it **twice**:
+Before executing any implementation plan, the plan MUST be challenged **twice by the Architect agent**. This is mandatory for all tiers (T2+). T1 fixes are exempt.
 
-1. **Scope & Necessity** — Is every component actually needed? Are there simpler approaches? Does the design solve the stated problem without gold-plating? (YAGNI check)
-2. **Correctness & Completeness** — Are there missing steps, untested paths, or incorrect assumptions? Are error handling and validation covered? Will changes pass CI?
+The PO is responsible for spawning the Architect agent for plan challenges.
+
+**Challenge 1 — Scope & Necessity (Architect):**
+- Is every component actually needed? (YAGNI check)
+- Are there simpler approaches that were dismissed too quickly?
+- Does the design solve the stated problem without gold-plating?
+- Is the tier assignment (T1-T4) correct for the scope?
+
+**Challenge 2 — Correctness & Completeness (Architect):**
+- Are there missing steps, untested paths, or incorrect assumptions?
+- Are error handling and validation covered at every layer?
+- Will the proposed changes pass CI (formatting, linting, type checks)?
+- Does the team configuration match the assigned tier?
+
+**Process:** PO drafts plan → spawns Architect → Architect returns two challenge passes with changes/corrections → PO incorporates feedback → final plan presented to user. If the Architect recommends a tier change, the PO updates the plan and team configuration accordingly.
+
+The final plan MUST include the **tier assignment** (T1-T4) and the **team configuration** (which agents will be spawned).
 
 Each challenge produces a brief list of changes made (cuts, additions, corrections). If no changes result, explicitly state "Challenged — no changes needed" to confirm the review happened.
 
-This applies to all plans: design docs, implementation plans, refactoring proposals, and migration strategies. No plan ships unchallenged.
+No plan ships unchallenged. No plan ships without a tier.
 
 ---
 

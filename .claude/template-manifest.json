@@ -1,64 +1,64 @@
-﻿{
-    "variant":  "general",
-    "templateRepo":  "G:/git/ClaudeCodeSetup",
-    "lastSynced":  "3a33e17",
-    "placeholders":  {
-                         "PROJECT_NAME":  "AI Memory",
-                         "PROJECT_NAME_LOWER":  "ai memory"
-                     },
-    "files":  {
-                  ".claude/agents/architect.md":  {
-                                                      "templateHash":  "c799378132b785f4b229a75e621718287509c4bb4fc684ee6716e8edc7140b7f",
-                                                      "locallyModified":  false
-                                                  },
-                  ".claude/agents/coder.md":  {
-                                                  "templateHash":  "dc426cabfc3b95893a9bd601f24f5e3235006f6439b4b312723bbd843361ca9b",
-                                                  "locallyModified":  false
-                                              },
-                  ".claude/agents/code-reviewer.md":  {
-                                                          "templateHash":  "90d49988b22a81eae11e746d78393232b93b0a85775ef6085de810f14efed4fc",
-                                                          "locallyModified":  false
-                                                      },
-                  ".claude/agents/doc-generator.md":  {
-                                                          "templateHash":  "700d95bd80af412e6e363e1d30e0f1d5b23e946dc2e4344b58d1a5ded25cb866",
-                                                          "locallyModified":  false
-                                                      },
-                  ".claude/agents/requirements-engineer.md":  {
-                                                                  "templateHash":  "f34c2fa792f49b657568b758cff8b963a6705027c3aab8db5689304277eef5dc",
-                                                                  "locallyModified":  false
-                                                              },
-                  ".claude/agents/tester.md":  {
-                                                   "templateHash":  "2785fbbc24a8bc2b2d937ac8bc5c3532a59b5632c5aafff1bc57fa3eb330ba3b",
-                                                   "locallyModified":  false
-                                               },
-                  ".claude/agents/test-writer.md":  {
-                                                        "templateHash":  "fd7164f2a4180baa43fa1736d7d6d05afccc90dbe7b095dd984ab99b9657376e",
-                                                        "locallyModified":  false
-                                                    },
-                  ".claude/settings.json":  {
-                                                "templateHash":  "dadcfc4628575ac08fc468dec0d9ec0737afa6072e73d2ffce232fa87864d672",
-                                                "locallyModified":  false
-                                            },
-                  "AGENT_TEAM.md":  {
-                                        "templateHash":  "e5a4e568b6cc4bd9f54879a0d7744d6792a0ba57533909b955162060c043e067",
-                                        "locallyModified":  false
-                                    },
-                  "CLAUDE.local.md":  {
-                                          "templateHash":  "cfd7f0d73641fa7eb9bef20e20d2844166452990ef9233306ca2f673e78b3ed6",
-                                          "locallyModified":  false
-                                      },
-                  "CLAUDE.md":  {
-                                    "templateHash":  "38597beee1d76a1da94aa01290810410db0c412bf57e8e13a3eb53a61a40e662",
-                                    "locallyModified":  false
-                                },
-                  "PROJECT_CONTEXT.md":  {
-                                             "reason":  "Project-specific config",
-                                             "locallyModified":  true,
-                                             "templateHash":  "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
-                                         },
-                  "PROJECT_STATE.md":  {
-                                           "templateHash":  "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
-                                           "locallyModified":  false
-                                       }
-              }
+{
+    "variant": "general",
+    "templateRepo": "G:/git/ClaudeCodeSetup",
+    "lastSynced": "f5b7a18",
+    "placeholders": {
+        "PROJECT_NAME": "AI Memory",
+        "PROJECT_NAME_LOWER": "ai memory"
+    },
+    "files": {
+        ".claude/agents/architect.md": {
+            "templateHash": "c799378132b785f4b229a75e621718287509c4bb4fc684ee6716e8edc7140b7f",
+            "locallyModified": false
+        },
+        ".claude/agents/coder.md": {
+            "templateHash": "dc426cabfc3b95893a9bd601f24f5e3235006f6439b4b312723bbd843361ca9b",
+            "locallyModified": false
+        },
+        ".claude/agents/code-reviewer.md": {
+            "templateHash": "90d49988b22a81eae11e746d78393232b93b0a85775ef6085de810f14efed4fc",
+            "locallyModified": false
+        },
+        ".claude/agents/doc-generator.md": {
+            "templateHash": "700d95bd80af412e6e363e1d30e0f1d5b23e946dc2e4344b58d1a5ded25cb866",
+            "locallyModified": false
+        },
+        ".claude/agents/requirements-engineer.md": {
+            "templateHash": "f34c2fa792f49b657568b758cff8b963a6705027c3aab8db5689304277eef5dc",
+            "locallyModified": false
+        },
+        ".claude/agents/tester.md": {
+            "templateHash": "2785fbbc24a8bc2b2d937ac8bc5c3532a59b5632c5aafff1bc57fa3eb330ba3b",
+            "locallyModified": false
+        },
+        ".claude/agents/test-writer.md": {
+            "templateHash": "fd7164f2a4180baa43fa1736d7d6d05afccc90dbe7b095dd984ab99b9657376e",
+            "locallyModified": false
+        },
+        ".claude/settings.json": {
+            "templateHash": "dadcfc4628575ac08fc468dec0d9ec0737afa6072e73d2ffce232fa87864d672",
+            "locallyModified": false
+        },
+        "AGENT_TEAM.md": {
+            "templateHash": "162f1a13213e4a2a6e36b21ff65ee1e9c458bc2db8986b565462633fb453e34b",
+            "locallyModified": false
+        },
+        "CLAUDE.local.md": {
+            "templateHash": "cfd7f0d73641fa7eb9bef20e20d2844166452990ef9233306ca2f673e78b3ed6",
+            "locallyModified": false
+        },
+        "CLAUDE.md": {
+            "templateHash": "cdd35d13c53df0af857c5b25e700567b6e83ef29acd3e4107463732bab875e4a",
+            "locallyModified": false
+        },
+        "PROJECT_CONTEXT.md": {
+            "reason": "Project-specific config",
+            "locallyModified": true,
+            "templateHash": "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
+        },
+        "PROJECT_STATE.md": {
+            "templateHash": "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
+            "locallyModified": false
+        }
+    }
 }

@@ -1,4 +1,4 @@
-﻿# Claude Code Agent Team Setup
+# Claude Code Agent Team Setup
 
 ## Version
 
@@ -65,14 +65,15 @@ When a session starts on a project that has this AGENT_TEAM.md:
 
 - Maintains all architecture documentation.
 - Provides implementation guidance on all sprint tasks (see Mode Behavior Table for where guidance is posted).
-- Reviews all sprint tasks **BEFORE** development starts, covering:
+- **Challenges ALL plans (T2+)**: Spawned by PO before implementation to perform two challenge passes on every plan. Validates scope, necessity, correctness, tier assignment, and team configuration. This is the plan-challenge phase — distinct from implementation guidance.
+- **Plan-challenge phase**: Shuts down after plan challenges are complete. Re-spawned for implementation guidance only if the sprint is T4.
+- Reviews all sprint tasks **BEFORE** development starts (T4), covering:
   - Affected components and files
   - Recommended approach
   - Potential conflicts with other in-progress features
   - Constraints or patterns to follow
 - **Coordinates parallel development**: identifies scope overlaps between features and advises sequencing when conflicts exist.
 - **Owns build infrastructure** (see `PROJECT_CONTEXT.md` for commands).
-- Shuts down after providing guidance for all sprint tasks.
 - Does **NOT** write application code (may provide pseudocode or doc examples).
 - **Must update architecture documentation** whenever changes affect the system's architecture.
 
@@ -351,20 +352,29 @@ The PO coordinates merge ordering by sending merge-go-ahead messages to develope
 ### Sprint Planning Flow
 
 ```
-1. PO selects tasks for the sprint
+1. PO enters plan mode (EnterPlanMode) for task analysis
        |
-2. PO spawns Requirements Engineer for M/L/XL features
+2. PO spawns Requirements Engineer for M/L/XL features (if needed)
    - RE produces specs; PO publishes per Mode Behavior Table
    - PO writes specs directly for S features / bugs
        |
-3. PO creates team, spawns Architect (T4 only)
+3. PO drafts implementation plan with tier assignment (T1-T4)
        |
-4. Architect provides guidance on all tasks (see Mode Behavior Table for where)
-   - flags scope conflicts between tasks
-   - advises sequencing if needed
-   - shuts down after guidance is complete
+4. PO spawns Architect for plan challenge (MANDATORY for T2+)
+   - Architect Challenge 1: Scope & Necessity
+   - Architect Challenge 2: Correctness & Completeness
+   - Architect validates tier assignment and team configuration
        |
-5. PO spawns all workstreams in parallel (1 dev per task)
+5. PO incorporates feedback into final plan
+   - Final plan MUST include: tier, team config, acceptance criteria
+       |
+6. PO presents final plan to user for confirmation
+       |
+7. PO creates team, spawns workstreams per tier:
+   - T1: PO fixes directly (no agents)
+   - T2: 1 dev, PO reviews
+   - T3: dev + reviewer + tester
+   - T4: dev + reviewer + tester (architect already consulted in step 4)
 ```
 
 ### Per-Workstream Flow
@@ -430,9 +440,18 @@ Every design doc and implementation plan must be challenged **twice** before exe
 - Are there batches or tasks that should be cut?
 
 **Who challenges:**
-- **PO solo work** (no team spawned): PO self-challenges by re-reading with a devil's advocate mindset. If using skills (e.g., superpowers:writing-plans), the plan is challenged before the execution handoff.
-- **Team sprints**: Architect challenges design; PO challenges implementation plan.
-- **Agent-assisted plans**: The code-reviewer agent may be used for the second challenge pass.
+- **T2+ tasks**: The **Architect agent** performs BOTH challenges. PO spawns the Architect with the draft plan. Architect returns two challenge passes. PO incorporates feedback. If the Architect recommends a tier change, PO updates the plan accordingly.
+- **T1 tasks**: Exempt from plan challenges.
+
+**Process:**
+1. PO drafts plan in plan mode, including tier assignment
+2. PO spawns Architect with the draft plan
+3. Architect performs Challenge 1 (Scope & Necessity) — returns changes
+4. PO incorporates Challenge 1 feedback
+5. Architect performs Challenge 2 (Correctness & Completeness) — returns changes
+6. PO incorporates Challenge 2 feedback
+7. Final plan includes: **tier assignment** + **team configuration**
+8. PO presents final plan to user for approval
 
 **Output:** Each challenge produces a brief list of changes made (cuts, additions, corrections). If no changes result, explicitly state "Challenged — no changes needed" to confirm the review happened.
 
@@ -495,7 +514,11 @@ The PO presents these as a single confirmation at sprint start. All agents are s
 10. **Agents must not modify files outside their assigned worktree.**
 11. **Permission propagation** — all permissions requested once at sprint start. Agents spawned with `mode: bypassPermissions`.
 12. **Mode consistency** — the sprint's primary task source determines the mode. T1/T2 hotfixes may bypass mode if urgent.
-13. **Challenge plans twice** — every design doc and implementation plan must be challenged twice before execution (see Plan Challenge Protocol). No plan ships unchallenged.
+13. **Challenge plans twice** — every design doc and implementation plan must be challenged twice by the Architect agent before execution (see Plan Challenge Protocol). No plan ships unchallenged.
+14. **Plan mode mandatory** — PO MUST enter plan mode (`EnterPlanMode`) for all T2+ tasks before implementation. T1 trivial fixes are exempt.
+15. **Architect challenges mandatory** — Every T2+ plan MUST be challenged twice by the Architect agent before presenting to the user.
+16. **Plans declare tier** — Every final plan MUST include the tier assignment (T1-T4) and the team configuration. Plans without a tier are incomplete and must not be executed.
+17. **Tier-correct team enforcement** — PO SHOULD spawn exactly the agents specified by the tier. Over-staffing or under-staffing requires justification noted in the plan.
 
 ---
 
@@ -657,6 +680,7 @@ When using `plan-files` mode, implementation plans follow this structure:
 **Architecture:** {Key decisions}
 **Tech Stack:** {Relevant technologies}
 **Tier:** T{N}
+**Team:** {agent list per tier — e.g., "dev-1 (coder), reviewer-1, tester-1"}
 
 ---
 
