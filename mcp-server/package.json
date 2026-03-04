@@ -1,0 +1,21 @@
+﻿{
+  "name": "@open-brain/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Open Brain memory retrieval",
+  "type": "module",
+  "bin": {
+    "open-brain-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@supabase/supabase-js": "^2.49.4",
+    "openai": "^4.85.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
