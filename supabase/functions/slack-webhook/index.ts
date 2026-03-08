@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { processThought } from "../_shared/process-thought.ts";
 
 const FIVE_MINUTES = 5 * 60;
@@ -142,38 +141,46 @@ async function processSlackEvent(event: SlackEvent): Promise<void> {
   await postSlackReply(event.channel, event.ts, replyText);
 }
 
-serve(async (req: Request): Promise<Response> => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
+Deno.serve(async (req: Request): Promise<Response> => {
+  try {
+    if (req.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
 
-  const rawBody = await req.text();
-  const body = JSON.parse(rawBody);
+    const rawBody = await req.text();
+    const body = JSON.parse(rawBody);
 
-  // Handle Slack URL verification challenge (no signature check needed)
-  if (body.type === "url_verification") {
+    // Handle Slack URL verification challenge (no signature check needed)
+    if (body.type === "url_verification") {
+      return new Response(
+        JSON.stringify({ challenge: body.challenge }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // Verify Slack signature
+    const isValid = await verifySlackSignature(req.headers, rawBody);
+    if (!isValid) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    // Process message events asynchronously
+    const event = body.event as SlackEvent | undefined;
+    if (event && event.type === "message") {
+      processSlackEvent(event).catch((err) => {
+        console.error(JSON.stringify({
+          error: "slack_processing_failed",
+          message: err.message,
+        }));
+      });
+    }
+
+    return new Response("ok", { status: 200 });
+  } catch (err) {
+    console.error("Slack webhook error:", err);
     return new Response(
-      JSON.stringify({ challenge: body.challenge }),
-      { headers: { "Content-Type": "application/json" } },
+      JSON.stringify({ error: "Internal server error", message: String(err) }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
-
-  // Verify Slack signature
-  const isValid = await verifySlackSignature(req.headers, rawBody);
-  if (!isValid) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  // Process message events asynchronously
-  const event = body.event as SlackEvent | undefined;
-  if (event && event.type === "message") {
-    processSlackEvent(event).catch((err) => {
-      console.error(JSON.stringify({
-        error: "slack_processing_failed",
-        message: err.message,
-      }));
-    });
-  }
-
-  return new Response("ok", { status: 200 });
 });

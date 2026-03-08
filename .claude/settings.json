@@ -18,7 +18,8 @@
       "mcp__plugin_playwright_playwright__*",
       "mcp__windows-mcp__*",
       "mcp__sqlite__*",
-      "mcp__searxng__*"
+      "mcp__searxng__*",
+      "mcp__open-brain__*"
     ],
     "deny": [
       "Read(.env*)"
