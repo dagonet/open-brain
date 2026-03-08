@@ -8,6 +8,9 @@ import { semanticSearch } from "./tools/semantic-search.js";
 import { listRecent } from "./tools/list-recent.js";
 import { deleteThought } from "./tools/delete-thought.js";
 import { systemStatus } from "./tools/system-status.js";
+import { listPeople } from "./tools/list-people.js";
+import { listTopics } from "./tools/list-topics.js";
+import { weeklyReview } from "./tools/weekly-review.js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openaiKey = process.env.OPENAI_API_KEY;
@@ -73,6 +76,39 @@ server.tool(
   {},
   async () => {
     const result = await systemStatus(supabase);
+    return { content: [{ type: "text" as const, text: result }] };
+  }
+);
+server.tool(
+  "list_people",
+  "List all unique people mentioned across thoughts, with mention count and last mentioned date.",
+  {
+    limit: z.number().optional().default(50).describe("Max people to return"),
+  },
+  async (params) => {
+    const result = await listPeople(supabase, params);
+    return { content: [{ type: "text" as const, text: result }] };
+  }
+);
+server.tool(
+  "list_topics",
+  "List all unique topics mentioned across thoughts, with mention count and last mentioned date.",
+  {
+    limit: z.number().optional().default(50).describe("Max topics to return"),
+  },
+  async (params) => {
+    const result = await listTopics(supabase, params);
+    return { content: [{ type: "text" as const, text: result }] };
+  }
+);
+server.tool(
+  "weekly_review",
+  "Generate a structured summary of thoughts captured over a time period. Returns counts, breakdowns, people, topics, open action items, and thought listings grouped by type.",
+  {
+    days: z.number().optional().default(7).describe("Number of days to review"),
+  },
+  async (params) => {
+    const result = await weeklyReview(supabase, params);
     return { content: [{ type: "text" as const, text: result }] };
   }
 );

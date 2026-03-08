@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@open-brain/mcp-server",
   "version": "0.1.0",
   "description": "MCP server for Open Brain memory retrieval",
@@ -8,7 +8,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
@@ -16,6 +18,7 @@
     "openai": "^4.85.4"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
