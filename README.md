@@ -226,3 +226,10 @@ cd mcp-server && npx vitest
 **Classification:** GPT-4o-mini with JSON mode extracts `thought_type`, `people`, `topics`, and `action_items` from raw text. Temperature 0 for deterministic results.
 
 **Idempotency:** Content-based SHA-256 hashes prevent duplicate captures. The CLI uses `source:normalized_text` as the hash input; the MCP tool uses `mcp:normalized_text`.
+
+## Related Projects
+
+Part of an ecosystem for AI-assisted development with Claude Code:
+
+- [claude-code-toolkit](https://github.com/dagonet/claude-code-toolkit) -- Template system for bootstrapping projects with Claude Code configuration, including pre-wired Open Brain integration
+- [mcp-dev-servers](https://github.com/dagonet/mcp-dev-servers) -- Five custom MCP servers (47 tools) for git, GitHub, .NET, Rust, and Ollama integration
