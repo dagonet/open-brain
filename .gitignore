@@ -1,0 +1,24 @@
+﻿# Claude Code - machine-specific files (not committed)
+# .claude/settings.json and .claude/agents/ ARE committed (shared with team)
+CLAUDE.local.md
+.claude/.mcp.json
+
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Supabase local
+supabase/.temp/
+
+# Build outputs
+dist/
+build/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Git worktrees
+.worktrees/

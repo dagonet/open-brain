@@ -1,0 +1,27 @@
+{
+  "name": "@open-brain/cli",
+  "version": "1.0.0",
+  "description": "CLI for capturing thoughts to Open Brain",
+  "type": "module",
+  "bin": { "brain": "dist/brain.js" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/brain.js",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dagonet/open-brain.git",
+    "directory": "cli"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dagonet/open-brain/issues"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "vitest": "^3.0.0"
+  }
+}

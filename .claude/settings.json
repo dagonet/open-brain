@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "WebSearch",
+      "WebFetch(*)",
+      "mcp__git-tools__*",
+      "mcp__github-tools__*",
+      "mcp__github__*",
+      "mcp__dotnet-tools__*",
+      "mcp__rust-tools__*",
+      "mcp__ollama-tools__*",
+      "mcp__plugin_context7_context7__*",
+      "mcp__plugin_playwright_playwright__*",
+      "mcp__windows-mcp__*",
+      "mcp__sqlite__*",
+      "mcp__searxng__*",
+      "mcp__open-brain__*",
+      "mcp__godot-tools__*",
+      "mcp__plugin_context-mode_context-mode__*"
+    ],
+    "deny": [
+      "Read(.env*)"
+    ],
+    "defaultMode": "dontAsk"
+  },
+  "enableAllProjectMcpServers": true
+}

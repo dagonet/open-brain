@@ -1,0 +1,64 @@
+{
+    "variant": "general",
+    "templateRepo": "https://github.com/dagonet/claude-code-toolkit",
+    "lastSynced": "f617dc4",
+    "placeholders": {
+        "PROJECT_NAME": "AI Memory",
+        "PROJECT_NAME_LOWER": "ai memory"
+    },
+    "files": {
+        ".claude/agents/architect.md": {
+            "templateHash": "a74d42e81f7542a18b0e027acb148eb7653809e4ba0a545e6a43f2cc77c0bc2e",
+            "locallyModified": false
+        },
+        ".claude/agents/coder.md": {
+            "templateHash": "9020fb5e87fdf233cc95abe5819af78b93802714adaabc2965206538755bc66e",
+            "locallyModified": false
+        },
+        ".claude/agents/code-reviewer.md": {
+            "templateHash": "581d8592189a9dea3842d713a90f41688bba91bb4e7ca0674f1defadb18788f9",
+            "locallyModified": false
+        },
+        ".claude/agents/doc-generator.md": {
+            "templateHash": "700d95bd80af412e6e363e1d30e0f1d5b23e946dc2e4344b58d1a5ded25cb866",
+            "locallyModified": false
+        },
+        ".claude/agents/requirements-engineer.md": {
+            "templateHash": "a0ca44f5848e7bb1011fc47bc4df6bb0a866dfebd577a5627361965b73fb69f5",
+            "locallyModified": false
+        },
+        ".claude/agents/tester.md": {
+            "templateHash": "8b0d7ec0a771caa53ec67387ff22b4331970ed1589d8eff4b6b21b5428b7b5c6",
+            "locallyModified": false
+        },
+        ".claude/agents/test-writer.md": {
+            "templateHash": "fd7164f2a4180baa43fa1736d7d6d05afccc90dbe7b095dd984ab99b9657376e",
+            "locallyModified": false
+        },
+        ".claude/settings.json": {
+            "templateHash": "b8c2145c9f5d4328312812c2b1a002c0e0470856257881195bc3845c53e07e41",
+            "locallyModified": false
+        },
+        "AGENT_TEAM.md": {
+            "templateHash": "763a0d1e997df1869f4551e355794eef05baae6039ee1db91db56112f9ae72cf",
+            "locallyModified": false
+        },
+        "CLAUDE.local.md": {
+            "templateHash": "860bc8dacca67ff1a9c85958eba8f6bab702640ff9e5f022a4966169ab347b57",
+            "locallyModified": false
+        },
+        "CLAUDE.md": {
+            "templateHash": "e48ac150d4eb90dd27ea149290204c410aab908b0d801acdb2ce006ff254bc9a",
+            "locallyModified": false
+        },
+        "PROJECT_CONTEXT.md": {
+            "reason": "Project-specific config",
+            "locallyModified": true,
+            "templateHash": "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
+        },
+        "PROJECT_STATE.md": {
+            "templateHash": "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
+            "locallyModified": false
+        }
+    }
+}
