@@ -6,6 +6,7 @@ import SearchBar from "@/components/SearchBar";
 import Sidebar from "@/components/Sidebar";
 import Pagination from "@/components/Pagination";
 import EmptyState from "@/components/EmptyState";
+import { fetchDashboardCounts } from "@/lib/dashboard-counts";
 
 const PAGE_SIZE = 20;
 
@@ -78,6 +79,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const totalCount = count ?? 0;
   const hasMore = currentPage * PAGE_SIZE < totalCount;
 
+  const navCounts = await fetchDashboardCounts();
+
   // Cursor for next page
   const lastThought = typedThoughts[typedThoughts.length - 1];
   const nextCursor = lastThought?.created_at;
@@ -111,7 +114,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar totalThoughts={totalCount} />
+      <Sidebar
+        totalThoughts={navCounts.totalThoughts}
+        wikiPages={navCounts.wikiPages}
+        openContradictions={navCounts.openContradictions}
+      />
 
       <main className="flex-1 p-6 md:p-8 md:ml-0">
         <div className="max-w-4xl mx-auto">

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import Sidebar from "@/components/Sidebar";
+import { fetchDashboardCounts } from "@/lib/dashboard-counts";
 
 interface ContradictionRow {
   id: string;
@@ -39,16 +41,18 @@ export default async function ContradictionsIndexPage({ searchParams }: PageProp
   }
   const { data: rows } = await query;
   const contradictions = (rows as ContradictionRow[] | null) ?? [];
+  const navCounts = await fetchDashboardCounts();
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="flex min-h-screen">
+      <Sidebar
+        totalThoughts={navCounts.totalThoughts}
+        wikiPages={navCounts.wikiPages}
+        openContradictions={navCounts.openContradictions}
+      />
+      <main className="flex-1 p-6 md:p-8">
+        <div className="max-w-4xl mx-auto">
         <header className="mb-6">
-          <p className="text-sm text-[var(--text-secondary)] mb-1">
-            <Link href="/" className="underline hover:text-[var(--text-primary)]">
-              ← Dashboard
-            </Link>
-          </p>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">
             Contradictions
           </h1>
@@ -110,7 +114,8 @@ export default async function ContradictionsIndexPage({ searchParams }: PageProp
             })}
           </ul>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

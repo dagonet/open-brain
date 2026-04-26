@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import Sidebar from "@/components/Sidebar";
+import { fetchDashboardCounts } from "@/lib/dashboard-counts";
 import { rejectWikiPage, refreshWikiPage } from "../actions";
 
 interface PageProps {
@@ -95,10 +97,17 @@ export default async function WikiSlugPage({ params }: PageProps) {
   const sourcesById = new Map(thoughts.map((t) => [t.id, t]));
 
   const compiledDays = daysSince(wikiPage.compiled_at);
+  const navCounts = await fetchDashboardCounts();
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="flex min-h-screen">
+      <Sidebar
+        totalThoughts={navCounts.totalThoughts}
+        wikiPages={navCounts.wikiPages}
+        openContradictions={navCounts.openContradictions}
+      />
+      <main className="flex-1 p-6 md:p-8">
+        <div className="max-w-3xl mx-auto">
         <header className="mb-4">
           <p className="text-sm text-[var(--text-secondary)] mb-1">
             <Link href="/wiki" className="underline hover:text-[var(--text-primary)]">
@@ -213,7 +222,8 @@ export default async function WikiSlugPage({ params }: PageProps) {
             </button>
           </form>
         </section>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import Sidebar from "@/components/Sidebar";
+import { fetchDashboardCounts } from "@/lib/dashboard-counts";
 import { resolveContradiction } from "../../wiki/actions";
 
 interface PageProps {
@@ -55,10 +57,17 @@ export default async function ContradictionDetailPage({ params }: PageProps) {
   const thoughts = (pair as ThoughtRow[] | null) ?? [];
   const thoughtA = thoughts.find((t) => t.id === contra.thought_a_id);
   const thoughtB = thoughts.find((t) => t.id === contra.thought_b_id);
+  const navCounts = await fetchDashboardCounts();
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="flex min-h-screen">
+      <Sidebar
+        totalThoughts={navCounts.totalThoughts}
+        wikiPages={navCounts.wikiPages}
+        openContradictions={navCounts.openContradictions}
+      />
+      <main className="flex-1 p-6 md:p-8">
+        <div className="max-w-4xl mx-auto">
         <header className="mb-6">
           <p className="text-sm text-[var(--text-secondary)] mb-1">
             <Link
@@ -162,7 +171,8 @@ export default async function ContradictionDetailPage({ params }: PageProps) {
             .
           </p>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
