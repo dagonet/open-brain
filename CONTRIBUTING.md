@@ -45,6 +45,20 @@ cd mcp-server && npx vitest run
 4. Commit with a clear message describing what and why
 5. Open a pull request
 
+### Inspiration trailers
+
+When a change is directly inspired by an external source (a tweet, a video, a
+gist, a paper), add an `Inspired-by:` trailer to the commit message and the
+PR description so the lineage is preserved. Example:
+
+```
+Inspired-by: karpathy/442a6bf555914893e9891c11519de94f (gist) via Nate B Jones (youtu.be/dxq7WtWxi44)
+```
+
+This is a soft convention — there is no enforcement hook — but the v0.3.0
+wiki + contradictions work follows it consistently and future ports of similar
+ideas are encouraged to do the same.
+
 ## Pull Request Guidelines
 
 - Keep PRs focused — one concern per PR

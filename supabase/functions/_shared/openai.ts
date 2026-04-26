@@ -84,3 +84,67 @@ export async function extractMetadata(text: string): Promise<MetadataExtraction>
   const content = data.choices[0].message.content;
   return JSON.parse(content) as MetadataExtraction;
 }
+
+// ---------------------------------------------------------------------------
+// Structured Outputs helper for the wiki / contradictions pipeline.
+//
+// Inspired by Andrej Karpathy's LLM Wiki gist
+//   https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+// via Nate B Jones
+//   https://www.youtube.com/watch?v=dxq7WtWxi44
+//
+// Citation UUIDs are passed as `string` with a regex pattern; OpenAI's JSON
+// Schema subset for Structured Outputs does NOT accept `format: "uuid"`.
+// ---------------------------------------------------------------------------
+
+export interface StructuredMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface StructuredOptions {
+  model?: string;
+  temperature?: number;
+  schema_name: string;
+  schema: Record<string, unknown>;
+}
+
+export async function chatCompletionsStructured<T>(
+  messages: StructuredMessage[],
+  options: StructuredOptions,
+): Promise<T> {
+  const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${getApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: options.model ?? "gpt-4o-mini",
+      messages,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: options.schema_name,
+          schema: options.schema,
+          strict: true,
+        },
+      },
+      temperature: options.temperature ?? 0,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(
+      `OpenAI structured chat request failed (${response.status}): ${error}`,
+    );
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  return JSON.parse(content) as T;
+}
+
+export const UUID_PATTERN =
+  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";

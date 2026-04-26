@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { allTools } from "../index.js";
 
 describe("allTools registry", () => {
-  it("has exactly 8 tool definitions", () => {
-    expect(allTools).toHaveLength(8);
+  it("has exactly 14 tool definitions", () => {
+    expect(allTools).toHaveLength(14);
   });
 
   it("each tool has required fields", () => {
@@ -22,10 +22,13 @@ describe("allTools registry", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("all thoughts-domain tools use thoughts_ prefix", () => {
-    const nonSystem = allTools.filter((t) => t.name !== "system_status");
-    for (const tool of nonSystem) {
-      expect(tool.name).toMatch(/^thoughts_/);
+  it("every tool name uses one of the known family prefixes", () => {
+    const allowedPrefixes = ["thoughts_", "wiki_", "contradictions_"];
+    const allowedExact = new Set(["system_status"]);
+    for (const tool of allTools) {
+      if (allowedExact.has(tool.name)) continue;
+      const matches = allowedPrefixes.some((p) => tool.name.startsWith(p));
+      expect(matches, `unexpected tool name: ${tool.name}`).toBe(true);
     }
   });
 
@@ -33,6 +36,7 @@ describe("allTools registry", () => {
     const names = new Set(allTools.map((t) => t.name));
     expect(names).toEqual(
       new Set([
+        // thoughts (8)
         "thoughts_search",
         "thoughts_recent",
         "thoughts_delete",
@@ -41,6 +45,14 @@ describe("allTools registry", () => {
         "thoughts_topics",
         "thoughts_review",
         "thoughts_capture",
+        // wiki (3)
+        "wiki_get",
+        "wiki_list",
+        "wiki_refresh",
+        // contradictions (3)
+        "contradictions_list",
+        "contradictions_resolve",
+        "contradictions_audit",
       ])
     );
   });
