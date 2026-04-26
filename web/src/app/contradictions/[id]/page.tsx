@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
-import { resolveContradiction } from "../actions";
+import { resolveContradiction } from "../../wiki/actions";
 
 interface PageProps {
   params: Promise<{ id: string }>;
