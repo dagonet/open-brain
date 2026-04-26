@@ -21,7 +21,7 @@ Inspired by:
 5. **NEW (v0.3.0): It catches your own contradictions.** A separate scan looks for pairs of notes that disagree (e.g. an old "we picked Postgres" alongside a newer "we switched to SQLite") and surfaces them on a dashboard. You decide which one is current truth; the wiki excludes the stale one.
 6. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
 
-> **Already using `claude-code-toolkit`?** A follow-up sync of the toolkit's `CLAUDE.md` / skill / agent references for the new MCP tools is tracked separately. The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
+> **Already using `claude-code-toolkit`?** Toolkit templates ship with v0.3.0 references built in (synced 2026-04-26). The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
 
 ## How It Works
 
@@ -436,4 +436,4 @@ cd mcp-server && npx vitest
 Part of an ecosystem for AI-assisted development with Claude Code:
 
 - [claude-code-toolkit](https://github.com/dagonet/claude-code-toolkit) -- Template system for bootstrapping projects with Claude Code configuration, including pre-wired Open Brain integration
-- [mcp-dev-servers](https://github.com/dagonet/mcp-dev-servers) -- Five custom MCP servers (47 tools) for git, GitHub, .NET, Rust, and Ollama integration
+- [mcp-dev-servers](https://github.com/dagonet/mcp-dev-servers) -- Six custom MCP servers (61 tools) for git, GitHub, .NET, Rust, Ollama, and template-sync integration
