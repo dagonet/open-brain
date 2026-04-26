@@ -39,9 +39,9 @@ interface ThoughtRow {
   deleted_at: string | null;
 }
 
-function truncate(text: string, max: number): string {
+function truncate(text: string, max: number, slug: string): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + "\n\n… [truncated, see /wiki/" + max + "]";
+  return text.slice(0, max) + "\n\n… [truncated, see /wiki/" + slug + "]";
 }
 
 export async function wikiGet(
@@ -124,7 +124,7 @@ export async function wikiGet(
     }
   }
 
-  const content_md = truncate(wikiPage.content_md, CONTENT_SOFT_CAP);
+  const content_md = truncate(wikiPage.content_md, CONTENT_SOFT_CAP, wikiPage.slug);
 
   return JSON.stringify({
     status: "ok",

@@ -46,7 +46,7 @@ export async function rejectWikiPage(formData: FormData): Promise<void> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  await fetch(CAPTURE_URL, {
+  const captureRes = await fetch(CAPTURE_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ANON_KEY}`,
@@ -64,6 +64,11 @@ export async function rejectWikiPage(formData: FormData): Promise<void> {
       },
     }),
   });
+  if (!captureRes.ok) {
+    throw new Error(
+      `Failed to record rejection: HTTP ${captureRes.status} ${captureRes.statusText}`,
+    );
+  }
 
   revalidatePath(`/wiki/${slug}`);
 }
@@ -80,7 +85,7 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
     redirect("/login");
   }
 
-  await fetch(COMPILE_URL, {
+  const refreshRes = await fetch(COMPILE_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ANON_KEY}`,
@@ -88,6 +93,11 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
     },
     body: JSON.stringify({ slug }),
   });
+  if (!refreshRes.ok) {
+    throw new Error(
+      `Failed to refresh wiki page: HTTP ${refreshRes.status} ${refreshRes.statusText}`,
+    );
+  }
 
   revalidatePath(`/wiki/${slug}`);
 }
@@ -109,13 +119,19 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
     redirect("/login");
   }
 
-  await supabase
+  // RLS on `contradictions` is intentionally open for authenticated users
+  // (single-user deployment per migration 005). If multi-user support is
+  // added later, also filter by an ownership column here.
+  const { error: updateErr } = await supabase
     .from("contradictions")
     .update({
       status: decision,
       resolved_at: new Date().toISOString(),
     })
     .eq("id", id);
+  if (updateErr) {
+    throw new Error(`Failed to resolve contradiction: ${updateErr.message}`);
+  }
 
   // Capture an audit thought so the resolution is itself a memory.
   if (note) {
@@ -126,7 +142,7 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    await fetch(CAPTURE_URL, {
+    const captureRes = await fetch(CAPTURE_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${ANON_KEY}`,
@@ -143,6 +159,13 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
         },
       }),
     });
+    if (!captureRes.ok) {
+      // Resolution succeeded; only the audit thought failed. Log but don't
+      // throw, so the user-visible action stays "resolved".
+      console.error(
+        `Failed to capture contradiction-resolution audit thought: HTTP ${captureRes.status}`,
+      );
+    }
   }
 
   revalidatePath("/contradictions");

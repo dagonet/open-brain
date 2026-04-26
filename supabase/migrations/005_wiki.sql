@@ -167,7 +167,10 @@ CREATE OR REPLACE VIEW wiki_page_staleness AS
     cwp.version                                   AS version,
     cwp.compiled_at                               AS compiled_at,
     coalesce((
-      SELECT count(*)::int
+      -- count(DISTINCT) so a thought tagged with multiple aliased topics
+      -- (e.g. "Open Brain" and "open-brain") that all slugify to the same
+      -- value is counted once, not once per matching topic string.
+      SELECT count(DISTINCT t.id)::int
       FROM thoughts t, unnest(t.topics) AS topic_name
       WHERE t.deleted_at IS NULL
         AND slugify(topic_name) = cwp.slug

@@ -166,8 +166,11 @@ function renderMarkdown(page: CompiledPage): string {
   for (const p of page.paragraphs) {
     blocks.push(p.markdown.trim());
     if (p.citations.length > 0) {
+      // Plain markdown italic, not raw HTML. The dashboard's `<article>`
+      // does NOT pass through a markdown renderer in v0.3.0, so any HTML
+      // tags here would render as literal text.
       const cites = p.citations.map((c) => `[[#${c}]]`).join(" ");
-      blocks.push(`<small>Sources: ${cites}</small>`);
+      blocks.push(`*Sources: ${cites}*`);
     }
   }
   if (page.summary && page.summary.trim().length > 0) {
@@ -286,11 +289,15 @@ serve(async (req: Request): Promise<Response> => {
     .map((x) => x.t);
 
   // ---- 3. Pull last 5 wiki-feedback notes for this slug -----------------------
+  // Filter by metadata.kind, NOT by `topics`. The `topics` column is set
+  // exclusively by the LLM classifier in process-thought.ts, which has no
+  // guaranteed way to return the literal string "wiki-feedback". The
+  // server action / CLI both set `metadata.kind = 'wiki-feedback'` reliably.
   const { data: feedback } = await supabase
     .from("thoughts")
     .select("raw_text, metadata")
     .is("deleted_at", null)
-    .contains("topics", ["wiki-feedback"])
+    .eq("metadata->>kind", "wiki-feedback")
     .order("created_at", { ascending: false })
     .limit(20);
 
