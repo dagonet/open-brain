@@ -62,9 +62,10 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
 ### Upgrading from v0.2.x
 
 1. Pull this branch; rebuild `mcp-server` and `cli` (`npm install && npm run build` in each).
-2. Apply migration `005_wiki.sql` against a Supabase **preview branch** first
-   (see the smoke-test recipe in the plan file). Confirm `\d thoughts` is
-   byte-identical before and after.
+2. Apply migration `005_wiki.sql` (and `006_contradictions_anon_update.sql`)
+   against a Supabase **preview branch** first — see the
+   "Upgrading from v0.2.x" section of `README.md` for the 6-step smoke-test
+   recipe. Confirm `\d thoughts` is byte-identical before and after.
 3. Deploy the new edge functions:
    - `supabase functions deploy compile-wiki`
    - `supabase functions deploy detect-contradictions`

@@ -59,6 +59,35 @@ This is a soft convention — there is no enforcement hook — but the v0.3.0
 wiki + contradictions work follows it consistently and future ports of similar
 ideas are encouraged to do the same.
 
+## Release Process
+
+Open Brain follows a single root `CHANGELOG.md` (Keep-a-Changelog format) as
+the source of truth. Sub-package versions are managed as follows:
+
+- **`mcp-server`** is published to npm — bump its `package.json` version on
+  every release that changes the tool surface or `instructions` string.
+- **`cli`** is published to npm — bump its `package.json` version when new
+  subcommands are added or argument behaviour changes.
+- **`web`** is the internal Next.js dashboard, **not published** — leaves its
+  `package.json` version at `1.0.0` permanently.
+
+The two npm packages are versioned **independently**, not lock-step, because
+they were on different version tracks before v0.3.0 (mcp-server at `0.x`, cli
+at `1.x`). Bump each on its own merit.
+
+Each release lands:
+
+1. A new `## [X.Y.Z] - YYYY-MM-DD` section in `CHANGELOG.md` with `Added`,
+   `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` subsections as
+   needed.
+2. An "Upgrading from <prev>" note in the release section if the change
+   requires migration steps or new env vars.
+3. The `Inspired-by:` trailer in the merge commit when applicable.
+
+Sub-package READMEs (`cli/README.md`, `mcp-server/README.md`,
+`web/README.md`) should be updated in the same PR that ships the version
+bump, so the documented surface always matches the published version.
+
 ## Pull Request Guidelines
 
 - Keep PRs focused — one concern per PR
