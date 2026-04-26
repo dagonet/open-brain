@@ -126,6 +126,12 @@ supabase functions deploy capture-thought
 supabase functions deploy slack-webhook  # optional, only if using Slack
 ```
 
+> **Windows note:** `supabase functions deploy` uses Docker by default to bundle TypeScript. If Docker volume mounts can't read your project drive (common when the repo lives on a non-`C:` drive like `G:\`), the bundler fails with `entrypoint path does not exist`. Pass `--use-api` to bundle server-side instead:
+>
+> ```bash
+> supabase functions deploy capture-thought --use-api
+> ```
+
 Set the secrets for deployed functions:
 
 ```bash

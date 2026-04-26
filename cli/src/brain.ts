@@ -795,9 +795,56 @@ async function auditCommand(): Promise<void> {
       console.error(`✗ Failed to resolve contradiction: HTTP ${response.status}`);
       process.exit(1);
     }
+    // Prefer: return=representation makes PostgREST echo updated rows.
+    // If RLS silently filters the UPDATE, the array comes back empty
+    // even though the HTTP status is 200 — guard against that.
+    const updated = (await response.json()) as Array<{ id?: string; status?: string }>;
+    if (!Array.isArray(updated) || updated.length === 0) {
+      console.error(
+        `✗ Contradiction ${resolveId} not updated (0 rows returned). ` +
+          `Likely cause: anon UPDATE policy missing on contradictions. ` +
+          `Apply migration 006_contradictions_anon_update.sql.`,
+      );
+      process.exit(1);
+    }
     console.log(`✓ Resolved ${resolveId} as ${decision}`);
     if (note) {
       console.log(`  Note: ${note}`);
+    }
+
+    // Capture an audit thought so the resolution is itself searchable —
+    // matches the behaviour of the MCP `contradictions_resolve` tool.
+    const auditText = [
+      `Resolved contradiction ${resolveId} as ${decision}.`,
+      `Thought A: ${updated[0].id ?? "?"} (paired)`,
+      note ? `Note: ${note}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const idempotency_key = createHash("sha256")
+      .update(`resolve:${resolveId}:${decision}`)
+      .digest("hex");
+    try {
+      await fetch(config.api_url, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + config.api_key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: auditText,
+          source: "cli",
+          idempotency_key,
+          metadata: {
+            kind: "contradiction-resolution",
+            contradiction_id: resolveId,
+            decision,
+          },
+        }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  (audit thought capture failed: ${msg})`);
     }
     return;
   }
