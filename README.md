@@ -3,11 +3,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/dagonet/open-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/dagonet/open-brain/actions/workflows/ci.yml)
 
-A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack.
+A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes.
 
-Inspired by Nate B Jones:
-- [You Don't Need SaaS. The $0.10 System That Replaced My AI Workflow (45 Min No-Code Build)](https://www.youtube.com/watch?v=2JiMmye2ezg)
-- [One Simple System Gave All My AI Tools a Memory. Here's How.](https://www.youtube.com/watch?v=japT66frdhM)
+Inspired by:
+- Andrej Karpathy — [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (the upstream "personal wiki maintained by AI" idea — 41 k bookmarks)
+- Nate B Jones — [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44) (the bridge that adapted Karpathy's idea for Open Brain and announced the wiki + contradictions improvements)
+- Nate B Jones — [You Don't Need SaaS. The $0.10 System That Replaced My AI Workflow](https://www.youtube.com/watch?v=2JiMmye2ezg)
+- Nate B Jones — [One Simple System Gave All My AI Tools a Memory. Here's How.](https://www.youtube.com/watch?v=japT66frdhM)
+
+## What This Does (Plain English)
+
+1. **You give it your scattered notes.** Capture anything useful — meeting takeaways, decisions, half-baked ideas, references — by typing one command, talking to Claude Code, or messaging a Slack bot. There's no folder or filename to think about.
+2. **It tags and remembers them automatically.** Each note gets a meaning-based fingerprint and is auto-classified (decision / insight / action item / reference / note) along with the people and topics it mentions. You don't write tags by hand.
+3. **You can ask it anything later.** "What did I decide about X last quarter?" — the AI finds the right notes by *meaning*, not just keyword match, and answers using your own words.
+4. **NEW (v0.3.0): It writes wiki pages for you.** For any topic you've captured a few notes on, you can ask Open Brain to compile a single readable page that weaves those notes together — with every paragraph showing exactly which note it came from. The page lives in storage so future questions start from a finished study guide instead of from scratch.
+5. **NEW (v0.3.0): It catches your own contradictions.** A separate scan looks for pairs of notes that disagree (e.g. an old "we picked Postgres" alongside a newer "we switched to SQLite") and surfaces them on a dashboard. You decide which one is current truth; the wiki excludes the stale one.
+6. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
+
+> **Already using `claude-code-toolkit`?** A follow-up sync of the toolkit's `CLAUDE.md` / skill / agent references for the new MCP tools is tracked separately. The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
 
 ## How It Works
 
@@ -24,10 +37,26 @@ capture-thought edge function (Supabase/Deno)
 PostgreSQL + pgvector (Supabase)
   |
   v
-Retrieval (MCP server / CLI)
+Retrieval (MCP server / CLI / web dashboard)
   ├── Semantic search (cosine similarity)
   ├── List by date, people, topics
   └── Weekly review summaries
+
+  Wiki layer (v0.3.0)
+  ┌──────────────────────────────────────────────────┐
+  │ brain wiki refresh <slug> | brain audit          │
+  │   |                            |                 │
+  │   v                            v                 │
+  │ compile-wiki edge fn      detect-contradictions  │
+  │   |  GPT-4o-mini structured-output + validator   │
+  │   v                            v                 │
+  │ wiki_pages + wiki_sources    contradictions      │
+  │   |                            |                 │
+  │   v                            v                 │
+  │ wiki_get / wiki_list      contradictions_list    │
+  │ (MCP / dashboard /wiki)   (MCP / dashboard       │
+  │                              /contradictions)    │
+  └──────────────────────────────────────────────────┘
 ```
 
 Every thought you capture is:
@@ -178,13 +207,26 @@ brain import chatgpt-export.txt --source import-chatgpt
 
 # Preview without importing
 brain import memories.txt --dry-run
+
+# v0.3.0: wiki pages
+brain wiki refresh open-brain                # recompile one slug
+brain wiki refresh --all                     # recompile all topics with >=3 thoughts
+brain wiki refresh --dry-run --all           # preview without writing
+brain wiki get open-brain                    # print the current page
+brain wiki list                              # list all compiled pages
+brain wiki reject <page_id> --reason "..."   # log a rejection that nudges next refresh
+
+# v0.3.0: contradictions
+brain audit                                  # scan recent thoughts for contradictions
+brain audit --since 2026-04-01               # only consider thoughts after a date
+brain audit --resolve <id> --decision resolved
 ```
 
 ### MCP Server (Claude Code)
 
-The MCP server exposes 8 tools that Claude Code uses automatically:
+The MCP server exposes 14 tools that Claude Code uses automatically:
 
-**Read tools:**
+**Read tools (thoughts):**
 - `thoughts_search` — Find thoughts by meaning (embeds query, cosine similarity)
 - `thoughts_recent` — List thoughts by date (no embedding needed)
 - `thoughts_people` — All mentioned people with counts
@@ -192,11 +234,40 @@ The MCP server exposes 8 tools that Claude Code uses automatically:
 - `thoughts_review` — Structured summary with counts, breakdowns, and open action items
 - `system_status` — System health and configuration
 
-**Write tools:**
+**Write tools (thoughts):**
 - `thoughts_capture` — Save a thought (auto-classifies, extracts metadata, generates embedding)
 - `thoughts_delete` — Soft-delete a thought by ID
 
-The server includes MCP `instructions` that guide Claude Code to proactively read from and write to Open Brain during sessions.
+**Wiki tools (new in v0.3.0):**
+- `wiki_get` — Get the latest compiled wiki page for a topic slug; includes inline source snippets and staleness signals
+- `wiki_list` — List compiled pages newest-first (use `{limit:1}` to cheaply check whether wiki content exists at all in this workspace)
+- `wiki_refresh` — Recompile a topic page from current thoughts; writes a new version with citation-validated paragraphs
+
+**Contradictions tools (new in v0.3.0):**
+- `contradictions_list` — List contradictions detected between pairs of captured thoughts
+- `contradictions_resolve` — Mark a contradiction as resolved / ignored / false_positive (also captures an audit thought)
+- `contradictions_audit` — Trigger an on-demand audit pass
+
+The server includes MCP `instructions` that guide Claude Code to proactively read from and write to Open Brain. The wiki rule is **conditional** on `wiki_list` returning ≥1 row, so unrelated repos don't see new behaviour until they have wiki content.
+
+**Per-repo opt-out.** Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` in a project's `.mcp.json` env block to silence those tool families in that workspace:
+
+```json
+{
+  "mcpServers": {
+    "open-brain": {
+      "command": "node",
+      "args": ["path/to/mcp-server/dist/index.js"],
+      "env": {
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key",
+        "OPENAI_API_KEY": "sk-your-openai-api-key",
+        "OPEN_BRAIN_TOOLS_DISABLED": "wiki,contradictions"
+      }
+    }
+  }
+}
+```
 
 ### Slack
 

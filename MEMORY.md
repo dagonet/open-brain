@@ -2,6 +2,8 @@
 
 ## Current State
 
+- **Sprint 7**: Complete — Wiki layer + contradiction surfacing (T3 Standard, single PR)
+- **Sprint 5/6**: Complete — Obsidian export (`brain sync-vault`) + Vercel-deployed read-only Next.js dashboard
 - **Sprint 4**: Complete — MCP Capture Tool (T2 Simple)
 - **Sprint 3**: Complete — Memory Import Tool (T2 Simple)
 - **Sprint 2**: Complete — Exploration & Review Tools (T2 Simple)
@@ -88,9 +90,47 @@
 - MCP `instructions` field used instead of CLAUDE.md modifications for tool behavior guidance
 - No `supabase`/`openai` params — reads env vars directly since it calls the edge function
 
+## Sprint 7 Summary — Wiki layer + contradictions
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Delivered
+- Migration `005_wiki.sql` — strictly additive (`unaccent`, `pgcrypto` extensions; `slugify()`, `thoughts_by_slug()` SQL functions; `topic_counts`, `current_wiki_pages`, `wiki_page_staleness` views; `contradictions`, `wiki_pages`, `wiki_sources` tables)
+- Edge functions: `compile-wiki` (cluster → contradiction-aware filter → recency-decayed ranking → structured-output LLM with citation validator + retry-once + partial=true fallback) and `detect-contradictions` (candidate scan → match_thoughts neighbours → LLM judge → idempotent insert)
+- MCP server v0.3.0: 6 new tools (`wiki_get`, `wiki_list`, `wiki_refresh`, `contradictions_list`, `contradictions_resolve`, `contradictions_audit`); modular `instructions.ts` with conditional wiki-first rule; per-repo `OPEN_BRAIN_TOOLS_DISABLED` opt-out env var
+- CLI subcommands: `brain audit [--since|--candidate-limit|--resolve|--decision|--note|--verbose]` and `brain wiki <get|list|refresh|reject>` with `--all`, `--dry-run`, `--top` flags
+- Web dashboard: `/wiki` (list) + `/wiki/[slug]` (markdown render with inline source quotes, staleness banner, refresh + reject server actions); `/contradictions` (list with status filter chips) + `/contradictions/[id]` (side-by-side source thoughts with resolve form); attribution footer in `layout.tsx`
+- Docs: README plain-English explainer + diagram update + 14-tool MCP reference; new CHANGELOG.md (Keep-a-Changelog); CONTRIBUTING.md `Inspired-by:` trailer convention
+
+### Key Decisions
+- Single PR (`feat/wiki-layer`), single migration — collapsed v2's three-sprint plan after round-3 YAGNI challenge
+- No `runs` table, no `pg_cron`, no advisory lock — relied on `UNIQUE(slug, version)` collision handling and on-demand CLI invocation
+- No `is_current` flag on `wiki_pages` — append-only versions; latest-by-slug exposed via `current_wiki_pages` view
+- No FKs from `contradictions`/`wiki_sources` to `thoughts.id` — incompatible with soft-delete; renderer JOINs and checks `deleted_at`
+- Citations as `string` + regex pattern, not `format: "uuid"` (unsupported by OpenAI Structured Outputs schema subset)
+- `WIKI_TOPIC_DENYLIST` (env var) and `WIKI_DECAY_DAYS` (default 90) for tunable filtering and recency decay
+- Per-repo opt-out via `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` in `.mcp.json` env block
+- Conditional MCP rule: agents only switch to wiki-first behaviour when `wiki_list({limit:1})` returns ≥1 row — protects unrelated repos from regression
+
+### Cross-repo follow-up (separate PR, NOT in this sprint)
+- `dagonet/claude-code-toolkit` sync: each variant's `CLAUDE.md`, `CLAUDE.local.md`, skill files, and agent definitions need the new MCP tools added alongside the existing `thoughts_*` references; document the per-repo opt-out env var
+
+### Smoke-test recipe (run before merge to main)
+1. Create a Supabase preview branch from production
+2. Apply `005_wiki.sql` against the preview only; confirm `\d thoughts` is byte-identical
+3. `brain wiki refresh --dry-run --all --supabase-url=<preview>` — eyeball the compile/refuse split
+4. Real refresh on one slug with ≥5 thoughts; verify citations resolve
+5. Capture two contradictory thoughts; `brain audit --since=now-1h`; verify exactly one row in `contradictions`
+6. Drop the preview; merge to main
+
 ## Future TODOs
 - Remote MCP server (cloud-hosted retrieval)
 - `action_items` separate table with status/due dates
 - People alias lookup table
-- Re-embedding runbook for model migration
-- Web UI / dashboard
+- Re-embedding runbook for model migration (`brain rebuild-embeddings` command)
+- `wiki_search` MCP tool (requires re-adding the `embedding` column on `wiki_pages` + HNSW index)
+- `pg_cron` automated nightly contradiction audit (only when volume justifies)
+- Per-capture inline contradiction detection (after measured precision ≥ 0.7)
+- Two-way Obsidian sync (`brain sync-vault --pull`)
+- `dagonet/claude-code-toolkit` cross-repo sync follow-up PR
