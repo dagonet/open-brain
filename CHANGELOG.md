@@ -4,6 +4,32 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-04-30
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [GraphRAG tutorial](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Entity descriptions.** A parallel LLM extraction call during capture writes
+  rich descriptions for key entities (people, projects, technologies) into a new
+  `entity_descriptions` table. Fails gracefully — doesn't block thought capture.
+- **Contradiction graph visualization.** New `/graph` route in the web dashboard
+  with a force-directed SVG graph. Nodes = thoughts (colored by type, sized by
+  contradiction count); edges = contradiction pairs (weighted by severity).
+  Click any node or edge to see details in a slide-out panel.
+- **Graph nav item** in the sidebar.
+
+### Changed
+
+- `_shared/process-thought.ts` now runs `extractEntityDescriptions` in parallel
+  with embedding and metadata extraction via `Promise.allSettled`.
+
+### Migrations
+
+- `007_entity_descriptions.sql` — strictly additive; new `entity_descriptions`
+  table with FK to `thoughts` and RLS anon SELECT policy.
+
 ## [0.3.0] - 2026-04-26
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)

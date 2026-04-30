@@ -4,7 +4,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dagonet/open-brain)
 [![CI](https://github.com/dagonet/open-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/dagonet/open-brain/actions/workflows/ci.yml)
 
-A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes.
+A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes. v0.4.0 adds **entity descriptions** (rich context for people, projects, and technologies mentioned in your thoughts) and a **contradiction graph visualization** at `/graph`.
 
 Inspired by:
 - Andrej Karpathy — [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (the upstream "personal wiki maintained by AI" idea — 41 k bookmarks)
@@ -19,7 +19,9 @@ Inspired by:
 3. **You can ask it anything later.** "What did I decide about X last quarter?" — the AI finds the right notes by *meaning*, not just keyword match, and answers using your own words.
 4. **NEW (v0.3.0): It writes wiki pages for you.** For any topic you've captured a few notes on, you can ask Open Brain to compile a single readable page that weaves those notes together — with every paragraph showing exactly which note it came from. The page lives in storage so future questions start from a finished study guide instead of from scratch.
 5. **NEW (v0.3.0): It catches your own contradictions.** A separate scan looks for pairs of notes that disagree (e.g. an old "we picked Postgres" alongside a newer "we switched to SQLite") and surfaces them on a dashboard. You decide which one is current truth; the wiki excludes the stale one.
-6. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
+6. **NEW (v0.4.0): It maps your contradictions visually.** The `/graph` page shows every contradiction as a force-directed network graph. Nodes are your thoughts (colored by type, sized by how many contradictions they're involved in); edges are the contradictions (thicker = higher severity). Click any node or edge to drill in.
+7. **NEW (v0.4.0): It remembers what entities mean.** During capture, a parallel LLM pass writes one-sentence descriptions for key entities (projects, technologies, people) into a searchable table so future queries know *what* "PaddleOCR" or "OmniScribe" is, not just that you mentioned it.
+8. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
 
 > **Already using `claude-code-toolkit`?** Toolkit templates ship with v0.3.0 references built in (synced 2026-04-26). The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
 
@@ -33,14 +35,21 @@ capture-thought edge function (Supabase/Deno)
   |
   ├── OpenAI text-embedding-3-small → 1536-dim vector
   ├── GPT-4o-mini → thought_type, people, topics, action_items
+  ├── GPT-4o-mini → entity descriptions (v0.4.0)
   |
   v
 PostgreSQL + pgvector (Supabase)
+  |
+  ├── thoughts (vector, type, people, topics)
+  ├── entity_descriptions (v0.4.0)
+  ├── wiki_pages + wiki_sources
+  └── contradictions
   |
   v
 Retrieval (MCP server / CLI / web dashboard)
   ├── Semantic search (cosine similarity)
   ├── List by date, people, topics
+  ├── Entity description lookup (v0.4.0)
   └── Weekly review summaries
 
   Wiki layer (v0.3.0)
@@ -58,6 +67,15 @@ Retrieval (MCP server / CLI / web dashboard)
   │ (MCP / dashboard /wiki)   (MCP / dashboard       │
   │                              /contradictions)    │
   └──────────────────────────────────────────────────┘
+
+  Graph layer (v0.4.0)
+  ┌──────────────────────────────────────────────────┐
+  │ contradictions + thoughts → force-directed SVG   │
+  │   |                                              │
+  │   v                                              │
+  │ /graph (dashboard) — nodes=thoughts,             │
+  │ edges=contradictions, click to drill in          │
+  └──────────────────────────────────────────────────┘
 ```
 
 Every thought you capture is:
@@ -72,7 +90,7 @@ Every thought you capture is:
 |-----------|---------|-------------|
 | `cli/` | Node.js 18+ | `brain` command — capture thoughts, import memories, refresh wiki pages, run contradiction audits. Zero runtime dependencies. |
 | `mcp-server/` | Node.js 18+ | MCP server with 14 tools (8 thoughts + 3 wiki + 3 contradictions) for Claude Code integration |
-| `web/` | Next.js 15 | Authenticated dashboard with `/`, `/wiki`, `/contradictions` routes. Read-only via Supabase anon key; auto-deployed from `main` to Vercel. |
+| `web/` | Next.js 15 | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Read-only via Supabase anon key; auto-deployed from `main` to Vercel. |
 | `supabase/functions/capture-thought/` | Deno | Edge function for thought processing and storage |
 | `supabase/functions/compile-wiki/` | Deno | (v0.3.0) Compiles a topic-level wiki page from clustered thoughts with citation validation |
 | `supabase/functions/detect-contradictions/` | Deno | (v0.3.0) Audits thought pairs for contradictions via embedding-similar neighbours + LLM judge |
@@ -388,9 +406,9 @@ The server includes MCP `instructions` that guide Claude Code to proactively rea
 }
 ```
 
-### Web Dashboard (v0.3.0)
+### Web Dashboard (v0.3.0+)
 
-Once authenticated (see Setup step 7), three routes are available:
+Once authenticated (see Setup step 7), the following routes are available:
 
 | Route | Purpose |
 |---|---|
@@ -399,8 +417,9 @@ Once authenticated (see Setup step 7), three routes are available:
 | `/wiki/[slug]` | Markdown page with inline source quotes, staleness banner, "Refresh now" server action, "Reject this page" form |
 | `/contradictions` | List filterable by status (open / resolved / ignored / false_positive / all) |
 | `/contradictions/[id]` | Side-by-side source thoughts with a resolve form (decision + optional note → captures an audit thought) |
+| `/graph` | (v0.4.0) Force-directed network graph of the contradiction network. Nodes = thoughts colored by type and sized by degree; edges = contradictions weighted by severity. Click to drill in. |
 
-A unified left sidebar shows the three sections with badges (wiki page count, open-contradictions count). The bottom of the rail shows total thoughts captured plus a Sign out button.
+A unified left sidebar shows all sections with badges (wiki page count, open-contradictions count). The bottom of the rail shows total thoughts captured plus a Sign out button.
 
 ### Slack
 
