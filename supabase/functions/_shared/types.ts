@@ -49,3 +49,13 @@ export interface MetadataExtraction {
   topics: string[];
   action_items: string[];
 }
+
+export interface EntityDescription {
+  entity_name: string;
+  entity_type: string;
+  description: string;
+}
+
+export interface EntityExtractionResult {
+  entities: EntityDescription[];
+}

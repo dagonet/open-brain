@@ -5,7 +5,7 @@ import {
   ProcessingResult,
   ThoughtType,
 } from "./types.ts";
-import { generateEmbedding, extractMetadata } from "./openai.ts";
+import { generateEmbedding, extractMetadata, extractEntityDescriptions } from "./openai.ts";
 const ALLOWED_THOUGHT_TYPES: ThoughtType[] = [
   "decision", "insight", "meeting", "action", "reference", "question", "note",
 ];
@@ -47,10 +47,12 @@ export async function processThought(
   let people: string[] = [];
   let topics: string[] = [];
   let actionItems: string[] = [];
+  let entityDescriptions: Array<{ entity_name: string; entity_type: string; description: string }> = [];
   let processingStatus: "complete" | "partial" | "failed" = "complete";
-  const [embeddingResult, metadataResult] = await Promise.allSettled([
+  const [embeddingResult, metadataResult, entityResult] = await Promise.allSettled([
     generateEmbedding(trimmedText),
     extractMetadata(trimmedText),
+    extractEntityDescriptions(trimmedText),
   ]);
   if (embeddingResult.status === "fulfilled") {
     embedding = embeddingResult.value;
@@ -68,6 +70,11 @@ export async function processThought(
     actionItems = meta.action_items ?? [];
   } else {
     console.error("Metadata extraction failed:", metadataResult.reason);
+  }
+  if (entityResult.status === "fulfilled") {
+    entityDescriptions = entityResult.value.entities ?? [];
+  } else {
+    console.error("Entity extraction failed:", entityResult.reason);
   }
   // 5. Determine processing status based on graceful degradation
   if (embeddingResult.status === "rejected" && metadataResult.status === "rejected") {
@@ -101,6 +108,22 @@ export async function processThought(
     .single();
   if (error) {
     throw new Error("Failed to insert thought: " + error.message);
+  }
+  const thoughtId = (data as ThoughtRecord).id;
+  // 7. Insert entity descriptions (best-effort, non-blocking)
+  if (entityDescriptions.length > 0) {
+    const rows = entityDescriptions.map((e) => ({
+      thought_id: thoughtId,
+      entity_name: e.entity_name,
+      entity_type: e.entity_type || null,
+      description: e.description,
+    }));
+    const { error: entityErr } = await supabase
+      .from("entity_descriptions")
+      .insert(rows);
+    if (entityErr) {
+      console.error("Entity descriptions insert failed:", entityErr.message);
+    }
   }
   return { thought: data as ThoughtRecord, is_duplicate: false };
 }

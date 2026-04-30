@@ -58,6 +58,22 @@ function AlertIcon() {
   );
 }
 
+function GraphIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <circle cx="7" cy="17" r="2" />
+      <circle cx="17" cy="7" r="2" />
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="19" cy="15" r="2" />
+      <line x1="7" y1="15.5" x2="10.7" y2="6.2" strokeWidth={1} />
+      <line x1="11" y1="5.8" x2="15.5" y2="7.5" strokeWidth={1} />
+      <line x1="6.5" y1="12.5" x2="8.5" y2="15.5" strokeWidth={1} />
+      <line x1="17.5" y1="9" x2="17" y2="13" strokeWidth={1} />
+    </svg>
+  );
+}
+
 export default function Sidebar({
   totalThoughts,
   wikiPages,
@@ -72,7 +88,7 @@ export default function Sidebar({
       href: "/",
       label: "Thoughts",
       icon: <HomeIcon />,
-      match: (p) => p === "/" || (p !== "/wiki" && p !== "/contradictions" && !p.startsWith("/wiki/") && !p.startsWith("/contradictions/")),
+      match: (p) => p === "/" || (p !== "/wiki" && p !== "/contradictions" && p !== "/graph" && !p.startsWith("/wiki/") && !p.startsWith("/contradictions/")),
     },
     {
       href: "/wiki",
@@ -87,6 +103,12 @@ export default function Sidebar({
       icon: <AlertIcon />,
       badge: openContradictions,
       match: (p) => p === "/contradictions" || p.startsWith("/contradictions/"),
+    },
+    {
+      href: "/graph",
+      label: "Graph",
+      icon: <GraphIcon />,
+      match: (p) => p === "/graph",
     },
   ];
 

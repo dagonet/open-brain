@@ -1,4 +1,4 @@
-﻿import { MetadataExtraction } from "./types.ts";
+﻿import { EntityExtractionResult, MetadataExtraction } from "./types.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1";
 
@@ -83,6 +83,58 @@ export async function extractMetadata(text: string): Promise<MetadataExtraction>
   const data = await response.json();
   const content = data.choices[0].message.content;
   return JSON.parse(content) as MetadataExtraction;
+}
+
+const ENTITY_DESCRIPTIONS_SYSTEM_PROMPT = `You are an entity description assistant. Given a thought, identify the key entities (people, projects, technologies, organizations, concepts) mentioned and write a brief description for each.
+
+For each entity, return:
+- entity_name: the canonical name
+- entity_type: one of "person", "project", "technology", "organization", "concept", "event", "resource"
+- description: one sentence explaining what this entity is in the context of the thought
+
+Focus on entities that are central to the thought's meaning. Skip generic terms. Base descriptions on what the thought text reveals.
+
+Return JSON with this exact structure:
+{
+  "entities": [
+    {"entity_name": "name", "entity_type": "type", "description": "description"}
+  ]
+}
+
+If no meaningful entities are found, return an empty entities array.`;
+
+export async function extractEntityDescriptions(
+  text: string,
+): Promise<EntityExtractionResult> {
+
+  const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${getApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: ENTITY_DESCRIPTIONS_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: text,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Entity extraction request failed (${response.status}): ${error}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  return JSON.parse(content) as EntityExtractionResult;
 }
 
 // ---------------------------------------------------------------------------
