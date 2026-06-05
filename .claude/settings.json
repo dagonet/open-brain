@@ -10,7 +10,7 @@
       "WebFetch(*)",
       "mcp__git-tools__*",
       "mcp__github-tools__*",
-      "mcp__github__*",
+      "mcp__MCP_DOCKER__*",
       "mcp__dotnet-tools__*",
       "mcp__rust-tools__*",
       "mcp__ollama-tools__*",
@@ -21,12 +21,83 @@
       "mcp__searxng__*",
       "mcp__open-brain__*",
       "mcp__godot-tools__*",
-      "mcp__plugin_context-mode_context-mode__*"
+      "mcp__plugin_context-mode_context-mode__*",
+      "mcp__template-sync-tools__*"
     ],
     "deny": [
       "Read(.env*)"
     ],
     "defaultMode": "dontAsk"
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/block-bash-vcs.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__git-tools__git_commit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/pre-commit-test.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__git-tools__git_push",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/no-push-main.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/tier-before-coder.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash hooks/require-skills-block.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^(coder|code-reviewer|tester|architect)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'PIPELINE: Agent finished. Review workstream status and advance if ready.'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '=== PRE-COMPACTION STATE ===' && (cat docs/plans/*.md 2>/dev/null | head -50 || echo 'No plan files') && echo '---' && (git worktree list 2>/dev/null || true) && echo '---' && (git branch --sort=-committerdate 2>/dev/null | head -10 || true)"
+          }
+        ]
+      }
+    ]
   },
   "enableAllProjectMcpServers": true
 }

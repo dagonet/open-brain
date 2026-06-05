@@ -1,4 +1,4 @@
-﻿# Claude Code Agent Team Setup
+# Claude Code Agent Team Setup
 
 ## Version
 
@@ -34,6 +34,28 @@ When a session starts on a project that has this AGENT_TEAM.md:
 
 ---
 
+## CRITICAL: Sub-Agent Tool Limitations
+
+**Sub-agents do NOT have automatic access to MCP tools.** Whether a sub-agent has git/GitHub MCP tools depends on its `tools:` frontmatter in the agent definition file. This is a Claude Code platform limitation — not a configuration error.
+
+### Agents WITH MCP git/GitHub tools:
+- `coder`, `dotnet-coder`, `rust-coder`, `java-coder`, `python-coder` — can commit, push, create PRs, merge
+- `code-reviewer` — can post PR reviews via `mcp__MCP_DOCKER__pull_request_review_write`
+- `tester` — can post findings via `mcp__MCP_DOCKER__add_issue_comment`
+
+### Agents WITHOUT MCP git/GitHub tools:
+- `architect`, `requirements-engineer`, `doc-generator`, `test-writer` — CANNOT commit, push, create PRs, merge, or post comments
+
+**PO responsibility:** When spawning agents without MCP tools, do NOT include git/GitHub operations in their spawn prompts. They will bail, stall, or silently skip those steps. Instead:
+1. Have them return their work product (plan, spec, review findings, tests)
+2. The PO performs all git/GitHub I/O on their behalf
+
+**History:** Sub-agents bailing/stalling due to missing tools was a recurring friction point (sessions 22, 23, 26). Pre-verifying tool availability in spawn prompts prevents wasted agent cycles.
+
+---
+
+---
+
 ## Roles
 
 ### Product Owner (PO)
@@ -49,6 +71,8 @@ When a session starts on a project that has this AGENT_TEAM.md:
 - **Reviews PRs directly** when no dedicated reviewer is spawned (T2 tier).
 - Closes tasks after merge (see Mode Behavior Table).
 - Does **NOT** block the merge pipeline — review + test approval is sufficient for merge.
+- **Open Brain context mediation**: Before spawning any agent, search Open Brain for context relevant to the agent's task and include findings in the spawn prompt. After the agent returns, capture non-trivial insights. See CLAUDE.md "Open Brain Context for Agents" for agent-specific search queries.
+- **Spawn-prompt skill injection**: When constructing any spawn prompt, look up the target `subagent_type` in the Spawn-Prompt Binding Table (Superpowers Skills Integration section) and include a `## Required Skills` block in the prompt listing the skills to invoke via the Skill tool. Use the copy-paste snippets in that section verbatim. The `hooks/require-skills-block.sh` PreToolUse hook mechanically enforces this — a spawn of a bound subagent type without the block exits 2 with a diagnostic. Omit the block for `code-reviewer` and `doc-generator` spawns (no required skills; hook passes them through).
 
 ### Requirements Engineer
 
@@ -65,7 +89,7 @@ When a session starts on a project that has this AGENT_TEAM.md:
 
 - Maintains all architecture documentation.
 - Provides implementation guidance on all sprint tasks (see Mode Behavior Table for where guidance is posted).
-- **Challenges ALL plans (T2+)**: Spawned by PO before implementation to perform two challenge passes on every plan. Validates scope, necessity, correctness, tier assignment, and team configuration. This is the plan-challenge phase — distinct from implementation guidance.
+- **Challenges ALL plans (T3+)**: Spawned by PO before implementation to perform two challenge passes on every plan. Validates scope, necessity, correctness, tier assignment, and team configuration. This is the plan-challenge phase — distinct from implementation guidance.
 - **Plan-challenge phase**: Shuts down after plan challenges are complete. Re-spawned for implementation guidance only if the sprint is T4.
 - Reviews all sprint tasks **BEFORE** development starts (T4), covering:
   - Affected components and files
@@ -106,6 +130,7 @@ Challenge 2: Correctness & Completeness
 - PO controls all architect spawn/shutdown transitions.
 - "Standby" means the architect agent remains alive but idle. PO messages it when guidance is needed.
 - If the architect is shut down (T2-T3) and a Rule 8 escalation requires re-design, PO spawns a **new** architect instance with the failure context.
+- **SubagentStop fires per-invocation, not per-shutdown.** At T4, the architect stays in STANDBY after replying to a guidance request — do NOT interpret a SubagentStop event as a shutdown signal. The architect shuts down explicitly only after the last T4 task is guided and merged.
 
 ### Developer (1 per workstream)
 
@@ -134,7 +159,7 @@ When spawning a developer agent, the PO MUST choose the correct `subagent_type` 
 - Reviews code quality, readability, adherence to coding standards.
 - Checks for: dead code, magic numbers, missing error handling, code duplication, overly complex methods.
 - Validates testing discipline: tests are meaningful, cover edge cases, and match acceptance criteria.
-- **Posts review findings on the pull request** via `mcp__github__pull_request_review_write` (event `COMMENT`).
+- **Posts review findings on the pull request** via `mcp__MCP_DOCKER__pull_request_review_write` (event `COMMENT`).
 - Review categories: `CRITICAL`, `WARNING`, `SUGGESTION`.
   - `CRITICAL`: Must fix before merge.
   - `WARNING`: Should fix, but non-blocking if justified.
@@ -148,7 +173,7 @@ When spawning a developer agent, the PO MUST choose the correct `subagent_type` 
 - Each workstream has a **dedicated** tester assigned to that workstream's task.
 - **Not spawned for T1 or T2 sprints** — PO verifies directly.
 - Spawned after code review passes (no open `CRITICAL` findings).
-- **Posts findings on the pull request** via `mcp__github__add_issue_comment` (PR number).
+- **Posts findings on the pull request** via `mcp__MCP_DOCKER__add_issue_comment` (PR number).
 - Reports: test results, data verification, log analysis.
 - Does **NOT** modify application source code.
 - Shuts down after verification is complete.
@@ -252,10 +277,10 @@ The `task-source` field in `PROJECT_CONTEXT.md` determines which column applies.
 | **Task definition** | GitHub Issue with acceptance criteria | `docs/plans/sprint-N-*.md` with task sections |
 | **RE output** | Issue markdown for PO to post | Plan file markdown for PO to save |
 | **Architect guidance** | Comment on the GitHub Issue | Inline `## Architect Guidance` section in plan file |
-| **Dev discovers task** | Dev reads issue via `mcp__github__issue_read` | PO inlines task AC + files in dev prompt; plan file path for full context |
-| **Review findings** | PR review via `mcp__github__pull_request_review_write` | PR review via `mcp__github__pull_request_review_write` |
-| **Test findings** | PR comment via `mcp__github__add_issue_comment` (PR number) | PR comment via `mcp__github__add_issue_comment` (PR number) |
-| **Close task** | PO closes GitHub Issue via `mcp__github__issue_write` | Task list (TaskUpdate) during sprint; MEMORY.md after sprint |
+| **Dev discovers task** | Dev reads issue via `mcp__MCP_DOCKER__issue_read` | PO inlines task AC + files in dev prompt; plan file path for full context |
+| **Review findings** | PR review via `mcp__MCP_DOCKER__pull_request_review_write` | PR review via `mcp__MCP_DOCKER__pull_request_review_write` |
+| **Test findings** | PR comment via `mcp__MCP_DOCKER__add_issue_comment` (PR number) | PR comment via `mcp__MCP_DOCKER__add_issue_comment` (PR number) |
+| **Close task** | PO closes GitHub Issue via `mcp__MCP_DOCKER__issue_write` | Task list (TaskUpdate) during sprint; MEMORY.md after sprint |
 | **Branch naming** | `feature/issue-{number}` or `bugfix/issue-{number}` | PO specifies per task in plan (e.g., `feature/calendar-tz-fix`) |
 | **Worktree naming** | `{base}/{project}-issue-{number}/` | `{base}/{project}-{branch-name}/` |
 | **Commit convention** | `issue-{number}: {description}` | `feat:` / `fix:` / `chore:` / `test:` / `docs:` prefixes |
@@ -300,6 +325,8 @@ Not all changes need the full sprint ceremony. The PO selects the tier based on 
 | Add a new config key + reading code | **No → T2** | Config + logic, 2 concerns |
 | Reorder methods for readability | **No** | Merge conflict risk, low value |
 
+Within the agreed tier: do the complete thing, not the demo path — a working end-to-end implementation, not a happy-path skeleton.
+
 ### Tiered Definition of Done
 
 | Checkpoint | T1 | T2 | T3 | T4 |
@@ -315,6 +342,7 @@ Not all changes need the full sprint ceremony. The PO selects the tier based on 
 | Build clean + formatted | Required | Required | Required | Required |
 | PR squash-merged | — | Required | Required | Required |
 | Worktree cleaned up | — | Required | Required | Required |
+| No `TODO`/`FIXME`/`HACK` in changed files | Required | Required | Required | Required |
 | Task closed (see Mode Table) | PO | PO | PO | PO |
 
 ### Lean Dev Prompt Templates
@@ -377,53 +405,56 @@ See `PROJECT_CONTEXT.md` for worktree base path. See Mode Behavior Table for nam
 - Each developer works **only** in its assigned worktree.
 - Max parallel workstreams as specified in `PROJECT_CONTEXT.md`.
 - Architect **must** flag scope conflicts before parallel work begins.
-- On completion (PR merged), developer removes worktree and deletes branch.
+- On completion (PR merged), the developer removes the worktree and deletes the branch.
 
 ---
 
 ## Merge Protocol
 
-After code review and testing pass, the **developer** is responsible for merging their PR to main.
+After code review and testing pass, the developer executes the merge. MCP tools (git and GitHub) are listed explicitly in each developer agent's `tools:` frontmatter, giving them direct access to commit, push, create PRs, and merge.
 
-### Steps
+| Developer sub-agent type | Merge owner |
+|---|---|
+| `coder`, `python-coder`, `dotnet-coder`, `rust-coder`, `java-coder` | Developer (MCP tools listed explicitly) |
+| `general-purpose` (declared with `tools: *`) | Developer (full MCP catalog via ToolSearch) |
 
-**Note:** The steps below are logical operations. Agents must use MCP git tools (per `CLAUDE.local.md`), not shell `git` commands.
+**Agents without git/GitHub MCP tools** (`architect`, `requirements-engineer`, `doc-generator`, `test-writer`): return work to the PO; PO performs git/GitHub I/O on their behalf.
+
+### Steps (Developer-executed)
 
 ```
-1. Pull latest main into the worktree (git_pull or equivalent MCP tools)
+1. Pull latest main into the worktree (git_pull or equivalent MCP tools).
 
 2. If conflicts exist:
-   a. Resolve conflicts (prefer preserving both changes when possible)
-   b. Run format commands from PROJECT_CONTEXT.md
-   c. Rebuild and verify (must be 0 errors)
-   d. Rerun tests (must be 0 new failures)
-   e. Commit the rebase resolution
-   f. Force-push the branch
+   a. Resolve conflicts (prefer preserving both changes when possible).
+   b. Run format commands from PROJECT_CONTEXT.md.
+   c. Rebuild and verify (must be 0 errors).
+   d. Rerun tests (must be 0 new failures).
+   e. Commit the rebase resolution.
+   f. Force-push the branch.
 
    2b. If conflicts are complex (>10 conflicting files OR >100 conflict lines):
-       - Developer messages PO: conflict summary, affected files, estimated effort
-       - PO decides: (a) developer resolves with guidance, (b) defer merge until other workstreams complete, or (c) re-spawn architect for conflict resolution strategy
-       - Developer does NOT attempt complex conflict resolution autonomously
+       - Developer messages PO. PO decides: (a) resolve with guidance from developer, (b) defer merge until other workstreams complete, or (c) re-spawn architect for conflict resolution strategy.
 
 3. Verify CI passes:
-   a. Check CI workflow status via gh_workflow_list after push
-   b. If CI fails, fix before merging
+   a. Check CI workflow status via gh_workflow_list after push.
+   b. If CI fails, fix before merging.
 
 4. Squash-merge:
-   a. Squash-merge the PR via GitHub MCP (merge_pull_request, method: squash)
-   b. Verify merge succeeded
+   a. Squash-merge the PR via GitHub MCP (merge_pull_request, method: squash).
+   b. Verify merge succeeded.
 
 5. Cleanup:
-   a. Remove the worktree
-   b. Delete the local and remote feature branch
-   c. Notify the PO that merge is complete
+   a. Remove the worktree.
+   b. Delete the local and remote feature branch.
+   c. Notify the PO that merge is complete.
 ```
 
 ### Merge Ordering
 
 When multiple workstreams finish around the same time, merges happen on a **first-ready, first-merge** basis. Each subsequent merge must rebase onto the updated main before merging.
 
-The PO coordinates merge ordering by sending merge-go-ahead messages to developers in sequence. Developers **must not** merge without PO confirmation.
+The PO coordinates merge ordering by sending merge-go-ahead messages. Developers wait for the go-ahead before merging.
 
 ---
 
@@ -440,7 +471,7 @@ The PO coordinates merge ordering by sending merge-go-ahead messages to develope
        |
 3. PO drafts implementation plan with tier assignment (T1-T4)
        |
-4. PO spawns Architect for plan challenge (MANDATORY for T2+)
+4. PO spawns Architect for plan challenge (MANDATORY for T3+)
    - Architect Challenge 1: Scope & Necessity
    - Architect Challenge 2: Correctness & Completeness
    - Architect validates tier assignment and team configuration
@@ -475,9 +506,11 @@ The PO coordinates merge ordering by sending merge-go-ahead messages to develope
    |-- FAIL -> Developer fixes -> back to step 3
    \-- PASS -> Tester shuts down
        |
-5. PO sends merge-go-ahead to Developer
+5. PO sends merge-go-ahead. Developer executes the merge.
+   Note: For T4 sprints where a tester wrote verification tests, PO includes in the go-ahead:
+   "Tester wrote verification tests — check git_status and commit them before merging."
        |
-6. Developer executes Merge Protocol
+6. Merge Protocol runs (per merge-owner table in Merge Protocol section).
    - rebase onto latest main
    - resolve conflicts if any
    - rebuild + retest after rebase
@@ -520,8 +553,8 @@ Every design doc and implementation plan must be challenged **twice** before exe
 - Are there batches or tasks that should be cut?
 
 **Who challenges:**
-- **T2+ tasks**: The **Architect agent** performs BOTH challenges. PO spawns the Architect with the draft plan. Architect returns two challenge passes. PO incorporates feedback. If the Architect recommends a tier change, PO updates the plan accordingly.
-- **T1 tasks**: Exempt from plan challenges.
+- **T3+ tasks**: The **Architect agent** performs BOTH challenges. PO spawns the Architect with the draft plan. Architect returns two challenge passes. PO incorporates feedback. If the Architect recommends a tier change, PO updates the plan accordingly.
+- **T1 and T2 tasks**: Exempt from plan challenges (plan mode still required for T2).
 
 **Process:**
 1. PO drafts plan in plan mode, including tier assignment
@@ -546,7 +579,7 @@ Within a workstream, handoffs happen via **team messages** (SendMessage tool):
 - Developer -> PO: "PR created, ready for review" (PO spawns reviewer)
 - Reviewer -> PO: "Review complete, findings: ..." (PO decides next step)
 - Tester -> PO: "Verification complete, verdict: PASS/FAIL" (PO sends merge-go-ahead or fix request)
-- Developer -> PO: "Merge complete, cleanup done" (PO closes task)
+- Developer -> PO: "Merge complete, cleanup done" (PO closes task).
 
 ### PO orchestration messages
 
@@ -586,15 +619,15 @@ The PO presents these as a single confirmation at sprint start. All agents are s
 2. **One task per developer** — no multitasking within an agent.
 3. **Max parallel workstreams** as specified in `PROJECT_CONTEXT.md`.
 4. **Architect reviews BEFORE development** — guidance before dev starts (T4).
-5. **Developer owns the merge** — after review + test pass, dev rebases and merges.
-6. **PO sequences merges** — developers wait for merge-go-ahead.
+5. **Developers own the merge** — all developer agents have MCP git/GitHub tools and execute their own merges after PO sends merge-go-ahead. Agents without git/GitHub tools (`architect`, `requirements-engineer`, `doc-generator`, `test-writer`) return work to the PO.
+6. **PO sequences merges** — developers wait for merge-go-ahead from the PO before merging.
 7. **Post-rebase verification required** — rebuild + retest before merge.
 8. **Max 3 fix cycles per task** — then PO pauses the workstream and selects one of: (a) scope reduction, (b) architect re-design, or (c) human escalation. See Escalation Protocol.
 9. **Workstream agents are ephemeral** — shut down after their phase.
 10. **Agents must not modify files outside their assigned worktree.**
 11. **Permission propagation** — all permissions requested once at sprint start. Agents spawned with `mode: bypassPermissions`.
 12. **Mode consistency** — the sprint's primary task source determines the mode. T1/T2 hotfixes may bypass mode if urgent.
-13. **Plan discipline** — T2+ tasks require plan mode, two Architect challenges, tier declaration, and tier-correct team configuration before execution (e.g., spawning a reviewer for T2 or skipping an architect for T4 is a violation). See Plan Challenge Protocol. T1 exempt.
+13. **Plan discipline** — T2+ requires plan mode and tier declaration. T3+ additionally requires two Architect challenges and tier-correct team configuration before execution (e.g., skipping an architect for T4 is a violation). See Plan Challenge Protocol. T1 exempt.
 
 ---
 
@@ -604,7 +637,7 @@ The PO presents these as a single confirmation at sprint start. All agents are s
   - **(a) Scope reduction**: Simplify the task (remove edge cases, split into smaller pieces) and restart with reduced scope.
   - **(b) Architect re-design**: Re-spawn architect with the failure context. Architect produces a new approach. Dev restarts from the new plan.
   - **(c) Human escalation**: Notify the user with: task description, what was tried (3 cycles), failure details, and recommended next steps.
-- **Merge conflicts too complex**: Developer messages PO with details. PO may sequence the merge after other workstreams complete.
+- **Merge conflicts too complex**: Developer messages PO with details. PO decides per the Merge Protocol fallback (defer, re-spawn architect, etc.).
 - **Tester can't verify**: Message PO with details, PO routes to developer.
 - **Scope conflict discovered mid-sprint**: PO pauses affected workstreams, re-spawns architect for conflict resolution.
 - **Any agent stuck after escalation**: PO notifies the human (via issue comment in github-issues mode, or direct message in plan-files mode).
@@ -619,45 +652,75 @@ Token efficiency preprocessing (Ollama, Context7) is configured per-project in `
 
 ## Superpowers Skills Integration
 
-When the [superpowers plugin](https://github.com/anthropics/claude-plugins-official/tree/main/superpowers) is installed, its skills handle **implementation mechanics** (how to code efficiently) while AGENT_TEAM.md handles **quality gates** (PR, review, test, merge). Skills are tools used *within* the AGENT_TEAM.md lifecycle, not replacements for it.
+When the [superpowers plugin](https://github.com/anthropics/claude-plugins-official/tree/main/superpowers) is installed, its skills handle implementation mechanics (how to code efficiently) while AGENT_TEAM.md owns quality gates (tier, workstream, review, test, merge). Skills are tools used within the lifecycle defined here, not replacements for it.
 
-### Mapping Skills to Workflow Phases
+### Spawn-Prompt Binding Table
 
-| Workflow Phase | Superpowers Skill | AGENT_TEAM.md Owner |
-|---|---|---|
-| Feature ideation → design | `brainstorming` | PO (replaces Requirements Engineer for interactive sessions) |
-| Design → implementation plan | `writing-plans` | PO (produces plan file for `plan-files` mode) |
-| Worktree setup | `using-git-worktrees` | Developer (follows AGENT_TEAM.md worktree naming) |
-| Task implementation | `executing-plans`, `test-driven-development` | Developer |
-| Bug investigation | `systematic-debugging` | Developer |
-| Code review | `requesting-code-review`, `receiving-code-review` | Code Reviewer / Developer |
-| Pre-merge verification | `verification-before-completion` | Developer |
-| Branch completion | `finishing-a-development-branch` | Developer (follows Merge Protocol) |
+When spawning an agent, include in the spawn prompt a `## Required Skills` block listing the skills below for the target subagent type. The spawned agent must invoke each skill via the Skill tool before beginning task work. This is **mechanically enforced** by `hooks/require-skills-block.sh` (PreToolUse on `Task`) — a spawn of a bound subagent type without a `## Required Skills` block exits 2.
 
-### Rules
+| subagent_type | Required Skills |
+|---|---|
+| `coder` (and all variant coders: `dotnet-coder`, `rust-coder`, `java-coder`, `python-coder`) | `karpathy-guidelines`, `test-driven-development`, `verification-before-completion`, `receiving-code-review` |
+| `code-reviewer` | *(none — review is the agent's core job)* |
+| `tester` | `systematic-debugging`, `verification-before-completion` |
+| `test-writer` | `test-driven-development` |
+| `architect` | `writing-plans` |
+| `requirements-engineer` | `brainstorming` |
+| `doc-generator` | *(none)* |
 
-1. **Skills don't bypass quality gates.** Even if `executing-plans` completes all tasks, the developer must still create a PR, go through code review, and pass tester verification per the workstream lifecycle.
-2. **Skills don't replace roles.** The `code-review` skill can assist the Code Reviewer agent, but the reviewer still posts findings on the PR per the Mode Behavior Table.
-3. **Skills don't own merges.** The `finishing-a-development-branch` skill presents completion options, but the Merge Protocol (rebase, CI check, squash-merge, cleanup) is authoritative.
-4. **Plan files from skills are specs.** When `writing-plans` produces a plan file, it becomes the task definition per `plan-files` mode. No checkboxes or status tracking in plan files.
-5. **Brainstorming replaces RE for interactive sessions.** When the PO uses `brainstorming` with the user, the output (design doc + plan) replaces the Requirements Engineer's spec. The RE is still used for async/batch spec generation.
+**Reference-only skills** (handled by existing AGENT_TEAM.md constructs, not injected via spawn prompt): `using-git-worktrees` (Worktree Naming), `finishing-a-development-branch` (Merge Protocol), `dispatching-parallel-agents` (Tier Model workstreams), `subagent-driven-development` (plan-files mode execution).
 
-### Example: Feature Development with Skills
+**Chain note:** `writing-plans` produces a plan. The Plan Challenge Protocol (below) validates any plan before execution — independent gate, not a side-effect of `writing-plans`.
 
+### Copy-paste snippets
+
+Use these snippets verbatim when constructing spawn prompts. Append to the body of the prompt, then add the task-specific instructions below.
+
+**Coder (and variant coders `dotnet-coder`, `rust-coder`, `java-coder`, `python-coder`):**
+
+```markdown
+## Required Skills
+Invoke these via the Skill tool before beginning task work:
+- karpathy-guidelines
+- superpowers:test-driven-development
+- superpowers:verification-before-completion
+- superpowers:receiving-code-review
 ```
-1. PO + user: brainstorming skill -> design doc approved
-2. PO: writing-plans skill -> implementation plan saved to docs/plans/
-3. PO: creates team, assigns task to dev-1
-4. dev-1: using-git-worktrees -> worktree created per AGENT_TEAM.md naming
-5. dev-1: executing-plans + test-driven-development -> implements all tasks
-6. dev-1: verification-before-completion -> all checks pass
-7. dev-1: creates PR, signals PO
-8. PO: spawns reviewer-1 (may use requesting-code-review skill)
-9. reviewer-1: reviews, posts findings on PR -> shuts down
-10. PO: spawns tester-1 -> verifies -> shuts down
-11. dev-1: finishing-a-development-branch -> follows Merge Protocol
-12. PO: closes task, updates MEMORY.md
+
+**Tester:**
+
+```markdown
+## Required Skills
+Invoke these via the Skill tool before beginning task work:
+- superpowers:systematic-debugging
+- superpowers:verification-before-completion
 ```
+
+**Test-writer:**
+
+```markdown
+## Required Skills
+Invoke these via the Skill tool before beginning task work:
+- superpowers:test-driven-development
+```
+
+**Architect:**
+
+```markdown
+## Required Skills
+Invoke these via the Skill tool before beginning task work:
+- superpowers:writing-plans
+```
+
+**Requirements-engineer:**
+
+```markdown
+## Required Skills
+Invoke these via the Skill tool before beginning task work:
+- superpowers:brainstorming
+```
+
+**Code-reviewer / doc-generator:** omit the block entirely (hook passes them through).
 
 ---
 

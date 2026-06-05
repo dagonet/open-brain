@@ -1,64 +1,91 @@
 {
-    "variant": "general",
-    "templateRepo": "https://github.com/dagonet/claude-code-toolkit",
-    "lastSynced": "f617dc4",
-    "placeholders": {
-        "PROJECT_NAME": "AI Memory",
-        "PROJECT_NAME_LOWER": "ai memory"
+  "variant": "general",
+  "templateRepo": "G:/git/claude-code-toolkit",
+  "lastSynced": "eed16f0",
+  "placeholders": {
+    "PROJECT_NAME": "AI Memory",
+    "PROJECT_NAME_LOWER": "ai memory"
+  },
+  "files": {
+    ".claude/agents/architect.md": {
+      "templateHash": "9c77e97d3d4e8f55903980e8b59c69f59e3f85bc016009d47111c8e1efe91bc7",
+      "templateRawHash": "9c77e97d3d4e8f55903980e8b59c69f59e3f85bc016009d47111c8e1efe91bc7",
+      "localHash": "9c77e97d3d4e8f55903980e8b59c69f59e3f85bc016009d47111c8e1efe91bc7",
+      "locallyModified": false
     },
-    "files": {
-        ".claude/agents/architect.md": {
-            "templateHash": "a74d42e81f7542a18b0e027acb148eb7653809e4ba0a545e6a43f2cc77c0bc2e",
-            "locallyModified": false
-        },
-        ".claude/agents/coder.md": {
-            "templateHash": "9020fb5e87fdf233cc95abe5819af78b93802714adaabc2965206538755bc66e",
-            "locallyModified": false
-        },
-        ".claude/agents/code-reviewer.md": {
-            "templateHash": "581d8592189a9dea3842d713a90f41688bba91bb4e7ca0674f1defadb18788f9",
-            "locallyModified": false
-        },
-        ".claude/agents/doc-generator.md": {
-            "templateHash": "700d95bd80af412e6e363e1d30e0f1d5b23e946dc2e4344b58d1a5ded25cb866",
-            "locallyModified": false
-        },
-        ".claude/agents/requirements-engineer.md": {
-            "templateHash": "a0ca44f5848e7bb1011fc47bc4df6bb0a866dfebd577a5627361965b73fb69f5",
-            "locallyModified": false
-        },
-        ".claude/agents/tester.md": {
-            "templateHash": "8b0d7ec0a771caa53ec67387ff22b4331970ed1589d8eff4b6b21b5428b7b5c6",
-            "locallyModified": false
-        },
-        ".claude/agents/test-writer.md": {
-            "templateHash": "fd7164f2a4180baa43fa1736d7d6d05afccc90dbe7b095dd984ab99b9657376e",
-            "locallyModified": false
-        },
-        ".claude/settings.json": {
-            "templateHash": "b8c2145c9f5d4328312812c2b1a002c0e0470856257881195bc3845c53e07e41",
-            "locallyModified": false
-        },
-        "AGENT_TEAM.md": {
-            "templateHash": "763a0d1e997df1869f4551e355794eef05baae6039ee1db91db56112f9ae72cf",
-            "locallyModified": false
-        },
-        "CLAUDE.local.md": {
-            "templateHash": "860bc8dacca67ff1a9c85958eba8f6bab702640ff9e5f022a4966169ab347b57",
-            "locallyModified": false
-        },
-        "CLAUDE.md": {
-            "templateHash": "e48ac150d4eb90dd27ea149290204c410aab908b0d801acdb2ce006ff254bc9a",
-            "locallyModified": false
-        },
-        "PROJECT_CONTEXT.md": {
-            "reason": "Project-specific config",
-            "locallyModified": true,
-            "templateHash": "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
-        },
-        "PROJECT_STATE.md": {
-            "templateHash": "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
-            "locallyModified": false
-        }
+    ".claude/agents/code-reviewer.md": {
+      "templateHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
+      "templateRawHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
+      "localHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
+      "locallyModified": false
+    },
+    ".claude/agents/coder.md": {
+      "templateHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
+      "templateRawHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
+      "localHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
+      "locallyModified": false
+    },
+    ".claude/agents/doc-generator.md": {
+      "templateHash": "700d95bd80af412e6e363e1d30e0f1d5b23e946dc2e4344b58d1a5ded25cb866",
+      "locallyModified": false
+    },
+    ".claude/agents/requirements-engineer.md": {
+      "templateHash": "d3ace3bd8625560b4f94a03c1676a065fbef7bfd135a8a76944ff5f2c0fe4ded",
+      "templateRawHash": "d3ace3bd8625560b4f94a03c1676a065fbef7bfd135a8a76944ff5f2c0fe4ded",
+      "localHash": "d3ace3bd8625560b4f94a03c1676a065fbef7bfd135a8a76944ff5f2c0fe4ded",
+      "locallyModified": false
+    },
+    ".claude/agents/test-writer.md": {
+      "templateHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
+      "templateRawHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
+      "localHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
+      "locallyModified": false
+    },
+    ".claude/agents/tester.md": {
+      "templateHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
+      "templateRawHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
+      "localHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
+      "locallyModified": false
+    },
+    ".claude/settings.json": {
+      "templateHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
+      "templateRawHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
+      "localHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
+      "locallyModified": false
+    },
+    ".gitattributes": {
+      "templateHash": "34bd2148694c89cd5747d07a7afacd315ac76a9cef7402d189030894fe08a701",
+      "templateRawHash": "34bd2148694c89cd5747d07a7afacd315ac76a9cef7402d189030894fe08a701",
+      "localHash": "34bd2148694c89cd5747d07a7afacd315ac76a9cef7402d189030894fe08a701",
+      "locallyModified": false
+    },
+    "AGENT_TEAM.md": {
+      "templateHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
+      "templateRawHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
+      "localHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
+      "locallyModified": false
+    },
+    "CLAUDE.local.md": {
+      "templateHash": "a10bfc2f8e1d8712992119473d746bc27d88ae775d7b9f0cd2607a6fe756bd94",
+      "templateRawHash": "a10bfc2f8e1d8712992119473d746bc27d88ae775d7b9f0cd2607a6fe756bd94",
+      "localHash": "a10bfc2f8e1d8712992119473d746bc27d88ae775d7b9f0cd2607a6fe756bd94",
+      "locallyModified": false
+    },
+    "CLAUDE.md": {
+      "templateHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
+      "templateRawHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
+      "localHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
+      "locallyModified": false
+    },
+    "PROJECT_CONTEXT.md": {
+      "reason": "Project-specific config",
+      "locallyModified": true,
+      "templateHash": "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
+    },
+    "PROJECT_STATE.md": {
+      "templateHash": "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
+      "locallyModified": false
     }
+  },
+  "version": 2
 }
