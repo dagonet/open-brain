@@ -2,6 +2,7 @@
 # .claude/settings.json and .claude/agents/ ARE committed (shared with team)
 CLAUDE.local.md
 .claude/.mcp.json
+.mcp.json
 
 # Environment
 .env
@@ -22,3 +23,6 @@ next-env.d.ts
 
 # Git worktrees
 .worktrees/
+
+# Local notes / scratch (not committed)
+nate_new_video_open-brain_update.txt
