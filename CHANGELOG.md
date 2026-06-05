@@ -4,6 +4,36 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-06-05
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [video](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Fixed
+
+- **Wiki citation fidelity at large clusters.** `compile-wiki` previously asked the
+  model to echo full 36-char thought UUIDs into its `citations` array. OpenAI
+  Structured Outputs `strict` mode enforces the UUID *shape* but not set
+  membership, so at ~80-thought clusters the model emitted plausible-but-invented
+  UUIDs; the old whole-paragraph drop then amplified this into near-empty pages
+  (one 80-thought topic compiled to 3 cited sources, `partial=true`). The model
+  now cites by a small bracketed `[n]` index shown next to each note and the
+  server maps the index back to a UUID — citation validity went from a handful of
+  survivors to **100%** on the same cluster.
+- **Graceful citation salvage.** Out-of-range indices are stripped individually
+  and a paragraph survives if it retains ≥1 valid citation (was: drop the entire
+  paragraph on any bad citation). Inline `[n]` markers the model echoes into prose
+  are stripped at render time.
+
+### Added
+
+- **`citation_validity`** (valid / attempted citations) in the `compile-wiki`
+  response as the fidelity signal — distinct from cluster-coverage, which is a
+  synthesis property, not a defect. Response also reports `cited`, `cluster_size`,
+  and `model`; a low-validity warning is logged.
+- **`WIKI_COMPILE_MODEL`** env var (default `gpt-4o-mini`) to escalate the compile
+  model without code changes.
+
 ## [0.4.0] - 2026-04-30
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)

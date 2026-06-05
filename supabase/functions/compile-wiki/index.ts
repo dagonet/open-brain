@@ -6,17 +6,17 @@
 //   https://www.youtube.com/watch?v=dxq7WtWxi44
 //
 // Compiles a markdown wiki page for a given topic slug from the user's
-// captured thoughts. Every paragraph cites the thought IDs it draws from;
-// citations are validated against the input set and the validator retries
-// once if the model hallucinates an ID. On second failure offending
-// paragraphs are dropped and the page is persisted with `partial=true`.
+// captured thoughts. Source notes are shown to the model as bracketed [n]
+// indices; paragraphs cite by number and the server maps each index back to
+// a thought UUID. Out-of-range indices are stripped (one retry first); a
+// paragraph survives if it keeps >=1 valid citation, otherwise it is dropped
+// and the page is persisted with `partial=true`. The response reports
+// `citation_validity` (valid/attempted cites) as the fidelity signal. The
+// compile model is configurable via the WIKI_COMPILE_MODEL env var.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import {
-  chatCompletionsStructured,
-  UUID_PATTERN,
-} from "../_shared/openai.ts";
+import { chatCompletionsStructured } from "../_shared/openai.ts";
 
 interface CompileRequest {
   slug: string;
@@ -31,6 +31,15 @@ interface ThoughtRow {
   created_at: string;
 }
 
+// Raw LLM output: citations are 1-based indices into the batch's thought
+// list (the [n] shown in the prompt). resolveAndSalvage maps these to UUIDs.
+interface RawCompiledPage {
+  paragraphs: Array<{ markdown: string; citations: number[] }>;
+  summary: string;
+}
+
+// Post-resolution shape used by every downstream step (render, persistence):
+// citations are thought UUID strings.
 interface CompiledPage {
   paragraphs: Array<{ markdown: string; citations: string[] }>;
   summary: string;
@@ -52,7 +61,10 @@ const PARAGRAPH_SCHEMA = {
           markdown: { type: "string" },
           citations: {
             type: "array",
-            items: { type: "string", pattern: UUID_PATTERN },
+            // 1-based indices into the source-note list shown in the prompt.
+            // No minimum/maximum: strict mode support is unreliable, so the
+            // range is validated server-side in resolveAndSalvage.
+            items: { type: "integer" },
           },
         },
         required: ["markdown", "citations"],
@@ -69,7 +81,8 @@ const COMPILE_SYSTEM_PROMPT = `You are a careful wiki author. You compile a sing
 
 Rules:
 - Write 3 to 8 paragraphs of plain markdown.
-- Every paragraph MUST cite the thought IDs it draws from in the "citations" array. Use the IDs exactly as given. NEVER invent IDs.
+- Every paragraph MUST cite its sources in the "citations" array using the bracketed [number] shown next to each note (integers only, e.g. [3, 12]). Cite ONLY numbers that appear in the notes; NEVER invent a number or cite one that is not listed.
+- Put those numbers ONLY in the "citations" array. Do NOT write the [number] markers inline in the "markdown" prose — the reader never sees the numbering.
 - Prefer recent notes when notes disagree; the input has already been filtered to remove pairs flagged as open contradictions, but conflicting wording can still appear.
 - Do NOT add information that isn't in the source notes.
 - Open with a short orientation paragraph; close with a one-sentence "summary" field.
@@ -86,6 +99,11 @@ function getDenylist(): string[] {
 function getDecayDays(): number {
   const raw = Number(Deno.env.get("WIKI_DECAY_DAYS") ?? "90");
   return Number.isFinite(raw) && raw > 0 ? raw : 90;
+}
+
+function getCompileModel(): string {
+  const m = Deno.env.get("WIKI_COMPILE_MODEL")?.trim();
+  return m && m.length > 0 ? m : "gpt-4o-mini";
 }
 
 function recencyScore(createdAt: string, decayDays: number): number {
@@ -115,15 +133,22 @@ function buildUserPrompt(
   slug: string,
   thoughts: ThoughtRow[],
   feedback: string[],
+  paraTarget: string,
 ): string {
   const lines: string[] = [];
   lines.push(`Topic slug: ${slug}`);
   lines.push("");
-  lines.push("Source notes (id — created_at — text):");
-  for (const t of thoughts) {
+  lines.push(`Write ${paraTarget} paragraphs.`);
+  lines.push("");
+  lines.push(
+    "Source notes ([n] — created_at — text). Cite paragraphs by the [n] number:",
+  );
+  thoughts.forEach((t, i) => {
     const date = t.created_at.slice(0, 10);
-    lines.push(`- ${t.id} — ${date} — ${t.raw_text.replace(/\s+/g, " ").trim()}`);
-  }
+    lines.push(
+      `- [${i + 1}] — ${date} — ${t.raw_text.replace(/\s+/g, " ").trim()}`,
+    );
+  });
   if (feedback.length > 0) {
     lines.push("");
     lines.push(
@@ -136,35 +161,129 @@ function buildUserPrompt(
   return lines.join("\n");
 }
 
-function validateCitations(
-  page: CompiledPage,
-  validIds: Set<string>,
-): { ok: boolean; rejected: string[] } {
-  const rejected: string[] = [];
-  for (const p of page.paragraphs) {
-    for (const c of p.citations) {
-      if (!validIds.has(c)) rejected.push(c);
-    }
-  }
-  return { ok: rejected.length === 0, rejected };
+interface BatchResult {
+  paragraphs: CompiledPage["paragraphs"];
+  summary: string;
+  attempted: number; // total citation indices the model emitted
+  valid: number; // indices that resolved to a real source
+  partial: boolean; // an index was stripped or a paragraph dropped
 }
 
-function dropInvalidParagraphs(
-  page: CompiledPage,
-  validIds: Set<string>,
-): CompiledPage {
+// Map an index-cited raw page onto UUID citations, salvaging as much as
+// possible: out-of-range indices are stripped, a paragraph survives if it
+// keeps >=1 valid citation. `attempted`/`valid` feed the citation-validity
+// metric (the fidelity signal). Duplicate indices within a paragraph collapse
+// to one UUID but still count toward `attempted`/`valid` equally.
+function resolveAndSalvage(
+  raw: RawCompiledPage,
+  thoughts: ThoughtRow[],
+): { page: CompiledPage; attempted: number; valid: number; dropped: number } {
+  let attempted = 0;
+  let valid = 0;
+  let dropped = 0;
+  const paragraphs: CompiledPage["paragraphs"] = [];
+
+  for (const p of raw.paragraphs) {
+    const seen = new Set<string>();
+    const uuids: string[] = [];
+    for (const c of p.citations ?? []) {
+      attempted++;
+      const idx = Number(c);
+      if (Number.isInteger(idx) && idx >= 1 && idx <= thoughts.length) {
+        valid++;
+        const id = thoughts[idx - 1].id;
+        if (!seen.has(id)) {
+          seen.add(id);
+          uuids.push(id);
+        }
+      }
+    }
+    if (uuids.length > 0) {
+      paragraphs.push({ markdown: p.markdown, citations: uuids });
+    } else {
+      dropped++;
+    }
+  }
+
+  return { page: { paragraphs, summary: raw.summary }, attempted, valid, dropped };
+}
+
+// Compile one batch of thoughts into UUID-cited paragraphs. Indices are
+// batch-local ([1..thoughts.length]); the model never sees a UUID. Retries
+// once at temperature 0 if any index was out of range, then salvages.
+// Reusable for both the single-shot path and (Phase 3) per-chunk compiles.
+async function compileBatch(
+  slug: string,
+  thoughts: ThoughtRow[],
+  feedback: string[],
+  paraTarget: string,
+  model: string,
+): Promise<BatchResult> {
+  const userPrompt = buildUserPrompt(slug, thoughts, feedback, paraTarget);
+
+  let raw = await chatCompletionsStructured<RawCompiledPage>(
+    [
+      { role: "system", content: COMPILE_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    {
+      schema_name: "wiki_page",
+      schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
+      model,
+      temperature: 0.2,
+    },
+  );
+  let result = resolveAndSalvage(raw, thoughts);
+
+  // One retry only if the model cited an index with no matching note.
+  if (result.valid < result.attempted) {
+    const retryPrompt =
+      userPrompt +
+      `\n\nThe previous attempt cited numbers with no matching note. Cite ONLY the [n] numbers shown above (1 to ${thoughts.length}); if you cannot ground a paragraph in the notes, drop it.`;
+    try {
+      raw = await chatCompletionsStructured<RawCompiledPage>(
+        [
+          { role: "system", content: COMPILE_SYSTEM_PROMPT },
+          { role: "user", content: retryPrompt },
+        ],
+        {
+          schema_name: "wiki_page",
+          schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
+          model,
+          temperature: 0,
+        },
+      );
+      result = resolveAndSalvage(raw, thoughts);
+    } catch (err) {
+      console.error("retry compile attempt failed:", err);
+      // Keep the first-attempt salvage; partial below still reflects it.
+    }
+  }
+
   return {
-    paragraphs: page.paragraphs.filter((p) =>
-      p.citations.length > 0 && p.citations.every((c) => validIds.has(c))
-    ),
-    summary: page.summary,
+    paragraphs: result.page.paragraphs,
+    summary: result.page.summary,
+    attempted: result.attempted,
+    valid: result.valid,
+    partial: result.dropped > 0 || result.valid < result.attempted,
   };
+}
+
+// The model often echoes the [n] citation indices inline in the prose. Those
+// numbers are meaningless to a reader (canonical sources render in the
+// per-paragraph "*Sources:*" footer), so strip bracketed integer runs like
+// "[5]" or "[5, 12, 33]" and tidy the surrounding whitespace/punctuation.
+function stripInlineCiteMarkers(md: string): string {
+  return md
+    .replace(/\s*\[\d+(?:\s*,\s*\d+)*\]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([.,;:])/g, "$1");
 }
 
 function renderMarkdown(page: CompiledPage): string {
   const blocks: string[] = [];
   for (const p of page.paragraphs) {
-    blocks.push(p.markdown.trim());
+    blocks.push(stripInlineCiteMarkers(p.markdown).trim());
     if (p.citations.length > 0) {
       // Plain markdown italic, not raw HTML. The dashboard's `<article>`
       // does NOT pass through a markdown renderer in v0.3.0, so any HTML
@@ -324,65 +443,26 @@ serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  // ---- 4. Compile via structured-output LLM with citation validator -----------
-  const validIds = new Set(cleaned.map((t) => t.id));
-  const userPrompt = buildUserPrompt(slug, cleaned, feedbackForSlug);
+  // ---- 4. Compile via structured-output LLM (index-alias citations) -----------
+  const model = getCompileModel();
 
-  let page: CompiledPage;
+  let compiled: BatchResult;
   try {
-    page = await chatCompletionsStructured<CompiledPage>(
-      [
-        { role: "system", content: COMPILE_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      {
-        schema_name: "wiki_page",
-        schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
-        model: "gpt-4o-mini",
-        temperature: 0.2,
-      },
-    );
+    compiled = await compileBatch(slug, cleaned, feedbackForSlug, "3 to 8", model);
   } catch (err) {
-    console.error("first compile attempt failed:", err);
+    console.error("compile attempt failed:", err);
     return jsonResponse(500, {
       success: false,
-      error: "compile_failed_first_attempt",
+      error: "compile_failed",
       message: err instanceof Error ? err.message : String(err),
     });
   }
 
-  let partial = false;
-  let validation = validateCitations(page, validIds);
-  if (!validation.ok) {
-    // Retry once, surfacing rejected IDs.
-    const retryPrompt =
-      userPrompt +
-      `\n\nThe previous attempt cited unknown IDs: ${validation.rejected.join(
-        ", ",
-      )}. Cite ONLY the IDs listed above; if you cannot ground a paragraph in the provided notes, drop it.`;
-    try {
-      page = await chatCompletionsStructured<CompiledPage>(
-        [
-          { role: "system", content: COMPILE_SYSTEM_PROMPT },
-          { role: "user", content: retryPrompt },
-        ],
-        {
-          schema_name: "wiki_page",
-          schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
-          model: "gpt-4o-mini",
-          temperature: 0,
-        },
-      );
-      validation = validateCitations(page, validIds);
-    } catch (err) {
-      console.error("retry compile attempt failed:", err);
-    }
-
-    if (!validation.ok) {
-      page = dropInvalidParagraphs(page, validIds);
-      partial = true;
-    }
-  }
+  const page: CompiledPage = {
+    paragraphs: compiled.paragraphs,
+    summary: compiled.summary,
+  };
+  const partial = compiled.partial;
 
   if (page.paragraphs.length === 0) {
     return jsonResponse(200, {
@@ -391,6 +471,16 @@ serve(async (req: Request): Promise<Response> => {
       reason: "all_paragraphs_invalid",
       slug,
     });
+  }
+
+  // Citation validity (valid/attempted) is the fidelity signal — distinct
+  // from cluster-coverage, which is a synthesis property, not a defect.
+  const citationValidity =
+    compiled.attempted > 0 ? compiled.valid / compiled.attempted : 1;
+  if (citationValidity < 0.9) {
+    console.warn(
+      `compile-wiki low citation validity for "${slug}": ${compiled.valid}/${compiled.attempted} (${citationValidity.toFixed(2)}) model=${model}`,
+    );
   }
 
   const contentMd = renderMarkdown(page);
@@ -414,8 +504,9 @@ serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
 
   const nextVersion = (latest?.version ?? 0) + 1;
+  const clusterSourceIds = cleaned.map((t) => t.id);
   const idempotencyKey = await sha256Hex(
-    `${slug}|${nextVersion}|${[...validIds].sort().join(",")}|${currentEmbeddingModel}`,
+    `${slug}|${nextVersion}|${[...clusterSourceIds].sort().join(",")}|${currentEmbeddingModel}`,
   );
 
   const usedSourceIds = new Set<string>();
@@ -484,6 +575,10 @@ serve(async (req: Request): Promise<Response> => {
     version: nextVersion,
     partial,
     source_thought_count: usedSourceIds.size,
+    citation_validity: Number(citationValidity.toFixed(3)),
+    cited: usedSourceIds.size,
+    cluster_size: cleaned.length,
+    model,
     compiled_at: inserted!.compiled_at,
   });
 });
