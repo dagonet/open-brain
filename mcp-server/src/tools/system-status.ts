@@ -22,6 +22,18 @@ export async function systemStatus(supabase: SupabaseClient): Promise<string> {
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
+  const firstError =
+    totalResult.error ??
+    statusResult.error ??
+    sourceResult.error ??
+    failuresResult.error;
+  if (firstError) {
+    return JSON.stringify({
+      status: "error",
+      error: "backend_unreachable",
+      detail: firstError.message,
+    });
+  }
   const byStatus: Record<string, number> = { complete: 0, partial: 0, failed: 0 };
   if (statusResult.data) {
     for (const row of statusResult.data) {

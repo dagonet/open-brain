@@ -68,11 +68,14 @@ export async function wikiGet(
 
   const wikiPage = page as WikiPageRow;
 
-  const { data: staleness } = await supabase
+  const { data: staleness, error: staleErr } = await supabase
     .from("wiki_page_staleness")
     .select("page_id, stale_since_n_thoughts, open_contradictions_count")
     .eq("page_id", wikiPage.id)
     .maybeSingle();
+  if (staleErr) {
+    return JSON.stringify({ error: staleErr.message });
+  }
   const stale = (staleness as StalenessRow | null) ?? {
     page_id: wikiPage.id,
     stale_since_n_thoughts: 0,
@@ -88,18 +91,24 @@ export async function wikiGet(
   }> = [];
 
   if (includeSources !== "none") {
-    const { data: joins } = await supabase
+    const { data: joins, error: joinsErr } = await supabase
       .from("wiki_sources")
       .select("thought_id")
       .eq("page_id", wikiPage.id);
+    if (joinsErr) {
+      return JSON.stringify({ error: joinsErr.message });
+    }
     const thoughtIds = (joins as SourceJoinRow[] | null ?? []).map(
       (j) => j.thought_id,
     );
     if (thoughtIds.length > 0) {
-      const { data: thoughts } = await supabase
+      const { data: thoughts, error: thoughtsErr } = await supabase
         .from("thoughts")
         .select("id, raw_text, created_at, deleted_at")
         .in("id", thoughtIds);
+      if (thoughtsErr) {
+        return JSON.stringify({ error: thoughtsErr.message });
+      }
       const rows = (thoughts as ThoughtRow[] | null) ?? [];
       sources = rows.map((t) => {
         const deleted = t.deleted_at !== null;
