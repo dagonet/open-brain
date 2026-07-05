@@ -53,4 +53,19 @@ describe("systemStatus", () => {
     expect(result.by_status).toEqual({ complete: 0, partial: 0, failed: 0 });
     expect(result.by_source).toEqual({ slack: 0, cli: 0, mcp: 0 });
   });
+
+  it("returns error when a query fails instead of masking as zeros", async () => {
+    const { client } = createMultiQueryMockSupabase([
+      { data: null, count: null, error: { message: "could not connect to server" } },
+      { data: [] },
+      { data: [] },
+      { data: [] },
+    ]);
+
+    const result = JSON.parse(await systemStatus(client));
+
+    expect(result.status).toBe("error");
+    expect(result.error).toBe("backend_unreachable");
+    expect(result.detail).toBe("could not connect to server");
+  });
 });
