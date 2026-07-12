@@ -197,7 +197,7 @@ When spawning a developer agent, the PO MUST choose the correct `subagent_type` 
 For each task, the tester verifies:
 
 1. **Build project**: Run build command from `PROJECT_CONTEXT.md`
-2. **Run test suite**: Run test commands from `PROJECT_CONTEXT.md` — all pass, no regressions
+2. **Run test suite**: Run test commands from `PROJECT_CONTEXT.md` — all pass, no regressions (or run `bash hooks/run-gate.sh` when the **Gate** field is configured — one command covers format/lint/build/test)
 3. **Data verification** (if applicable): Schema changes applied, data integrity verified
 4. **Log verification**: No errors or unexpected warnings in application logs
 5. **Acceptance criteria validation**: Each criterion from the task is met
@@ -440,11 +440,19 @@ After code review and testing pass, the developer executes the merge. MCP tools 
    a. Check CI workflow status via gh_workflow_list after push.
    b. If CI fails, fix before merging.
 
-4. Squash-merge:
+4. Run the gate on the rebased head:
+   a. Execute `bash hooks/run-gate.sh` in the worktree. A green gate writes `.gate/last-pass.json`
+      for the current HEAD — this artifact is the ONLY accepted green.
+   b. The merge tools are hard-blocked by `hooks/gate-before-merge.sh` without a fresh,
+      SHA-matching artifact (< 60 min old). Do not attempt to merge around it.
+   c. If the gate fails, fix the failures and re-run. Skip this step only when the
+      **Gate** field in PROJECT_CONTEXT.md is unset (the merge hook then passes through).
+
+5. Squash-merge:
    a. Squash-merge the PR via GitHub MCP (merge_pull_request, method: squash).
    b. Verify merge succeeded.
 
-5. Cleanup:
+6. Cleanup:
    a. Remove the worktree.
    b. Delete the local and remote feature branch.
    c. Notify the PO that merge is complete.
@@ -641,6 +649,12 @@ The PO presents these as a single confirmation at sprint start. All agents are s
 - **Tester can't verify**: Message PO with details, PO routes to developer.
 - **Scope conflict discovered mid-sprint**: PO pauses affected workstreams, re-spawns architect for conflict resolution.
 - **Any agent stuck after escalation**: PO notifies the human (via issue comment in github-issues mode, or direct message in plan-files mode).
+- **Agent stall / idle without report** (runbook — judgment removed on purpose):
+  1. First idle without a completion report: send exactly one prod message requesting status.
+  2. Second idle: retire the agent via `TaskStop`. Do not send further prods.
+  2b. Before retiring or taking over: run `git_status` in the agent's worktree — a DIRTY tree means the agent is mid-edit; wait one more cycle instead of clobbering in-flight work.
+  3. Verify the actual work state via `git_log` / `git_status` / `list_pull_requests` — **never trust the agent's last claim**; committed work frequently exists despite a silent agent (and vice versa).
+  4. Count the stall as one strike toward the 3-cycle escalation above, then re-dispatch the remaining work with the verified state in the spawn prompt.
 
 ---
 
