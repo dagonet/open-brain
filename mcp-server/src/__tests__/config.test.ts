@@ -18,6 +18,19 @@ describe("disabledFamilies", () => {
     expect(result.has("contradictions")).toBe(false);
   });
 
+  it("parses the tasks family", () => {
+    const result = disabledFamilies("tasks");
+    expect(result.has("tasks")).toBe(true);
+    expect(result.has("wiki")).toBe(false);
+  });
+
+  it("parses comma-separated families including tasks", () => {
+    const result = disabledFamilies("wiki,tasks");
+    expect(result.has("wiki")).toBe(true);
+    expect(result.has("tasks")).toBe(true);
+    expect(result.has("contradictions")).toBe(false);
+  });
+
   it("parses comma-separated families", () => {
     const result = disabledFamilies("wiki,contradictions");
     expect(result.has("wiki")).toBe(true);
@@ -58,5 +71,12 @@ describe("familyForToolName", () => {
     expect(familyForToolName("thoughts_search")).toBe(null);
     expect(familyForToolName("system_status")).toBe(null);
     expect(familyForToolName("thoughts_capture")).toBe(null);
+  });
+
+  it("identifies tasks family", () => {
+    expect(familyForToolName("task_create")).toBe("tasks");
+    expect(familyForToolName("task_get")).toBe("tasks");
+    expect(familyForToolName("task_list")).toBe("tasks");
+    expect(familyForToolName("task_update")).toBe("tasks");
   });
 });

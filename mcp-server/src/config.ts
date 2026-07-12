@@ -1,12 +1,12 @@
-// Per-repo opt-out for the wiki and contradictions tool families.
+// Per-repo opt-out for ui, contradictions, and tasks tool families.
 //
-// Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` in a project's
+// Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks` in a project's
 // `.mcp.json` env block to silence those tool families in that workspace.
-// Useful for sensitive client repos where wiki/audit overhead is unwanted.
+// Useful for sensitive client repos where wiki/audit/task overhead is unwanted.
 
-export type ToolFamily = "wiki" | "contradictions";
+export type ToolFamily = "wiki" | "contradictions" | "tasks";
 
-const KNOWN_FAMILIES: ToolFamily[] = ["wiki", "contradictions"];
+const KNOWN_FAMILIES: ToolFamily[] = ["wiki", "contradictions", "tasks"];
 
 export function disabledFamilies(envValue: string | undefined): Set<ToolFamily> {
   const result = new Set<ToolFamily>();
@@ -23,6 +23,7 @@ export function disabledFamilies(envValue: string | undefined): Set<ToolFamily> 
 export function familyForToolName(name: string): ToolFamily | null {
   if (name.startsWith("wiki_")) return "wiki";
   if (name.startsWith("contradictions_")) return "contradictions";
+  if (name.startsWith("task_")) return "tasks";
   return null;
 }
 

@@ -14,6 +14,10 @@ import { definition as wikiRefresh } from "./wiki-refresh.js";
 import { definition as contradictionsList } from "./contradictions-list.js";
 import { definition as contradictionsResolve } from "./contradictions-resolve.js";
 import { definition as contradictionsAudit } from "./contradictions-audit.js";
+import { definition as taskCreate } from "./task-create.js";
+import { definition as taskGet } from "./task-get.js";
+import { definition as taskList } from "./task-list.js";
+import { definition as taskUpdate } from "./task-update.js";
 
 export type { ToolDefinition } from "./registry.js";
 export type { Deps } from "./registry.js";
@@ -34,4 +38,8 @@ export const allTools: ToolDefinition[] = [
   contradictionsList,
   contradictionsResolve,
   contradictionsAudit,
+  taskCreate,
+  taskGet,
+  taskList,
+  taskUpdate,
 ];
