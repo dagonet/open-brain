@@ -13,7 +13,7 @@
 - **Test**: `npx vitest run`
 - **Format**: `npx prettier --write .`
 - **Lint**: `npx eslint .`
-- **Gate**: {{GATE_COMMAND}}
+- **Gate**: `bash hooks/run-gate.sh`
 
 <!-- Per-component variants: `cd cli && npx tsc --noEmit`, `cd mcp-server && npx tsc --noEmit`; tests likewise per component -->
 
