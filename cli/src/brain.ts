@@ -17,8 +17,14 @@ interface ThoughtResponse {
     people: string[];
     topics: string[];
     action_items: string[];
+    project?: string | null;
   };
   is_duplicate?: boolean;
+  duplicate_candidate?: {
+    thought_id: string;
+    raw_text_preview: string;
+    similarity: number;
+  };
 }
 
 function loadConfig(): Config | null {
@@ -68,7 +74,7 @@ function printUsage(): void {
   console.error(
     [
       'Usage:',
-      '  brain "<your thought>"               Capture a single thought',
+      '  brain "<your thought>" [options]     Capture a single thought',
       '  brain import <file> [options]        Import memories from a file',
       '  brain sync-vault <path> [options]    Export thoughts as Obsidian markdown',
       '  brain audit [options]                Audit recent thoughts for contradictions',
@@ -77,11 +83,15 @@ function printUsage(): void {
       "Example:",
       '  brain "Met with Sarah today, she\'s considering consulting"',
       "",
+      "Capture options:",
+      '  --project <name>  Associate with a project (stored in the project column)',
+      "",
       "Import options:",
       '  --source <name>    Source tag (default: "import")',
       '                     Use "import-claude" or "import-chatgpt" for provenance',
       "  --delay <ms>       Delay between API calls in ms (default: 500)",
       "  --dry-run          Parse and preview without importing",
+      '  --project <name>   Associate with a project (applied to all imported thoughts)',
       "",
       "Sync-vault options:",
       "  --dry-run          Preview changes without writing files",
@@ -148,6 +158,7 @@ async function importMemories(): Promise<void> {
   let source = "import";
   let delay = 500;
   let dryRun = false;
+  let project: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--source" && i + 1 < args.length) {
@@ -160,6 +171,8 @@ async function importMemories(): Promise<void> {
       }
     } else if (args[i] === "--dry-run") {
       dryRun = true;
+    } else if (args[i] === "--project" && i + 1 < args.length) {
+      project = args[++i];
     } else if (!filePath) {
       filePath = args[i];
     } else {
@@ -244,7 +257,7 @@ async function importMemories(): Promise<void> {
           Authorization: "Bearer " + config!.api_key,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text: line, source, idempotency_key, metadata }),
+        body: JSON.stringify({ text: line, source, idempotency_key, metadata, project }),
       });
 
       const data = (await response.json()) as ThoughtResponse;
@@ -274,7 +287,7 @@ async function importMemories(): Promise<void> {
   console.log(`\nDone: ${captured} captured, ${skipped} skipped, ${failed} failed`);
 }
 
-async function captureSingleThought(text: string): Promise<void> {
+export async function captureSingleThought(text: string, projectArg?: string): Promise<void> {
   const config = loadConfig();
   if (!config) {
     printSetupInstructions();
@@ -284,17 +297,21 @@ async function captureSingleThought(text: string): Promise<void> {
   const idempotency_key = randomUUID();
 
   try {
+    const body: Record<string, unknown> = {
+      text,
+      source: "cli",
+      idempotency_key,
+    };
+    if (projectArg) {
+      body.project = projectArg;
+    }
     const response = await fetch(config.api_url, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + config.api_key,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        text,
-        source: "cli",
-        idempotency_key,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -323,6 +340,13 @@ async function captureSingleThought(text: string): Promise<void> {
       console.log("\u223C Duplicate thought (already captured)");
     } else {
       console.log("\u2713 Thought captured");
+    }
+
+    if (data.duplicate_candidate) {
+      const dc = data.duplicate_candidate;
+      console.log(
+        `\u2139 Near-duplicate of ${dc.thought_id} (${dc.similarity.toFixed(4)}): "${dc.raw_text_preview}" \u2014 consider superseding.`,
+      );
     }
 
     const details = formatConfirmation(data.thought);
@@ -1185,7 +1209,20 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await captureSingleThought(text);
+  // Parse options after the text (e.g. --project)
+  const remaining = process.argv.slice(3);
+  let projectArg: string | undefined;
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] === "--project" && i + 1 < remaining.length) {
+      projectArg = remaining[++i];
+    } else {
+      console.error("Error: unexpected argument: " + remaining[i]);
+      printUsage();
+      process.exit(1);
+    }
+  }
+
+  await captureSingleThought(text, projectArg);
 }
 
 const isMainModule =

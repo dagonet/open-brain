@@ -39,14 +39,19 @@ serve(async (req: Request): Promise<Response> => {
       text: body.text,
       source: body.source,
       idempotency_key: body.idempotency_key,
+      project: body.project,
       metadata: body.metadata,
     });
+    const responseBody: Record<string, unknown> = {
+      success: true,
+      thought: result.thought,
+      is_duplicate: result.is_duplicate,
+    };
+    if (result.duplicate_candidate) {
+      responseBody.duplicate_candidate = result.duplicate_candidate;
+    }
     return new Response(
-      JSON.stringify({
-        success: true,
-        thought: result.thought,
-        is_duplicate: result.is_duplicate,
-      }),
+      JSON.stringify(responseBody),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {

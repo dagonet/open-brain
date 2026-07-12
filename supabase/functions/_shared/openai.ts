@@ -47,15 +47,19 @@ Extract people mentioned. Use full names consistently (e.g. "Sarah Johnson" not 
 Extract topics as lowercase keywords.
 Extract action items as clear task descriptions.
 
+Rate salience as an integer 1-5: 5 = critical decision/architectural insight, 3 = normal note, 1 = throwaway/transient.
+
 Return JSON with this exact structure:
 {
   "thought_type": "one of the types above",
   "people": ["Full Name"],
   "topics": ["topic"],
-  "action_items": ["action item description"]
+  "action_items": ["action item description"],
+  "salience": 3
 }
 
-If no people, topics, or action items are found, return empty arrays.`;
+If no people, topics, or action items are found, return empty arrays.
+If salience is unclear, default to 3.`;
 
 export async function extractMetadata(text: string): Promise<MetadataExtraction> {
   const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {

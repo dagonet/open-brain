@@ -1,5 +1,6 @@
 ﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  DuplicateCandidate,
   ThoughtInput,
   ThoughtRecord,
   ProcessingResult,
@@ -44,6 +45,7 @@ export async function processThought(
   // 3. Call embedding and metadata extraction in parallel
   let embedding: number[] | null = null;
   let thoughtType: ThoughtType = "note";
+  let salience: number | null = null;
   let people: string[] = [];
   let topics: string[] = [];
   let actionItems: string[] = [];
@@ -68,6 +70,9 @@ export async function processThought(
     people = (meta.people ?? []).map((p: string) => p.trim());
     topics = (meta.topics ?? []).map((t: string) => t.toLowerCase().trim());
     actionItems = meta.action_items ?? [];
+    salience = (typeof meta.salience === "number" && meta.salience >= 1 && meta.salience <= 5)
+      ? meta.salience
+      : null;
   } else {
     console.error("Metadata extraction failed:", metadataResult.reason);
   }
@@ -85,6 +90,8 @@ export async function processThought(
     processingStatus = "partial";
   }
   // 6. Insert into thoughts table
+  const rawProject = input.project ?? (input.metadata?.project as string | undefined) ?? null;
+  const effectiveProject = rawProject && rawProject.trim().length > 0 ? rawProject.trim() : null;
   const record: Record<string, unknown> = {
     raw_text: trimmedText,
     embedding: embedding ? ("[" + embedding.join(",") + "]") : null,
@@ -97,6 +104,8 @@ export async function processThought(
     source: input.source,
     processing_status: processingStatus,
     metadata: input.metadata ?? {},
+    project: effectiveProject,
+    salience,
   };
   if (input.idempotency_key) {
     record.idempotency_key = input.idempotency_key;
@@ -125,5 +134,40 @@ export async function processThought(
       console.error("Entity descriptions insert failed:", entityErr.message);
     }
   }
-  return { thought: data as ThoughtRecord, is_duplicate: false };
+
+  // 8. Near-duplicate detection (best-effort, non-blocking)
+  let duplicateCandidate: DuplicateCandidate | undefined;
+  if (embedding) {
+    const rawThreshold = parseFloat(Deno.env.get("NEAR_DUP_THRESHOLD") ?? "0.92");
+    const threshold = Number.isNaN(rawThreshold) || rawThreshold <= 0 || rawThreshold > 1
+      ? 0.92
+      : rawThreshold;
+    try {
+      const { data: nearDups, error: nearDupErr } = await supabase.rpc(
+        "find_near_dups",
+        {
+          query_embedding: JSON.stringify(embedding),
+          similarity_threshold: threshold,
+          match_count: 5,
+          exclude_id: thoughtId,
+        },
+      );
+      if (nearDupErr) {
+        console.error("Near-dup query failed:", nearDupErr.message);
+      } else if (nearDups && nearDups.length > 0) {
+        const best = nearDups[0] as { id: string; raw_text: string; similarity: number };
+        duplicateCandidate = {
+          thought_id: best.id,
+          raw_text_preview: best.raw_text.length > 120
+            ? best.raw_text.slice(0, 120) + "..."
+            : best.raw_text,
+          similarity: best.similarity,
+        };
+      }
+    } catch (err) {
+      console.error("Near-dup detection error:", err);
+    }
+  }
+
+  return { thought: data as ThoughtRecord, is_duplicate: false, duplicateCandidate };
 }

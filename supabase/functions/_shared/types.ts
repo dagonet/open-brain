@@ -15,6 +15,7 @@ export interface ThoughtInput {
   text: string;
   source: ThoughtSource;
   idempotency_key?: string;
+  project?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -33,6 +34,8 @@ export interface ThoughtRecord {
   source: ThoughtSource;
   processing_status: ProcessingStatus;
   metadata: Record<string, unknown>;
+  project: string | null;
+  salience: number | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -41,6 +44,13 @@ export interface ThoughtRecord {
 export interface ProcessingResult {
   thought: ThoughtRecord;
   is_duplicate: boolean;
+  duplicate_candidate?: DuplicateCandidate;
+}
+
+export interface DuplicateCandidate {
+  thought_id: string;
+  raw_text_preview: string;
+  similarity: number;
 }
 
 export interface MetadataExtraction {
@@ -48,6 +58,7 @@ export interface MetadataExtraction {
   people: string[];
   topics: string[];
   action_items: string[];
+  salience?: number;
 }
 
 export interface EntityDescription {
