@@ -4,7 +4,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dagonet/open-brain)
 [![CI](https://github.com/dagonet/open-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/dagonet/open-brain/actions/workflows/ci.yml)
 
-A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes. v0.4.0 adds **entity descriptions** (rich context for people, projects, and technologies mentioned in your thoughts) and a **contradiction graph visualization** at `/graph`. v0.5.0 adds **hybrid ranking** (recency, salience, contradiction-penalized), **project scoping** for per-repo memory isolation, **salience extraction** during capture, **near-duplicate detection**, a **`thoughts_supersede`** tool, **retrieval-tracking analytics**, an **eval harness** for ranking quality, and **nightly automation** for contradictions and wiki maintenance. v0.7.0 adds a **co-occurrence entity graph** — the entity descriptions captured since v0.4.0 are now navigable via 3 new MCP tools: `entities_search`, `entities_graph`, and `thoughts_search_expanded`.
+A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes. v0.4.0 adds **entity descriptions** (rich context for people, projects, and technologies mentioned in your thoughts) and a **contradiction graph visualization** at `/graph`. v0.5.0 adds **hybrid ranking** (recency, salience, contradiction-penalized), **project scoping** for per-repo memory isolation, **salience extraction** during capture, **near-duplicate detection**, a **`thoughts_supersede`** tool, **retrieval-tracking analytics**, an **eval harness** for ranking quality, and **nightly automation** for contradictions and wiki maintenance. v0.7.0 adds a **co-occurrence entity graph** — the entity descriptions captured since v0.4.0 are now navigable via 3 new MCP tools: `entities_search`, `entities_graph`, and `thoughts_search_expanded`. v0.8.0 adds an **entity noise filter** (weeds out file-path and generic-token clutter from graph views) and a **web entity graph view** at `/graph` with a tabbed Contradictions | Entities interface.
 
 Inspired by:
 
@@ -31,7 +31,8 @@ Inspired by:
 14. **NEW (v0.6.0): It consolidates insights weekly.** A weekly job finds high-signal topics without a wiki page and compiles one, budget-capped to prevent runaway LLM usage.
 15. **NEW (v0.6.0): It tracks tasks.** A dedicated `tasks` table with 4 new MCP tools (`task_create`, `task_get`, `task_list`, `task_update`) lets you manage action items with status history and soft-delete. Tool count: 19.
 16. **NEW (v0.7.0): It navigates your entity graph.** The entity descriptions captured since v0.4.0 are now wired into a co-occurrence graph. You can search entities, explore 1-hop neighborhoods, and run expanded searches that surface thoughts related via shared entities — a rare shared entity outranks a common hub. Tool count: 22.
-17. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
+17. **NEW (v0.8.0): It filters entity noise and adds a web entity view.** The entity graph now automatically strips file-path entities (`.ts`, `.md`, etc.) and generic tokens (npm, docker, eslint) — keeping ~1,141 quality entities visible across the entity tools. The `/graph` page gains a tabbed Contradictions | Entities view: a force-directed entity co-occurrence graph where node radius reflects mention frequency, edge thickness reflects co-occurrence strength, and colors show entity types.
+18. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
 
 > **Already using `claude-code-toolkit`?** Toolkit templates ship with v0.3.0 references built in (synced 2026-04-26). The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks,entities` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
 
@@ -482,6 +483,22 @@ cd mcp-server && npm install && npm run build
 
 No CLI or web dashboard changes in this release. Restart Claude Code to pick up the new tools.
 
+### v0.8.0 migration — entity noise filter + web entity view
+
+Migration 015 adds the `is_code_path` function and updates `entity_nodes` / `entity_edges` view definitions to filter file-path and generic-token noise. Pure additive DDL — no table changes, no edge function redeploys needed.
+
+```bash
+supabase db push                      # applies 015
+```
+
+After migration, rebuild the MCP server for the 0.8.0 version (22 tools, unchanged count):
+
+```bash
+cd mcp-server && npm install && npm run build
+```
+
+The web dashboard now shows a tabbed `/graph` view with Contradictions | Entities tabs. Deploy via normal CI from `main`.
+
 ## Usage
 
 ### CLI
@@ -590,7 +607,7 @@ Once authenticated (see Setup step 7), the following routes are available:
 | `/wiki/[slug]`         | Markdown page with inline source quotes, staleness banner, "Refresh now" server action, "Reject this page" form                                                                           |
 | `/contradictions`      | List filterable by status (open / resolved / ignored / false_positive / all)                                                                                                              |
 | `/contradictions/[id]` | Side-by-side source thoughts with a resolve form (decision + optional note → captures an audit thought)                                                                                   |
-| `/graph`               | (v0.4.0) Force-directed network graph of the contradiction network. Nodes = thoughts colored by type and sized by degree; edges = contradictions weighted by severity. Click to drill in. |
+| `/graph`               | (v0.4.0 / v0.8.0) Tabbed view: Contradictions tab (force-directed contradiction network) and Entities tab (force-directed entity co-occurrence graph with type-colored nodes sized by mention count). Click to drill in.                                                                                                                 |
 
 A unified left sidebar shows all sections with badges (wiki page count, open-contradictions count). The bottom of the rail shows total thoughts captured plus a Sign out button.
 
@@ -623,7 +640,7 @@ cd mcp-server && npx vitest
 
 **Idempotency:** Content-based SHA-256 hashes prevent duplicate captures. The CLI uses `source:normalized_text` as the hash input; the MCP tool uses `mcp:normalized_text`.
 
-**Entity graph (v0.7.0):** The `entity_descriptions` table (v0.4.0) captured entity mentions on every save but was never read. Migration 014 adds `entity_nodes` (canonical entities by `lower(trim(name))`) and `entity_edges` (co-occurrence pairs, weight = shared-thought count) — pure SQL views over the existing data, zero LLM cost, self-maintaining. Three RPCs expose the graph: `entity_search` for full-text entity lookup, `entity_neighbors` for 1-hop traversal, `related_thoughts_via_entities` for hub-suppressed thought expansion (degree cap + inverse-frequency scoring). The MCP server exposes these as `entities_search`, `entities_graph`, and `thoughts_search_expanded` (which combines semantic search with entity expansion). Opt out via `OPEN_BRAIN_TOOLS_DISABLED=entities`. Edges are co-occurrence-based (untyped); LLM-typed relation edges deferred to v0.8.
+**Entity graph (v0.7.0):** The `entity_descriptions` table (v0.4.0) captured entity mentions on every save but was never read. Migration 014 adds `entity_nodes` (canonical entities by `lower(trim(name))`) and `entity_edges` (co-occurrence pairs, weight = shared-thought count) — pure SQL views over the existing data, zero LLM cost, self-maintaining. Three RPCs expose the graph: `entity_search` for full-text entity lookup, `entity_neighbors` for 1-hop traversal, `related_thoughts_via_entities` for hub-suppressed thought expansion (degree cap + inverse-frequency scoring). The MCP server exposes these as `entities_search`, `entities_graph`, and `thoughts_search_expanded` (which combines semantic search with entity expansion). Opt out via `OPEN_BRAIN_TOOLS_DISABLED=entities`. Edges are co-occurrence-based (untyped); LLM-typed relation edges deferred to v0.9.
 
 ## Related Projects
 

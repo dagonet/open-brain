@@ -4,6 +4,51 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-12
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Entity noise filter (migration 015).** A `is_code_path(text)` IMMUTABLE regex
+  targeting trailing code-file extensions (`.ts`/`.js`/`.py`/`.md`/`.json`/…) —
+  deliberately NOT bare `/`, so `a/b testing` and `actions/upload-artifact` survive —
+  plus a hardcoded 14-token generic-token stoplist
+  (npm/docker/eslint/ci/git/github/bash/vitest/prettier/node/typescript/javascript/
+  python/sql). Applied in the `entity_nodes` WHERE clause and inside the `entity_edges`
+  normalize CTE. Live result: entity_nodes ~1,269 → ~1,141 (~128 low-value entities
+  filtered); the 3 RPCs inherit cleaner data with no signature change.
+  `entity_descriptions` is untouched (data never destroyed, only filtered from views).
+  (WS1)
+- **Web `/graph` entity view.** A Contradictions | Entities tab (`graph-tabs.tsx`)
+  switches between the existing contradiction graph and a new `entity-graph-view.tsx`.
+  The force-d3 simulation is extracted into a shared `useSimulation` hook
+  (`graph-common.ts`) used by both views. Entity view is node-bounded (top-60 by
+  `thought_count`) with edges constrained to those nodes; node radius ∝ mention_count,
+  edge weight ∝ co-occurrence weight, color by entity_type with a fallback for the
+  ~15 non-standard types. (WS2)
+
+### Changed
+
+- **MCP server 0.7.0 -> 0.8.0** (22 tools, unchanged count). Version bump for release
+  consistency; no tool or CLI changes. (WS3)
+- **Migration 015** applied. Additive — adds `is_code_path` function, updates
+  `entity_nodes` and `entity_edges` view definitions to filter noise. (WS1)
+
+### Notes
+
+- The web `/graph` route now shows a tabbed view: Contradictions (v0.4.0) | Entities
+  (v0.8.0). CLI is unchanged.
+- Deferred to v0.9: entity embeddings, semantic entity search, alias/entity-resolution
+  merge, LLM-typed relation edges, depth-2 neighborhoods.
+
+### Cross-repo follow-ups (not part of this release)
+
+- A separate PR on `dagonet/claude-code-toolkit` will sync each variant's
+  `CLAUDE.md`, `CLAUDE.local.md`, skill files, and agent definitions to reference
+  the 22-tool set at 0.8.0 (unchanged count).
+
 ## [0.7.0] - 2026-07-12
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
