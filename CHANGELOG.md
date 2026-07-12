@@ -4,6 +4,113 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-12
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Hybrid ranking** (`match_thoughts_v2`). New SQL function re-ranks HNSW over-fetched
+  candidates (4x match_count, min 50) with recency decay, salience multiplier, contradiction
+  penalty, and superseded-thought exclusion. Every factor has a KNOWN mathematical form with
+  analytic floor (0.05 for old critical decisions). The original `match_thoughts` (pure cosine)
+  remains unchanged for backward compat — v2 is additive only. (WP1)
+- **Near-duplicate detection.** After capture, a new `find_near_dups` RPC checks the 30-day
+  window for cosine-similar thoughts above `NEAR_DUP_THRESHOLD` (default 0.92). The new thought
+  is ALWAYS inserted — no silent dedup. The response carries an optional `duplicate_candidate`
+  hint with thought ID, preview, and similarity. (WP2)
+- **Salience rating.** The existing gpt-4o-mini classification call (JSON mode) now returns
+  `salience` 1–5 (5 = critical decision, 1 = throwaway) in the same response — no new LLM call.
+  Missing/invalid values become NULL, scored as neutral (3) by `match_thoughts_v2`. (WP2)
+- **Project scoping.** `ThoughtInput` gains `project?: string` accepted by the capture endpoint.
+  When set, the `project` column is populated alongside the existing `metadata.project` convention
+  (column takes precedence). `match_thoughts_v2`, `thoughts_recent`, and the `OPEN_BRAIN_DEFAULT_PROJECT`
+  env var enable per-repo memory isolation — each workspace can pin itself to its own project scope.
+  (WP2 + WP3)
+- **`thoughts_supersede` MCP tool** (tool #15). Marks one thought as superseding another;
+  superseded thoughts are excluded from default search results. Direction is unambiguous: "A
+  supersedes B" means B is superseded and dropped from results unless `include_superseded` is
+  passed. (WP3)
+- **Retrieval tracking.** A fire-and-forget `increment_retrieval` RPC updates `retrieval_count`
+  and `last_retrieved_at` after every search. Accumulated signal feeds consolidation in v0.6.
+  (WP3)
+- **Eval harness.** Fully deterministic synthetic fixture set (17 thoughts, 1536-d unit vectors
+  from orthogonal centroids + seeded LCG noise) with 6 golden queries covering recency ranking,
+  contradiction demotion, superseded exclusion, recency floor, project filtering, and fresh
+  insight boost. Runner reports recall@5/10 and MRR for v1 vs v2. CI-safe when `SUPABASE_URL`
+  is unset. (WP5)
+- **Nightly automation.** New `run-nightly-jobs` edge function with two jobs: contradictions
+  sweep (`NIGHTLY_CONTRADICTION_LIMIT`, default 100) and stale-wiki recompile (`NIGHTLY_COMPILE_BUDGET`,
+  default 5). Global `MAX_LLM_CALLS_PER_JOB` budget cap (default 50). `docs/cron-setup.sql`
+  documents pg_cron + pg_net scheduling at 03:00/04:00. (WP6)
+- **CLI `--project` flag** on `capture` and `import` commands. When the response includes a
+  `duplicate_candidate`, prints: `Near-duplicate of <id> (<similarity>): "<preview>" — consider
+  superseding.` (WP4)
+
+### Changed
+
+- **MCP server 0.3.0 → 0.5.0** (14 → 15 tools). `thoughts_search` now calls `match_thoughts_v2`
+  and surfaces `score`, `salience`, and `project` in results. New optional params: `project`,
+  `recency_halflife_days`, `include_superseded`, `apply_contradiction_penalty`. `thoughts_capture`
+  accepts `project` and renders `duplicate_candidate` as guidance text. `thoughts_recent` accepts
+  `project` filter. `OPEN_BRAIN_DEFAULT_PROJECT` env var scopes all tools when the caller omits
+  `project`. (WP3)
+- **CLI 1.1.0 → 1.2.0.** New `--project` flag, expanded usage text, export of `captureSingleThought`
+  for programmatic use. (WP4)
+- `match_thoughts` is now part of the migration system (migration 008) — previously it only lived
+  in `mcp-server/sql/match_thoughts.sql`, applied manually. Fresh Supabase deploys get it
+  automatically. The `mcp-server/sql/match_thoughts.sql` file is deprecated as a pointer to the
+  migration. (WP1)
+
+### Fixed
+
+- **Self-match in near-duplicate detection.** `find_near_dups` now accepts `exclude_id` (uuid)
+  so the just-inserted thought is excluded from its own near-dup candidates. (PR #14 review)
+- **Embedding format for RPC calls.** JSON.stringify() the embedding array before passing to
+  `supabase.rpc()`, matching the convention used by detect-contradictions and semantic-search.
+  (PR #14 review)
+- **Empty-string project.** Blank/whitespace `project` is treated as null (coalesces to
+  `metadata.project` then null). (PR #14 review)
+- **NaN threshold safety.** Validation ensures `NEAR_DUP_THRESHOLD` is a number in (0, 1];
+  NaN or out-of-range falls back to 0.92. (PR #14 review)
+
+### Migrations
+
+- `008_project_salience_supersedes.sql` — Additive DDL (`ADD COLUMN IF NOT EXISTS`,
+  `CREATE INDEX IF NOT EXISTS`): `project`, `salience`, `supersedes_id`, `retrieval_count`,
+  `last_retrieved_at`. Also establishes `match_thoughts` (SECURITY DEFINER, GRANT TO anon)
+  in the migration system. Backfills `project` from `metadata->>'project'`.
+- `009_hybrid_ranking.sql` — `match_thoughts_v2` with hybrid ranking (SECURITY DEFINER,
+  GRANT TO anon). Additive only — does NOT redefine `match_thoughts`.
+- `010_near_dup.sql` — `find_near_dups(embedding, similarity_threshold, match_count, exclude_id)`
+  RPC (SECURITY DEFINER, GRANT TO anon).
+- `011_track_retrieval.sql` — `increment_retrieval(ids uuid[])` RPC (SECURITY DEFINER,
+  GRANT TO anon).
+
+### Upgrading from v0.4.x
+
+1. Pull this branch; rebuild `mcp-server` and `cli` (`npm install && npm run build` in each).
+2. Apply migrations 008–011 against a **preview branch** first (see the smoke-test recipe in README.md).
+   Migrations are strictly additive — no column drops or type changes.
+3. Verify `match_thoughts` was created by migration 008: run `SELECT * FROM information_schema.routines
+   WHERE routine_name = 'match_thoughts'` in the SQL editor.
+4. Deploy the updated edge function:
+   ```bash
+   supabase functions deploy capture-thought --use-api
+   supabase functions deploy run-nightly-jobs --use-api
+   ```
+5. Restart Claude Code. The MCP server picks up 15 tools on next launch.
+6. Optional: set `OPEN_BRAIN_DEFAULT_PROJECT` in your workspace's `.mcp.json` to pin memory scope.
+7. Optional: set up nightly cron per `docs/cron-setup.sql` (requires pg_cron + pg_net).
+
+### Cross-repo follow-ups (not part of this release)
+
+- A separate PR on `dagonet/claude-code-toolkit` will sync each variant's `CLAUDE.md`,
+  `CLAUDE.local.md`, skill files, and agent definitions to reference the 15th tool (`thoughts_supersede`)
+  alongside existing `thoughts_*` references, and document the new search/capture/recent params
+  and `OPEN_BRAIN_DEFAULT_PROJECT` env var.
+
 ## [0.4.1] - 2026-06-05
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
