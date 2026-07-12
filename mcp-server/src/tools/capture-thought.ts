@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { resolveProject } from "../config.js";
 
 export interface CaptureThoughtParams {
   text: string;
@@ -17,6 +18,8 @@ export async function captureThought(
     return JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" });
   }
 
+  const effectiveProject = resolveProject(params.project);
+
   const url = `${supabaseUrl}/functions/v1/capture-thought`;
   const idempotency_key = createHash("sha256")
     .update("mcp:" + params.text.trim().toLowerCase())
@@ -34,7 +37,7 @@ export async function captureThought(
         source: "mcp",
         idempotency_key,
         metadata: params.metadata,
-        project: params.project,
+        ...(effectiveProject ? { project: effectiveProject } : {}),
       }),
     });
 

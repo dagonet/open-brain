@@ -56,7 +56,8 @@ describe("captureThought", () => {
     expect(fetchBody.project).toBe("open-brain");
   });
 
-  it("omits project from request body when not provided", async () => {
+  it("omits project from request body when neither param nor ENV is set", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "");
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -70,6 +71,40 @@ describe("captureThought", () => {
 
     const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(fetchBody.project).toBeUndefined();
+  });
+
+  it("uses OPEN_BRAIN_DEFAULT_PROJECT when project param is omitted", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "env-project");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "Env scoped" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBe("env-project");
+  });
+
+  it("explicit project overrides OPEN_BRAIN_DEFAULT_PROJECT", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "env-project");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "Explicit wins", project: "explicit" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBe("explicit");
   });
 
   it("renders duplicate_candidate guidance when returned", async () => {
