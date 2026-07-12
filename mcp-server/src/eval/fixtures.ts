@@ -140,6 +140,7 @@ export const FIXTURE_UUIDS = {
   contradictionB: "a0000000-0000-0000-0000-000000000015",
   supersededA: "a0000000-0000-0000-0000-000000000016",
   supersededB: "a0000000-0000-0000-0000-000000000017",
+  archivedAlphaNote: "a0000000-0000-0000-0000-000000000018",
 } as const;
 
 
@@ -155,6 +156,7 @@ export interface EvalThought {
   project: string | null;
   salience: number;
   supersedes_id: string | null;
+  lifecycle_status: "active" | "archived" | "superseded";
   embedding: number[];
 }
 
@@ -176,6 +178,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 4,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(0, FIXTURE_UUIDS.freshDecisionAlpha1, 0.15),
     },
     {
@@ -186,6 +189,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(0, FIXTURE_UUIDS.freshDecisionAlpha2, 0.20),
     },
     {
@@ -196,6 +200,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(1, FIXTURE_UUIDS.staleInsightAlpha1, 0.15),
     },
     {
@@ -206,6 +211,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 2,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(1, FIXTURE_UUIDS.staleInsightAlpha2, 0.12),
     },
     {
@@ -216,6 +222,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 4,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(2, FIXTURE_UUIDS.freshDecisionBeta1, 0.10),
     },
     {
@@ -226,6 +233,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(2, FIXTURE_UUIDS.freshDecisionBeta2, 0.18),
     },
     {
@@ -236,6 +244,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 1,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(3, FIXTURE_UUIDS.noteBeta1, 0.25),
     },
     {
@@ -246,6 +255,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 2,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(3, FIXTURE_UUIDS.noteBeta2, 0.20),
     },
     {
@@ -256,6 +266,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(4, FIXTURE_UUIDS.freshAction1, 0.10),
     },
     {
@@ -266,6 +277,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(4, FIXTURE_UUIDS.freshAction2, 0.10),
     },
     {
@@ -276,6 +288,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 5,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(5, FIXTURE_UUIDS.oldSalientDecision, 0.08),
     },
     {
@@ -286,6 +299,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 1,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(6, FIXTURE_UUIDS.mediumAlphaNote1, 0.20),
     },
     {
@@ -296,6 +310,7 @@ function buildThoughts(): EvalThought[] {
       project: "beta",
       salience: 4,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(7, FIXTURE_UUIDS.freshInsightBeta, 0.15),
     },
     {
@@ -306,6 +321,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(0, FIXTURE_UUIDS.contradictionA, 0.12),
     },
     {
@@ -316,6 +332,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 4,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(0, FIXTURE_UUIDS.contradictionB, 0.12),
     },
     {
@@ -326,6 +343,7 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 3,
       supersedes_id: null,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(1, FIXTURE_UUIDS.supersededA, 0.15),
     },
     {
@@ -336,7 +354,19 @@ function buildThoughts(): EvalThought[] {
       project: "alpha",
       salience: 4,
       supersedes_id: FIXTURE_UUIDS.supersededA,
+      lifecycle_status: "active",
       embedding: makeThoughtVector(1, FIXTURE_UUIDS.supersededB, 0.15),
+    },
+    {
+      id: FIXTURE_UUIDS.archivedAlphaNote,
+      raw_text: "Alpha project inventory notes from early planning phase",
+      thought_type: "note",
+      created_at: daysAgo(400),
+      project: "alpha",
+      salience: 1,
+      supersedes_id: null,
+      lifecycle_status: "archived",
+      embedding: makeThoughtVector(0, FIXTURE_UUIDS.archivedAlphaNote, 0.15),
     },
   ];
 }
@@ -360,12 +390,13 @@ export interface GoldenQuery {
 function buildGoldenQueries(): GoldenQuery[] {
   const u = FIXTURE_UUIDS;
 
-  // Analytical v2 score derivation (migration 009 formula):
+  // Analytical v2 score derivation (migration 012 formula):
   // score = cosine_sim * GREATEST(exp(-ln2*age/(halflife*type_mult)),0.05) * (0.7+salience*0.1) * (0.7 if contradiction)
   // type_mult = 2.0 for decision/insight (60d), 1.0 for note/action (30d)
   // cosine_sim ~1 same-cluster, ~0 cross-cluster
   //
   // Cluster 0 scores: freshDecisionAlpha1=1.087, freshDecisionAlpha2=0.977, contradictionB=0.727, contradictionA=0.624
+  //   archivedAlphaNote=0.040 (400d, note, salience 1 → recency floor 0.05, salience factor 0.8)
   // Cluster 1: supersededB=0.778, staleInsightAlpha1=0.050, staleInsightAlpha2=0.045
   // Cluster 5: oldSalientDecision=0.060
   // Cluster 7: freshInsightBeta=1.015
@@ -444,6 +475,40 @@ function buildGoldenQueries(): GoldenQuery[] {
       expected_thought_ids: [u.freshInsightBeta],
       min_recall_at_5: 1.0,
       min_recall_at_10: 1.0,
+    },
+    {
+      id: "q-archive-exclusion",
+      query_text: "archive exclusion default behaviour",
+      description:
+        "Centroid-0, DEFAULT params (include_archived=false): archivedAlphaNote excluded. " +
+        "Same expected set as q-fresh-alpha-decision.",
+      embedding: makeQueryVector(0),
+      expected_thought_ids: [
+        u.freshDecisionAlpha1,
+        u.freshDecisionAlpha2,
+        u.contradictionB,
+        u.contradictionA,
+      ],
+      min_recall_at_5: 1.0,
+      min_recall_at_10: 1.0,
+    },
+    {
+      id: "q-archive-included",
+      query_text: "archive inclusion with include_archived=true",
+      description:
+        "Centroid-0 with include_archived=true: archivedAlphaNote (score 0.040) appears " +
+        "alongside the 4 existing centroid-0 thoughts. 5 expected, all in top-5.",
+      embedding: makeQueryVector(0),
+      expected_thought_ids: [
+        u.freshDecisionAlpha1,
+        u.freshDecisionAlpha2,
+        u.contradictionB,
+        u.contradictionA,
+        u.archivedAlphaNote,
+      ],
+      min_recall_at_5: 1.0,
+      min_recall_at_10: 1.0,
+      params: { include_archived: true },
     },
   ];
 }
