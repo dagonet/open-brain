@@ -15,6 +15,8 @@ export interface SemanticSearchParams {
   recency_halflife_days?: number;
   /** Include thoughts that have been superseded (default false). */
   include_superseded?: boolean;
+  /** Include thoughts with archived lifecycle status (default false). */
+  include_archived?: boolean;
   /** Apply contradiction penalty to scoring (default true). */
   apply_contradiction_penalty?: boolean;
 }
@@ -34,6 +36,7 @@ export async function semanticSearch(
     project,
     recency_halflife_days,
     include_superseded,
+    include_archived,
     apply_contradiction_penalty,
   } = params;
 
@@ -64,6 +67,7 @@ export async function semanticSearch(
     filter_project: effectiveProject,
     recency_halflife_days: recency_halflife_days ?? 30,
     include_superseded: include_superseded ?? false,
+    include_archived: include_archived ?? false,
     apply_contradiction_penalty: apply_contradiction_penalty ?? true,
   });
 
@@ -117,6 +121,11 @@ export const definition: ToolDefinition = {
       .optional()
       .default(false)
       .describe("Include thoughts that have been superseded by newer entries (default false)."),
+    include_archived: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Include thoughts with archived lifecycle status (default false)."),
     apply_contradiction_penalty: z
       .boolean()
       .optional()

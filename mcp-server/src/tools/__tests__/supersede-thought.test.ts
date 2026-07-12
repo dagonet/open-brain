@@ -5,10 +5,10 @@ import { createMockSupabase } from "./helpers.js";
 describe("supersedeThought", () => {
   it("marks new thought as superseding old thought", async () => {
     const mock = createMockSupabase();
-    // First query: both thoughts exist
+    // First query: both thoughts exist with lifecycle_status
     mock.resolvesWith([
-      { id: "new-id", deleted_at: null },
-      { id: "old-id", deleted_at: null },
+      { id: "new-id", deleted_at: null, lifecycle_status: "active" },
+      { id: "old-id", deleted_at: null, lifecycle_status: "active" },
     ]);
 
     const result = JSON.parse(
@@ -19,8 +19,12 @@ describe("supersedeThought", () => {
     expect(result.message).toContain("new-id");
     expect(result.message).toContain("old-id");
     const m = mock.client as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    // First update: set supersedes_id on new thought
     expect(m.update).toHaveBeenCalledWith({ supersedes_id: "old-id" });
     expect(m.eq).toHaveBeenCalledWith("id", "new-id");
+    // Second update: set lifecycle_status on old thought
+    expect(m.update).toHaveBeenCalledWith({ lifecycle_status: "superseded" });
+    expect(m.eq).toHaveBeenCalledWith("id", "old-id");
   });
 
   it("returns error when new_thought_id equals old_thought_id", async () => {
@@ -58,6 +62,34 @@ describe("supersedeThought", () => {
     );
 
     expect(result.error).toContain("deleted");
+  });
+
+  it("returns error when old thought is already superseded", async () => {
+    const mock = createMockSupabase();
+    mock.resolvesWith([
+      { id: "new-id", deleted_at: null, lifecycle_status: "active" },
+      { id: "old-id", deleted_at: null, lifecycle_status: "superseded" },
+    ]);
+
+    const result = JSON.parse(
+      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+    );
+
+    expect(result.error).toContain("already superseded");
+  });
+
+  it("returns error when old thought is archived", async () => {
+    const mock = createMockSupabase();
+    mock.resolvesWith([
+      { id: "new-id", deleted_at: null, lifecycle_status: "active" },
+      { id: "old-id", deleted_at: null, lifecycle_status: "archived" },
+    ]);
+
+    const result = JSON.parse(
+      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+    );
+
+    expect(result.error).toContain("archived");
   });
 
   it("returns error on supabase lookup failure", async () => {
