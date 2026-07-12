@@ -19,6 +19,7 @@ export function createMockSupabase() {
     "delete",
     "eq",
     "neq",
+    "in",
     "is",
     "not",
     "gte",
@@ -59,7 +60,7 @@ export function createMultiQueryMockSupabase(results: Array<{ data: unknown; err
     const chain: Record<string, unknown> = {};
     const chainMethods = [
       "select", "insert", "update", "delete",
-      "eq", "neq", "is", "not", "gte", "lte",
+      "eq", "neq", "in", "is", "not", "gte", "lte",
       "order", "limit",
     ];
     for (const method of chainMethods) {

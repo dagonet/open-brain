@@ -25,3 +25,18 @@ export function familyForToolName(name: string): ToolFamily | null {
   if (name.startsWith("contradictions_")) return "contradictions";
   return null;
 }
+
+/**
+ * Resolves the effective project scope for a tool call.
+ *
+ * Priority: explicit param > OPEN_BRAIN_DEFAULT_PROJECT env var > null (no filter).
+ * The env var allows per-workspace `.mcp.json` configuration so each project
+ * workspace automatically scopes memory operations to its own project without
+ * callers needing to pass the param explicitly.
+ */
+export function resolveProject(explicitParam: string | null | undefined): string | null {
+  if (explicitParam) return explicitParam;
+  const fromEnv = process.env.OPEN_BRAIN_DEFAULT_PROJECT;
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+  return null;
+}

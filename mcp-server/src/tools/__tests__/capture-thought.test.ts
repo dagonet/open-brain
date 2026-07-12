@@ -40,6 +40,104 @@ describe("captureThought", () => {
     expect(fetchBody.idempotency_key).toBeDefined();
   });
 
+  it("sends project in request body when provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "Project thought", project: "open-brain" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBe("open-brain");
+  });
+
+  it("omits project from request body when neither param nor ENV is set", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "No project" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBeUndefined();
+  });
+
+  it("uses OPEN_BRAIN_DEFAULT_PROJECT when project param is omitted", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "env-project");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "Env scoped" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBe("env-project");
+  });
+
+  it("explicit project overrides OPEN_BRAIN_DEFAULT_PROJECT", async () => {
+    vi.stubEnv("OPEN_BRAIN_DEFAULT_PROJECT", "env-project");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: { id: "abc-123", thought_type: "note", people: [], topics: [] },
+      }),
+    });
+
+    await captureThought({ text: "Explicit wins", project: "explicit" });
+
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(fetchBody.project).toBe("explicit");
+  });
+
+  it("renders duplicate_candidate guidance when returned", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        is_duplicate: false,
+        thought: {
+          id: "new-id",
+          thought_type: "note",
+          people: [],
+          topics: [],
+        },
+        duplicate_candidate: {
+          thought_id: "existing-id",
+          raw_text_preview: "Existing thought...",
+          similarity: 0.92,
+        },
+      }),
+    });
+
+    const result = JSON.parse(await captureThought({ text: "Similar thought" }));
+
+    expect(result.duplicate_candidate).toBeDefined();
+    expect(result.duplicate_candidate.thought_id).toBe("existing-id");
+    expect(result.duplicate_candidate.similarity).toBe(0.92);
+    expect(result.note).toContain("Near-duplicate detected");
+    expect(result.note).toContain("existing-id");
+    expect(result.note).toContain("0.92");
+    expect(result.note).toContain("thoughts_supersede");
+  });
+
   it("returns is_duplicate when thought already exists", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

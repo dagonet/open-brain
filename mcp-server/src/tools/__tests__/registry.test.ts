@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { allTools } from "../index.js";
 
 describe("allTools registry", () => {
-  it("has exactly 14 tool definitions", () => {
-    expect(allTools).toHaveLength(14);
+  it("has exactly 15 tool definitions", () => {
+    expect(allTools).toHaveLength(15);
   });
 
   it("each tool has required fields", () => {
@@ -36,7 +36,7 @@ describe("allTools registry", () => {
     const names = new Set(allTools.map((t) => t.name));
     expect(names).toEqual(
       new Set([
-        // thoughts (8)
+        // thoughts (9)
         "thoughts_search",
         "thoughts_recent",
         "thoughts_delete",
@@ -45,6 +45,7 @@ describe("allTools registry", () => {
         "thoughts_topics",
         "thoughts_review",
         "thoughts_capture",
+        "thoughts_supersede",
         // wiki (3)
         "wiki_get",
         "wiki_list",
