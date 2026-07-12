@@ -29,7 +29,10 @@ describe("entitiesGraph", () => {
       await entitiesGraph(mock.client, { entity: "Open Brain" }),
     );
 
-    expect(result).toEqual(neighbors);
+    expect(result).toEqual({
+      entity: "open brain",
+      neighbors,
+    });
   });
 
   it("normalizes entity key to lower case and trims whitespace", async () => {

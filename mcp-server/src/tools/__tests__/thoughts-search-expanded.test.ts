@@ -32,11 +32,13 @@ describe("thoughtsSearchExpanded", () => {
       { thought_id: "uuid-2", raw_text: "related thought", score: 0.7 },
     ];
 
-    // Override rpc to return different data per call
+    // Override rpc: match_thoughts_v2, base tracking, related v3, expansion tracking
     const rpcMock = vi
       .fn()
       .mockResolvedValueOnce({ data: baseResults, error: null })
-      .mockResolvedValueOnce({ data: expansionResults, error: null });
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: expansionResults, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
     mock.client.rpc = rpcMock;
 
     const result = JSON.parse(
@@ -59,6 +61,7 @@ describe("thoughtsSearchExpanded", () => {
     const rpcMock = vi
       .fn()
       .mockResolvedValueOnce({ data: baseResults, error: null })
+      .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({
         data: null,
         error: { message: "expansion failed" },
@@ -85,6 +88,7 @@ describe("thoughtsSearchExpanded", () => {
     const rpcMock = vi
       .fn()
       .mockResolvedValueOnce({ data: baseResults, error: null })
+      .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({ data: null, error: null });
     mock.client.rpc = rpcMock;
 
@@ -132,7 +136,7 @@ describe("thoughtsSearchExpanded", () => {
       }),
     );
 
-    expect(result.error).toBe("Failed to generate embedding");
+    expect(result.error).toBe("API key invalid");
     expect(mock.client.rpc).not.toHaveBeenCalled();
   });
 
@@ -164,6 +168,7 @@ describe("thoughtsSearchExpanded", () => {
     const rpcMock = vi
       .fn()
       .mockResolvedValueOnce({ data: baseResults, error: null })
+      .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({ data: [], error: null });
     mock.client.rpc = rpcMock;
 
@@ -171,7 +176,7 @@ describe("thoughtsSearchExpanded", () => {
       query: "test",
     });
 
-    expect(rpcMock).toHaveBeenLastCalledWith("related_thoughts_via_entities", {
+    expect(rpcMock).toHaveBeenCalledWith("related_thoughts_via_entities", {
       seed_thought_ids: ["uuid-1", "uuid-2"],
       result_limit: 10,
       max_entity_degree: 20,

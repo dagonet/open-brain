@@ -23,6 +23,20 @@ describe("buildInstructions", () => {
     expect(result).toContain("contradictions_list");
   });
 
+  it("omits the entities section when disabled", () => {
+    const result = buildInstructions({ wikiEnabled: false, entitiesEnabled: false });
+    expect(result).not.toContain("ENTITIES ");
+    expect(result).not.toContain("entities_search");
+    expect(result).not.toContain("entities_graph");
+  });
+
+  it("includes the entities section when enabled", () => {
+    const result = buildInstructions({ wikiEnabled: false, entitiesEnabled: true });
+    expect(result).toContain("ENTITIES ");
+    expect(result).toContain("entities_search");
+    expect(result).toContain("entities_graph");
+  });
+
   it("includes the inspiration citation in both modes", () => {
     const off = buildInstructions({ wikiEnabled: false, entitiesEnabled: false });
     const on = buildInstructions({ wikiEnabled: true, entitiesEnabled: false });

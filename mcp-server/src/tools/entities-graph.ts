@@ -23,11 +23,10 @@ export async function entitiesGraph(
     return JSON.stringify({ error: error.message });
   }
 
-  if (!Array.isArray(data) || data.length === 0) {
-    return JSON.stringify({ entity, neighbors: [] });
-  }
-
-  return JSON.stringify(data);
+  return JSON.stringify({
+    entity: seed_key,
+    neighbors: Array.isArray(data) ? data : [],
+  });
 }
 
 export const definition: ToolDefinition = {

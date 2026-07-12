@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { z } from "zod";
-import { resolveProject } from "../config.js";
+import { baseSemanticSearch } from "./search-core.js";
 import type { ToolDefinition } from "./registry.js";
 
 export interface ThoughtsSearchExpandedParams {
@@ -17,53 +17,33 @@ export async function thoughtsSearchExpanded(
   params: ThoughtsSearchExpandedParams,
 ): Promise<string> {
   const { query, project, limit = 10, recency_halflife_days } = params;
-  const effectiveProject = resolveProject(project);
 
-  // === Base leg: embed + match_thoughts_v2 ===
-  let embedding: number[];
-  try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-    });
-    embedding = response.data[0].embedding;
-  } catch (err) {
-    return JSON.stringify({
-      error: "Failed to generate embedding",
-      message: err instanceof Error ? err.message : String(err),
-    });
+  // === Base leg: shared helper handles embed + match_thoughts_v2 + tracking ===
+  const base = await baseSemanticSearch(supabase, openai, {
+    query,
+    limit,
+    thought_type: null,
+    people: null,
+    topics: null,
+    days: null,
+    project: project ?? null,
+    recency_halflife_days,
+    include_superseded: false,
+    include_archived: false,
+    apply_contradiction_penalty: true,
+  });
+
+  if (base.error) {
+    return JSON.stringify({ error: base.error });
   }
 
-  const { data: baseData, error: baseError } = await supabase.rpc(
-    "match_thoughts_v2",
-    {
-      query_embedding: JSON.stringify(embedding),
-      match_count: limit,
-      filter_thought_type: null,
-      filter_people: null,
-      filter_topics: null,
-      filter_days: null,
-      filter_project: effectiveProject,
-      recency_halflife_days: recency_halflife_days ?? 30,
-      include_superseded: false,
-      include_archived: false,
-      apply_contradiction_penalty: true,
-    },
-  );
-
-  if (baseError) {
-    return JSON.stringify({ error: baseError.message });
-  }
-
-  const baseResults = Array.isArray(baseData) ? baseData : [];
+  const baseResults = base.data ?? [];
 
   // === Expansion leg: thought IDs → related_thoughts_via_entities ===
   // Degrade gracefully on failure — expansion is best-effort.
-  let expansionResults: unknown[] = [];
+  let expansionResults: Array<Record<string, unknown>> = [];
   try {
-    const ids = (baseResults as Array<Record<string, unknown>>).map(
-      (r) => r.id,
-    );
+    const ids = baseResults.map((r) => r.id as string);
     if (ids.length > 0) {
       const { data: expData, error: expError } = await supabase.rpc(
         "related_thoughts_via_entities",
@@ -75,6 +55,23 @@ export async function thoughtsSearchExpanded(
       );
       if (!expError && Array.isArray(expData)) {
         expansionResults = expData;
+
+        // Fire-and-forget retrieval tracking for expansion results too.
+        const expIds = (expData as Array<Record<string, unknown>>).map(
+          (r) => r.thought_id,
+        );
+        if (expIds.length > 0) {
+          void (async () => {
+            try {
+              await supabase.rpc("increment_retrieval", { ids: expIds });
+            } catch (trackErr: unknown) {
+              console.error(
+                "[thoughts_search_expanded] expansion tracking failed:",
+                trackErr,
+              );
+            }
+          })();
+        }
       }
     }
   } catch {
