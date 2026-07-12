@@ -26,6 +26,8 @@ export function createMockSupabase() {
     "lte",
     "order",
     "limit",
+    "single",
+    "maybeSingle",
     "rpc",
   ];
 
@@ -61,7 +63,7 @@ export function createMultiQueryMockSupabase(results: Array<{ data: unknown; err
     const chainMethods = [
       "select", "insert", "update", "delete",
       "eq", "neq", "in", "is", "not", "gte", "lte",
-      "order", "limit",
+      "order", "limit", "single", "maybeSingle",
     ];
     for (const method of chainMethods) {
       chain[method] = vi.fn().mockImplementation(() => chain);

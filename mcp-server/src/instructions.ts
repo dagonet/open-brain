@@ -74,6 +74,27 @@ const WIKI_INSTRUCTIONS = [
   "- contradictions_audit({since}): trigger an on-demand audit pass (also `brain audit` from the CLI).",
 ];
 
+// === tasks ===
+const TASKS_INSTRUCTIONS = [
+  "",
+  "TASKS (v0.6.0) — task-state API for tracking work items:",
+  "- task_create({title, ...}): Create a new task with optional description, priority,",
+  "  project, linked_thought_ids, and metadata. Title is required. Falls back to",
+  "  OPEN_BRAIN_DEFAULT_PROJECT for project scope if omitted.",
+  "- task_get({id}): Get a single task by UUID. Returns {error:'not found'} if",
+  "  the task does not exist or has been soft-deleted.",
+  "- task_list({project?, status?, priority?, limit?}): List tasks with optional",
+  "  filters. Ordered by created_at descending. Default limit is 50.",
+  "- task_update({id, ...}): Update a task's fields. When status changes, appends",
+  "  {status, at, note} to status_history automatically. Setting status to 'cancelled'",
+  "  also sets deleted_at (soft-delete). There is no separate delete tool; cancel =",
+  "  soft-delete.",
+  "",
+  "Status lifecycle: open → in_progress → blocked | done | cancelled. Any status",
+  "transition is allowed; the history is tracked transparently in status_history.",
+  "Soft-deleted rows (deleted_at IS NOT NULL) are excluded from all tools.",
+];
+
 const CITATION_FOOTER = [
   "",
   "Inspired by Andrej Karpathy's LLM Wiki (https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)",
@@ -85,6 +106,7 @@ export function buildInstructions(opts: { wikiEnabled: boolean }): string {
   if (opts.wikiEnabled) {
     lines.push(...WIKI_INSTRUCTIONS);
   }
+  lines.push(...TASKS_INSTRUCTIONS);
   lines.push(...CITATION_FOOTER);
   return lines.join("\n");
 }
