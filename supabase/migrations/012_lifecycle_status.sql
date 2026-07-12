@@ -74,7 +74,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $
+AS $$
 BEGIN
   RETURN QUERY
   WITH candidates AS (
@@ -128,7 +128,7 @@ BEGIN
   ORDER BY score DESC
   LIMIT match_count;
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION match_thoughts_v2(
   vector(1536), int, text, text[], text[], int, text, int, boolean, boolean, boolean
@@ -142,7 +142,7 @@ CREATE OR REPLACE FUNCTION archive_thoughts(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $
+AS $$
 DECLARE
   n1 int;
   n2 int;
@@ -163,7 +163,7 @@ BEGIN
   GET DIAGNOSTICS n2 = ROW_COUNT;
   RETURN jsonb_build_object('rule1_archived', n1, 'rule2_archived', n2);
 END;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION archive_thoughts(int, int) TO anon;
 
@@ -175,7 +175,7 @@ CREATE OR REPLACE FUNCTION consolidation_candidates(
 RETURNS TABLE(slug text, thought_count bigint, aggregate_signal float)
 LANGUAGE sql
 SECURITY DEFINER
-AS $
+AS $$
   WITH grouped AS (
     SELECT
       slugify(topic) AS slug,
@@ -198,7 +198,7 @@ AS $
   )
   ORDER BY g.aggregate_signal DESC
   LIMIT result_limit;
-$;
+$$;
 
 GRANT EXECUTE ON FUNCTION consolidation_candidates(int, int) TO anon;
 
