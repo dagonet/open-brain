@@ -152,7 +152,6 @@ BEGIN
   WHERE lifecycle_status = 'active'
     AND thought_type = 'action'
     AND action_items_resolved = true
-    AND thought_type NOT IN ('decision', 'insight')
     AND updated_at < now() - make_interval(days => resolved_action_days);
   GET DIAGNOSTICS n1 = ROW_COUNT;
   UPDATE thoughts
