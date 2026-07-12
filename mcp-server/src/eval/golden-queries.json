@@ -118,5 +118,53 @@
       "a0000000-0000-0000-0000-000000000013": 1.015
     },
     "score_derivation": "v2: recency = exp(-ln2*7/60) = 0.922. salience = 0.7+4*0.1 = 1.1. score = 0.922*1.1 = 1.015. Insight halflife=60d."
+  },
+  {
+    "id": "q-archive-exclusion",
+    "query_text": "archive exclusion default behaviour",
+    "description": "Centroid-0, DEFAULT params (include_archived=false): archivedAlphaNote excluded. Same expected set as q-fresh-alpha-decision.",
+    "centroid_index": 0,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000001",
+      "a0000000-0000-0000-0000-000000000002",
+      "a0000000-0000-0000-0000-000000000015",
+      "a0000000-0000-0000-0000-000000000014"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000001": 1.087,
+      "a0000000-0000-0000-0000-000000000002": 0.977,
+      "a0000000-0000-0000-0000-000000000015": 0.727,
+      "a0000000-0000-0000-0000-000000000014": 0.624
+    },
+    "score_derivation": "Same cluster-0 scores as q-fresh-alpha-decision. DEFAULT include_archived=false in v2 RPC filters archivedAlphaNote out (AND (include_archived OR t.lifecycle_status != 'archived'))."
+  },
+  {
+    "id": "q-archive-included",
+    "query_text": "archive inclusion with include_archived=true",
+    "description": "Centroid-0 with include_archived=true: archivedAlphaNote (score 0.040) appears alongside the 4 existing centroid-0 thoughts. 5 expected, all in top-5.",
+    "centroid_index": 0,
+    "params": {
+      "include_archived": true
+    },
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000001",
+      "a0000000-0000-0000-0000-000000000002",
+      "a0000000-0000-0000-0000-000000000015",
+      "a0000000-0000-0000-0000-000000000014",
+      "a0000000-0000-0000-0000-000000000018"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000001": 1.087,
+      "a0000000-0000-0000-0000-000000000002": 0.977,
+      "a0000000-0000-0000-0000-000000000015": 0.727,
+      "a0000000-0000-0000-0000-000000000014": 0.624,
+      "a0000000-0000-0000-0000-000000000018": 0.04
+    },
+    "score_derivation": "Same cluster-0 scores plus archivedAlphaNote (score 0.04). Note halflife=30d (type_mult=1.0). recency=max(exp(-ln2*400/30),0.05)=0.05. salience=0.7+1*0.1=0.8. score=0.05*0.8=0.04. passthrough include_archived=true in v2 RPC params skips the archived filter."
   }
 ]

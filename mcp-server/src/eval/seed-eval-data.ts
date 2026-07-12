@@ -27,17 +27,17 @@ async function main() {
   const supabase = createClient(url, key);
 
   // -----------------------------------------------------------------------
-  // Detect whether v0.5 columns exist (project, salience, supersedes_id)
+  // Detect whether v0.6 columns exist (lifecycle_status)
   // -----------------------------------------------------------------------
   const { error: colCheck } = await supabase
     .from("thoughts")
-    .select("project, salience, supersedes_id")
+    .select("lifecycle_status")
     .limit(1);
 
   if (colCheck && colCheck.message && colCheck.message.includes("column")) {
     console.error(
-      "v0.5 columns (project, salience, supersedes_id) not found in thoughts table. " +
-      "Please apply migrations 008 and 009 before seeding eval data.",
+      "v0.6 column (lifecycle_status) not found in thoughts table. " +
+      "Please apply migration 012 before seeding eval data.",
     );
     process.exit(1);
   }
@@ -57,6 +57,7 @@ async function main() {
         project: thought.project,
         salience: thought.salience,
         supersedes_id: thought.supersedes_id,
+        lifecycle_status: thought.lifecycle_status,
         embedding: thought.embedding,
       },
       { onConflict: "id" },
