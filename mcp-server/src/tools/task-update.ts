@@ -39,7 +39,12 @@ export async function taskUpdate(
   // Build the update payload with only the fields that changed.
   const updates: Record<string, unknown> = {};
 
-  if (title !== undefined) updates.title = title;
+  if (title !== undefined) {
+    if (title.trim().length === 0) {
+      return JSON.stringify({ error: "title must be non-empty." });
+    }
+    updates.title = title;
+  }
   if (description !== undefined) updates.description = description;
   if (priority !== undefined) updates.priority = priority;
   if (linked_thought_ids !== undefined) updates.linked_thought_ids = linked_thought_ids;
@@ -58,7 +63,7 @@ export async function taskUpdate(
   }
 
   // If status is 'cancelled', soft-delete.
-  if (status === "cancelled" || (title === undefined && description === undefined && priority === undefined && linked_thought_ids === undefined && metadata === undefined && status === "cancelled")) {
+  if (status === "cancelled") {
     updates.deleted_at = new Date().toISOString();
   }
 
@@ -82,7 +87,7 @@ export const definition: ToolDefinition = {
     "Update a task by ID. Supports changing title, description, priority, linked_thought_ids, metadata, and status. When status changes, appends an entry to status_history. Setting status to 'cancelled' also sets deleted_at (soft-delete).",
   schema: {
     id: z.string().uuid().describe("UUID of the task to update."),
-    title: z.string().optional().describe("New title."),
+    title: z.string().min(1).optional().describe("New title (non-empty when provided)."),
     description: z.string().optional().describe("New description."),
     priority: z
       .number()

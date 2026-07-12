@@ -49,6 +49,36 @@ describe("taskUpdate", () => {
     expect(m.from).toHaveBeenCalledWith("tasks");
   });
 
+  it("rejects empty title with error", async () => {
+    const { client } = createMultiQueryMockSupabase([
+      {
+        data: {
+          id: "task-uuid",
+          title: "Old title",
+          status: "open",
+          status_history: [],
+          project: null,
+          description: null,
+          priority: null,
+          linked_thought_ids: [],
+          metadata: {},
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+          deleted_at: null,
+        },
+      },
+    ]);
+
+    const result = JSON.parse(
+      await taskUpdate(client, { id: "task-uuid", title: "" }),
+    );
+
+    expect(result.error).toBe("title must be non-empty.");
+
+    // from() called once for read only — no update attempt
+    expect(client.from).toHaveBeenCalledTimes(1);
+  });
+
   it("status change appends to status_history", async () => {
     const { client } = createMultiQueryMockSupabase([
       {
