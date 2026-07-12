@@ -1,8 +1,11 @@
 -- This file is DEPRECATED. The canonical source of truth is now the migration
 -- system under supabase/migrations/:
 --
---   008_project_salience_supersedes.sql  — original match_thoughts definition
---   009_hybrid_ranking.sql               — match_thoughts_v2 + backward-compat wrapper
+--   008_project_salience_supersedes.sql  — match_thoughts (pure cosine v1)
+--   009_hybrid_ranking.sql               — match_thoughts_v2 (hybrid ranking)
+--
+-- match_thoughts is SECURITY DEFINER (matching migration 005's pattern) so
+-- anon-key callers bypass RLS on the thoughts table.
 --
 -- Keeping this file to avoid 404s on old documentation links. Do not edit here.
 -- Apply schema changes exclusively through new Supabase migrations.

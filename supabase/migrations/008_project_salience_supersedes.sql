@@ -6,8 +6,9 @@
 -- applied manually on live deployments) into the migration system so fresh
 -- Supabase deploys get the function automatically.
 --
--- Idempotent on live deployments: DROP IF EXISTS on the function, CREATE OR
--- REPLACE on its body, and the backfill targets only rows where project IS NULL.
+-- Idempotent on live deployments: ADD COLUMN IF NOT EXISTS / CREATE INDEX IF
+-- NOT EXISTS on all schema changes; DROP IF EXISTS + CREATE OR REPLACE on the
+-- function; backfill targets only rows where project IS NULL.
 --
 -- Inspired by Andrej Karpathy's LLM Wiki gist
 --   https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
@@ -18,17 +19,20 @@
 -- 1. New columns on thoughts
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE thoughts ADD COLUMN project text;
-ALTER TABLE thoughts ADD COLUMN salience smallint CHECK (salience BETWEEN 1 AND 5);
-ALTER TABLE thoughts ADD COLUMN supersedes_id uuid REFERENCES thoughts(id);
-ALTER TABLE thoughts ADD COLUMN retrieval_count integer NOT NULL DEFAULT 0;
-ALTER TABLE thoughts ADD COLUMN last_retrieved_at timestamptz;
+ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS project text;
+ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS salience smallint CHECK (salience BETWEEN 1 AND 5);
+ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS supersedes_id uuid REFERENCES thoughts(id);
+ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS retrieval_count integer NOT NULL DEFAULT 0;
+ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS last_retrieved_at timestamptz;
 
-CREATE INDEX idx_thoughts_project ON thoughts (project);
-CREATE INDEX idx_thoughts_supersedes ON thoughts (supersedes_id);
+CREATE INDEX IF NOT EXISTS idx_thoughts_project ON thoughts (project);
+CREATE INDEX IF NOT EXISTS idx_thoughts_supersedes ON thoughts (supersedes_id);
 
 -- ---------------------------------------------------------------------------
 -- 2. Establish match_thoughts in the migration system
+--
+-- SECURITY DEFINER so anon-key callers bypass RLS on the thoughts table
+-- (matching the pattern set by thoughts_by_slug in migration 005).
 --
 -- Previously this function lived only in mcp-server/sql/match_thoughts.sql and
 -- was applied manually. Fresh Supabase deploys had no match_thoughts, which
@@ -61,7 +65,9 @@ RETURNS TABLE (
   updated_at timestamptz,
   similarity float
 )
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   RETURN QUERY
   SELECT
@@ -81,6 +87,8 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION match_thoughts(vector(1536),int,text,text[],text[],int) TO anon;
+
 -- ---------------------------------------------------------------------------
 -- 3. Backfill project from existing metadata
 -- ---------------------------------------------------------------------------
@@ -91,17 +99,12 @@ WHERE metadata->>'project' IS NOT NULL AND project IS NULL;
 -- ---------------------------------------------------------------------------
 -- Rollback
 --
--- Migration 009 replaces match_thoughts with a backward-compat wrapper.
--- To fully revert the 008+009 pair:
---   1. Roll back 009 first (drops match_thoughts_v2, restores match_thoughts v1)
---   2. Then roll back 008:
---
 -- DROP INDEX IF EXISTS idx_thoughts_supersedes;
 -- DROP INDEX IF EXISTS idx_thoughts_project;
--- ALTER TABLE thoughts DROP COLUMN last_retrieved_at;
--- ALTER TABLE thoughts DROP COLUMN retrieval_count;
--- ALTER TABLE thoughts DROP COLUMN supersedes_id;
--- ALTER TABLE thoughts DROP COLUMN salience;
--- ALTER TABLE thoughts DROP COLUMN project;
+-- ALTER TABLE thoughts DROP COLUMN IF EXISTS last_retrieved_at;
+-- ALTER TABLE thoughts DROP COLUMN IF EXISTS retrieval_count;
+-- ALTER TABLE thoughts DROP COLUMN IF EXISTS supersedes_id;
+-- ALTER TABLE thoughts DROP COLUMN IF EXISTS salience;
+-- ALTER TABLE thoughts DROP COLUMN IF EXISTS project;
 -- DROP FUNCTION IF EXISTS match_thoughts(vector,int,text,text[],text[],int);
 -- ---------------------------------------------------------------------------

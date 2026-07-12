@@ -5,9 +5,16 @@
 -- cannot use the vector index directly. We over-fetch from the HNSW index
 -- (LIMIT max(4*match_count, 50)), then re-rank with the full scoring formula.
 --
--- match_thoughts (v1) is recreated as a backward-compat wrapper so existing
--- callers (detect-contradictions edge function) work unchanged. The wrapper
--- is retired in v0.6.
+-- This migration ONLY adds match_thoughts_v2. The original match_thoughts
+-- (pure cosine similarity, established in migration 008) is UNCHANGED so that
+-- existing callers like detect-contradictions continue using pure-cosine search.
+-- Callers migrate to match_thoughts_v2 deliberately in later workstreams.
+--
+-- SECURITY DEFINER matches the pattern set by thoughts_by_slug in migration 005.
+--
+-- Recency uses a true half-life formula: exp(-ln(2) * age_days / halflife).
+-- At the default recency_halflife_days=30, a 30-day-old thought scores 0.5x.
+-- The 0.05 floor ensures old but salient decision/insight thoughts stay reachable.
 --
 -- Inspired by Andrej Karpathy's LLM Wiki gist
 --   https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
@@ -15,7 +22,7 @@
 --   https://www.youtube.com/watch?v=dxq7WtWxi44
 
 -- ---------------------------------------------------------------------------
--- 1. match_thoughts_v2: hybrid ranking function (pure SQL, CTE-based)
+-- 1. match_thoughts_v2: hybrid ranking function
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION match_thoughts_v2(
@@ -48,7 +55,9 @@ RETURNS TABLE (
   salience smallint,
   score float
 )
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   RETURN QUERY
   WITH candidates AS (
@@ -80,7 +89,7 @@ BEGIN
     c.salience,
     c.cosine_sim
       * GREATEST(
-          exp(-EXTRACT(epoch FROM now() - c.created_at) / 86400.0
+          exp(-ln(2.0) * EXTRACT(epoch FROM now() - c.created_at) / 86400.0
             / (recency_halflife_days * CASE WHEN c.thought_type IN ('decision','insight') THEN 2.0 ELSE 1.0 END)
           ),
           0.05
@@ -101,66 +110,10 @@ BEGIN
 END;
 $$;
 
--- ---------------------------------------------------------------------------
--- 2. Backward-compat wrapper: match_thoughts (v1 signature -> v2)
--- ---------------------------------------------------------------------------
-
-DROP FUNCTION IF EXISTS match_thoughts(vector,int,text,text[],text[],int);
-
-CREATE OR REPLACE FUNCTION match_thoughts(
-  query_embedding vector(1536),
-  match_count int DEFAULT 10,
-  filter_thought_type text DEFAULT NULL,
-  filter_people text[] DEFAULT NULL,
-  filter_topics text[] DEFAULT NULL,
-  filter_days int DEFAULT NULL
-)
-RETURNS TABLE (
-  id uuid,
-  raw_text text,
-  thought_type text,
-  people text[],
-  topics text[],
-  action_items text[],
-  action_items_resolved boolean,
-  source text,
-  processing_status text,
-  metadata jsonb,
-  created_at timestamptz,
-  updated_at timestamptz,
-  similarity float
-)
-LANGUAGE plpgsql AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    v2.id, v2.raw_text, v2.thought_type, v2.people, v2.topics,
-    v2.action_items, v2.action_items_resolved, v2.source,
-    v2.processing_status, v2.metadata, v2.created_at, v2.updated_at,
-    v2.similarity
-  FROM match_thoughts_v2(
-    query_embedding          => query_embedding,
-    match_count              => match_count,
-    filter_thought_type      => filter_thought_type,
-    filter_people            => filter_people,
-    filter_topics            => filter_topics,
-    filter_days              => filter_days,
-    filter_project           => NULL,
-    recency_halflife_days    => 30,
-    include_superseded       => false,
-    apply_contradiction_penalty => true
-  ) v2
-  ORDER BY v2.score DESC
-  LIMIT match_count;
-END;
-$$;
+GRANT EXECUTE ON FUNCTION match_thoughts_v2(vector(1536),int,text,text[],text[],int,text,int,boolean,boolean) TO anon;
 
 -- ---------------------------------------------------------------------------
 -- Rollback
 --
 -- DROP FUNCTION IF EXISTS match_thoughts_v2(vector(1536),int,text,text[],text[],int,text,int,boolean,boolean);
--- DROP FUNCTION IF EXISTS match_thoughts(vector,int,text,text[],text[],int);
---
--- Then restore match_thoughts v1 from migration 008's definition
--- (CREATE OR REPLACE FUNCTION match_thoughts ... from 008's section 2).
 -- ---------------------------------------------------------------------------
