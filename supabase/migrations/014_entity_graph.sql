@@ -127,9 +127,9 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH seed_entities AS (
-    SELECT DISTINCT lower(trim(entity_name)) AS entity_key
-    FROM entity_descriptions
-    WHERE thought_id = ANY(seed_thought_ids)
+    SELECT DISTINCT lower(trim(ed.entity_name)) AS entity_key
+    FROM entity_descriptions ed
+    WHERE ed.thought_id = ANY(seed_thought_ids)
   ),
   neighbor_entities AS (
     SELECT DISTINCT
