@@ -4,6 +4,54 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-12
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Lifecycle status.** New `lifecycle_status` column (`active`/`superseded`/`archived`)
+  on `thoughts`. `match_thoughts_v2` now accepts an `include_archived` boolean param
+  (default false); results surface `lifecycle_status`. The supersede tool also sets the
+  old thought to `'superseded'`. (WS1)
+- **Archived-aware ranking.** Archived thoughts are excluded from default search results
+  unless `include_archived=true`. Superseded ranking logic is unchanged (still uses the
+  `NOT EXISTS` anti-join). (WS1)
+- **Nightly auto-archival** (`{job:"archive"}`). Pure SQL, zero LLM cost. Resolved action
+  items older than `ARCHIVE_RESOLVED_ACTION_DAYS` (default 90) and cold
+  notes/references/questions never retrieved for `ARCHIVE_COLD_DAYS` (default 180) are
+  set to `lifecycle_status = 'archived'`. Decisions and insights are NEVER auto-archived.
+  Scheduled daily at 05:07 UTC via pg_cron. (WS2)
+- **Nightly consolidation** (`{job:"consolidate"}`, weekly Sunday 06:07 UTC).
+  `consolidation_candidates` RPC finds high-signal topics with no compiled wiki page;
+  compiles via `compile-wiki`, budget-capped by `CONSOLIDATE_BUDGET` (default 5) and
+  `CONSOLIDATE_MIN_THOUGHTS` (default 3). (WS2)
+- **Task-state API.** New `tasks` table (migration 013) with 4 MCP tools:
+  `task_create`, `task_get`, `task_list`, `task_update`. Project-scoped, with
+  `status_history` array for auditable transitions, soft-delete via `cancel` status.
+  Tool count: 15 -> 19. (WS4)
+- **New disable family.** `OPEN_BRAIN_TOOLS_DISABLED` now accepts `tasks` alongside
+  `wiki` and `contradictions`. (WS4)
+- **Eval: archived-exclusion golden queries.** Deterministic fixtures verify archived
+  thoughts are excluded from default `match_thoughts_v2` results and included when
+  `include_archived=true`. (WS5)
+
+### Changed
+
+- **MCP server 0.5.0 -> 0.6.0** (15 -> 19 tools). `thoughts_search` now surfaces
+  `lifecycle_status` and accepts the `include_archived` param. New `task_*` tool family
+  with 4 tools. (WS3 + WS4)
+- **Migrations 012 + 013** applied. Migration 012 adds `lifecycle_status`,
+  `archive_thought`, `consolidation_candidates`, and updates `match_thoughts_v2` to
+  11 arguments. Migration 013 creates the `tasks` table. (WS1 + WS4)
+
+### Cross-repo follow-ups (not part of this release)
+
+- A separate PR on `dagonet/claude-code-toolkit` will sync each variant's
+  `CLAUDE.md`, `CLAUDE.local.md`, skill files, and agent definitions to reference
+  the 19-tool set (was 15) and document the `lifecycle` + `tasks` disable families.
+
 ## [0.5.0] - 2026-07-12
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
@@ -46,7 +94,7 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
   documents pg_cron + pg_net scheduling at 03:00/04:00. (WP6)
 - **CLI `--project` flag** on `capture` and `import` commands. When the response includes a
   `duplicate_candidate`, prints: `Near-duplicate of <id> (<similarity>): "<preview>" — consider
-  superseding.` (WP4)
+superseding.` (WP4)
 
 ### Changed
 
@@ -94,7 +142,7 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
 2. Apply migrations 008–011 against a **preview branch** first (see the smoke-test recipe in README.md).
    Migrations are strictly additive — no column drops or type changes.
 3. Verify `match_thoughts` was created by migration 008: run `SELECT * FROM information_schema.routines
-   WHERE routine_name = 'match_thoughts'` in the SQL editor.
+WHERE routine_name = 'match_thoughts'` in the SQL editor.
 4. Deploy the updated edge function:
    ```bash
    supabase functions deploy capture-thought --use-api
@@ -120,7 +168,7 @@ via Nate B Jones' [video](https://www.youtube.com/watch?v=dxq7WtWxi44).
 
 - **Wiki citation fidelity at large clusters.** `compile-wiki` previously asked the
   model to echo full 36-char thought UUIDs into its `citations` array. OpenAI
-  Structured Outputs `strict` mode enforces the UUID *shape* but not set
+  Structured Outputs `strict` mode enforces the UUID _shape_ but not set
   membership, so at ~80-thought clusters the model emitted plausible-but-invented
   UUIDs; the old whole-paragraph drop then amplified this into near-empty pages
   (one 80-thought topic compiled to 3 cited sources, `partial=true`). The model
