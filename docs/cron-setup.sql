@@ -24,7 +24,7 @@
 --   FROM cron.job
 --   WHERE jobname LIKE 'nightly-%';
 --
--- To verify runs (after 03:07/04:07 UTC):
+-- To verify runs (after 03:07/04:07/05:07/06:07 UTC):
 --   SELECT jobname, status, return_message, start_time
 --   FROM cron.job_run_details
 --   ORDER BY start_time DESC LIMIT 10;
@@ -32,6 +32,8 @@
 -- To remove a schedule:
 --   SELECT cron.unschedule('nightly-contradictions');
 --   SELECT cron.unschedule('nightly-stale-wiki');
+--   SELECT cron.unschedule('nightly-archive');
+--   SELECT cron.unschedule('nightly-consolidate');
 -- =========================================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -71,6 +73,38 @@ SELECT cron.schedule(
       'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
     ),
     body := '{"job":"stale-wiki"}'::jsonb
+  ) AS request_id;
+  $$
+);
+
+-- Schedule 3: nightly auto-archival at 05:07 UTC daily
+SELECT cron.schedule(
+  'nightly-archive',
+  '7 5 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/run-nightly-jobs',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
+    ),
+    body := '{"job":"archive"}'::jsonb
+  ) AS request_id;
+  $$
+);
+
+-- Schedule 4: nightly consolidation (weekly Sunday) at 06:07 UTC
+SELECT cron.schedule(
+  'nightly-consolidate',
+  '7 6 * * 0',
+  $$
+  SELECT net.http_post(
+    url := 'https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/run-nightly-jobs',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
+    ),
+    body := '{"job":"consolidate"}'::jsonb
   ) AS request_id;
   $$
 );

@@ -4,6 +4,54 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-12
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Lifecycle status.** New `lifecycle_status` column (`active`/`superseded`/`archived`)
+  on `thoughts`. `match_thoughts_v2` now accepts an `include_archived` boolean param
+  (default false); results surface `lifecycle_status`. The supersede tool also sets the
+  old thought to `'superseded'`. (WS1)
+- **Archived-aware ranking.** Archived thoughts are excluded from default search results
+  unless `include_archived=true`. Superseded ranking logic is unchanged (still uses the
+  `NOT EXISTS` anti-join). (WS1)
+- **Nightly auto-archival** (`{job:"archive"}`). Pure SQL, zero LLM cost. Resolved action
+  items older than `ARCHIVE_RESOLVED_ACTION_DAYS` (default 90) and cold
+  notes/references/questions never retrieved for `ARCHIVE_COLD_DAYS` (default 180) are
+  set to `lifecycle_status = 'archived'`. Decisions and insights are NEVER auto-archived.
+  Scheduled daily at 05:07 UTC via pg_cron. (WS2)
+- **Nightly consolidation** (`{job:"consolidate"}`, weekly Sunday 06:07 UTC).
+  `consolidation_candidates` RPC finds high-signal topics with no compiled wiki page;
+  compiles via `compile-wiki`, budget-capped by `CONSOLIDATE_BUDGET` (default 5) and
+  `CONSOLIDATE_MIN_THOUGHTS` (default 3). (WS2)
+- **Task-state API.** New `tasks` table (migration 013) with 4 MCP tools:
+  `task_create`, `task_get`, `task_list`, `task_update`. Project-scoped, with
+  `status_history` array for auditable transitions, soft-delete via `cancel` status.
+  Tool count: 15 -> 19. (WS4)
+- **New disable family.** `OPEN_BRAIN_TOOLS_DISABLED` now accepts `tasks` alongside
+  `wiki` and `contradictions`. (WS4)
+- **Eval: archived-exclusion golden queries.** Deterministic fixtures verify archived
+  thoughts are excluded from default `match_thoughts_v2` results and included when
+  `include_archived=true`. (WS5)
+
+### Changed
+
+- **MCP server 0.5.0 -> 0.6.0** (15 -> 19 tools). `thoughts_search` now surfaces
+  `lifecycle_status` and accepts the `include_archived` param. New `task_*` tool family
+  with 4 tools. (WS3 + WS4)
+- **Migrations 012 + 013** applied. Migration 012 adds `lifecycle_status`,
+  `archive_thought`, `consolidation_candidates`, and updates `match_thoughts_v2` to
+  11 arguments. Migration 013 creates the `tasks` table. (WS1 + WS4)
+
+### Cross-repo follow-ups (not part of this release)
+
+- A separate PR on `dagonet/claude-code-toolkit` will sync each variant's
+  `CLAUDE.md`, `CLAUDE.local.md`, skill files, and agent definitions to reference
+  the 19-tool set (was 15) and document the `lifecycle` + `tasks` disable families.
+
 ## [0.5.0] - 2026-07-12
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)

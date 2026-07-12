@@ -1,6 +1,6 @@
 # Open Brain MCP Server
 
-A local MCP (Model Context Protocol) server for Open Brain memory retrieval. As of v0.5.0 it exposes **15 tools** — semantic search with hybrid ranking (recency, salience, contradiction-penalized, superseded-excluded), capture with project scoping, salience extraction, and near-dup detection, listing with project filter, weekly review, system status, wiki pages, contradictions, and supersede.
+A local MCP (Model Context Protocol) server for Open Brain memory retrieval. As of v0.6.0 it exposes **19 tools** — semantic search with hybrid ranking (recency, salience, contradiction-penalized, superseded-excluded, lifecycle-filtered), capture with project scoping, salience extraction, and near-dup detection, listing with project filter, weekly review, system status, wiki pages, contradictions, supersede, and task management.
 
 > Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) via Nate B Jones — [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
 
@@ -8,7 +8,7 @@ A local MCP (Model Context Protocol) server for Open Brain memory retrieval. As 
 
 - Node.js 18+
 - npm
-- A Supabase project with the Open Brain schema deployed (migrations 001–011)
+- A Supabase project with the Open Brain schema deployed (migrations 001–013)
 - An OpenAI API key (for embedding-based semantic search)
 
 ## Setup
@@ -28,12 +28,12 @@ npm run build
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (NOT the anon key) |
 | `OPENAI_API_KEY` | OpenAI API key for generating embeddings |
-| `OPEN_BRAIN_TOOLS_DISABLED` | (v0.3.0, optional) Comma-separated tool families to filter out: `wiki`, `contradictions`, or both. See [Per-repo opt-out](#per-repo-opt-out) below. |
+| `OPEN_BRAIN_TOOLS_DISABLED` | (v0.3.0, optional) Comma-separated tool families to filter out: `wiki`, `contradictions`, `tasks`, or any combination. See [Per-repo opt-out](#per-repo-opt-out) below. |
 | `OPEN_BRAIN_DEFAULT_PROJECT` | (v0.5.0, optional) Default project scope for all tools when the caller omits the `project` param. Enables per-repo memory isolation — each workspace pins itself via `.mcp.json`. |
 
 ### 3. Apply database migrations
 
-Run `supabase db push` from the repo root to apply all Open Brain migrations (001–011). Migrations 008–011 (v0.5.0) add project scoping, salience, supersedes, hybrid ranking, near-duplicate detection, and retrieval tracking. The `sql/match_thoughts.sql` file is deprecated — migration 008 is now the source of truth.
+Run `supabase db push` from the repo root to apply all Open Brain migrations (001–013). Migrations 008–011 (v0.5.0) add project scoping, salience, supersedes, hybrid ranking, near-duplicate detection, and retrieval tracking. Migrations 012–013 (v0.6.0) add lifecycle tracking, archival RPCs, and the tasks table. The `sql/match_thoughts.sql` file is deprecated — migration 008 is now the source of truth.
 
 ### 4. Configure Claude Code
 
@@ -62,7 +62,7 @@ Add to your `.claude/.mcp.json` (project) or `~/.claude/.mcp.json` (user-level):
 
 | Tool | Description |
 |---|---|
-| `thoughts_search` | Semantic search with hybrid ranking (v0.5.0: uses `match_thoughts_v2` with recency decay, salience boost, contradiction penalty, superseded exclusion). Params: `query`, `limit`, `thought_type`, `people`, `topics`, `days`, `project` (v0.5.0), `recency_halflife_days`, `include_superseded`, `apply_contradiction_penalty`. Results include `score`, `salience`, `project`. |
+| `thoughts_search` | Semantic search with hybrid ranking (v0.5.0: uses `match_thoughts_v2` with recency decay, salience boost, contradiction penalty, superseded exclusion; v0.6.0: adds `include_archived`, results surface `lifecycle_status`). Params: `query`, `limit`, `thought_type`, `people`, `topics`, `days`, `project` (v0.5.0), `recency_halflife_days`, `include_superseded`, `include_archived` (v0.6.0), `apply_contradiction_penalty`. Results include `score`, `salience`, `project`, `lifecycle_status` (v0.6.0). |
 | `thoughts_recent` | List thoughts ordered by date. Params: `days`, `limit`, `project` (v0.5.0). |
 | `thoughts_capture` | Capture a thought, decision, insight, or note. Auto-classifies + extracts metadata + salience rating (v0.5.0). Params: `text`, `metadata`, `project` (v0.5.0). When `duplicate_candidate` is returned, a hint text suggests using `thoughts_supersede`. |
 | `thoughts_delete` | Soft-delete a thought by UUID. Params: `id`. |
@@ -88,11 +88,20 @@ Add to your `.claude/.mcp.json` (project) or `~/.claude/.mcp.json` (user-level):
 | `contradictions_resolve` | Mark a contradiction as `resolved` / `ignored` / `false_positive` and capture an audit thought. Params: `id`, `decision`, `note`. |
 | `contradictions_audit` | Trigger an on-demand audit pass via the `detect-contradictions` edge function. Params: `thought_id`, `since`, `candidate_limit`. |
 
+### Tasks (4 — new in v0.6.0)
+
+| Tool | Description |
+|---|---|
+| `task_create` | Create a new task. Params: `title`, `description`, `status` (default `backlog`), `priority` (default `medium`), `assignee`, `project`. |
+| `task_get` | Get a single task by ID. Returns full task with `status_history` array. Params: `id`. |
+| `task_list` | List tasks filterable by `status`, `project`, `priority`, `assignee`. Params: `status`, `project`, `priority`, `assignee`, `limit`. |
+| `task_update` | Update a task's fields. Status transitions are appended to `status_history`. Use `cancel` status for soft-delete. Params: `id`, `status`, `priority`, `assignee`, `title`, `description`. |
+
 The MCP `instructions` string includes a **conditional wiki-first rule**: agents call `wiki_list({limit:1})` before considering `wiki_get`, so unrelated repos with no wiki content see no behavioural change versus v0.2.0.
 
 ## Per-repo opt-out
 
-Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` in a project's `.mcp.json` env block to silence those tool families in that workspace. Useful for sensitive client repos where wiki/audit overhead is unwanted.
+Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks` in a project's `.mcp.json` env block to silence those tool families in that workspace. Useful for sensitive client repos where wiki/audit/task overhead is unwanted.
 
 ```json
 {
@@ -105,19 +114,20 @@ Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions` in a project's `.mcp.json` e
         "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key",
         "OPENAI_API_KEY": "sk-your-openai-key",
         "OPEN_BRAIN_DEFAULT_PROJECT": "my-repo-name",
-        "OPEN_BRAIN_TOOLS_DISABLED": "wiki,contradictions"
+        "OPEN_BRAIN_TOOLS_DISABLED": "wiki,contradictions,tasks"
       }
     }
   }
 }
 ```
 
-When the env var is set, the filtered families do not appear in the `tools/list` response and the wiki-first rule is omitted from the MCP `instructions` string.
+When the env var is set, the filtered families do not appear in the `tools/list` response and the conditional wiki-first rule is omitted from the MCP `instructions` string.
 
 ## Versions
 
 | Version | Notes |
 |---|---|
+| `0.6.0` | Added 4 task tools (19 total), lifecycle tracking (`include_archived`, `lifecycle_status` on search results), nightly auto-archive and consolidation, `tasks` disable-family |
 | `0.5.0` | Added thoughts_supersede (tool #15), hybrid search params, project scoping, salience, near-dup detection, retrieval tracking |
 | `0.3.0` | Added 6 wiki / contradictions tools, per-repo opt-out, conditional wiki-first rule |
 | `0.2.0` | First write tool (`thoughts_capture`), proactive `instructions` string |
