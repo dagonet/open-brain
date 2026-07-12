@@ -136,7 +136,7 @@ Opt-in (add to `enabledPlugins` if needed): `feature-dev`, `code-simplifier`, `c
 - **Tests** — write general solutions, don't hard-code test values. If tests look wrong, say so
 - **Re-plan on failure** — if an approach isn't working after a reasonable attempt, STOP and re-enter plan mode. Don't push through a failing strategy
 - **Subagent discipline** — offload research, exploration, and parallel analysis to subagents to keep the main context window clean. One focused task per subagent
-- **Read tool discipline** — `Read` loads file contents directly into PO context (measured at **22% of total context** in `docs/plans/2026-04-14-context-baseline.md` — the largest actionable bucket). Use `Read` only for files you will immediately Edit or Write. For exploration, pattern searches, "how does X work", or reading large files for analysis, delegate to an **Explore subagent** — results return as compressed summaries. For single-file analysis that doesn't need contents in context, use `mcp__plugin_context-mode_context-mode__ctx_execute_file`
+- **Read tool discipline** — `Read` loads file contents directly into PO context (measured at **22% of total context** in `docs/plans/2026-04-14-read-size-gate.md` — the largest actionable bucket). Use `Read` only for files you will immediately Edit or Write. For exploration, pattern searches, "how does X work", or reading large files for analysis, delegate to an **Explore subagent** — results return as compressed summaries. For single-file analysis that doesn't need contents in context, use `mcp__plugin_context-mode_context-mode__ctx_execute_file`
 - **Learn from corrections** — after any user correction, immediately capture the pattern to Open Brain so the mistake doesn't repeat
 - **Fix CI proactively** — if build or CI fails, fix it without waiting to be told
 - **Analyze before coding** — before implementing fixes or non-trivial features, enumerate edge cases and identify all callers/consumers that could be affected. For bug fixes, verify the root cause from data (query DB, check logs) before writing code
@@ -165,6 +165,19 @@ Opt-in (add to `enabledPlugins` if needed): `feature-dev`, `code-simplifier`, `c
 
 Before claiming any task complete, invoke `superpowers:verification-before-completion`.
 Project-specific reminders: diff behavior between your branch and `main` to confirm the change does what's intended; ask "would a staff engineer approve this as-is?" before marking complete.
+
+---
+
+# Verification
+
+Mandatory rules live in `VERIFICATION_PLAYBOOK.md` — consult it before claiming completion. Four rules are always-on:
+
+1. **Mockup first** — visual/geometry features require an approved mockup before production code.
+2. **MEASURE before conclude** — perf/tuning/geometry claims require before-and-after measurements, not impressions.
+3. **Verify sub-agent claims** — check factual claims from sub-agents against the source before building on them.
+4. **Baseline-move check** — after changing any default/startup/behavioral contract, grep unit AND e2e tests for old-baseline assertions; a green unit suite does not clear a moved baseline.
+
+**Gate rule (PO + developers):** run `bash hooks/run-gate.sh` — never re-derive the individual build/test/format/lint commands from memory. A green gate writes `.gate/last-pass.json`; `hooks/gate-before-merge.sh` hard-blocks PR merges without a fresh artifact.
 
 ---
 

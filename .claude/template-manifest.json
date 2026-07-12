@@ -1,7 +1,7 @@
 {
   "variant": "general",
   "templateRepo": "G:/git/claude-code-toolkit",
-  "lastSynced": "eed16f0",
+  "lastSynced": "9021ddc",
   "placeholders": {
     "PROJECT_NAME": "AI Memory",
     "PROJECT_NAME_LOWER": "ai memory"
@@ -14,15 +14,15 @@
       "locallyModified": false
     },
     ".claude/agents/code-reviewer.md": {
-      "templateHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
-      "templateRawHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
-      "localHash": "add81120fb5e4c979c8efcba5ef381ee6cdf0f50fb6d3623dcbc41af88ff9a1d",
+      "templateHash": "84562092db2755b28e6730c3508ed1c2045786409db4f2b7ca04956b551e9cfe",
+      "templateRawHash": "84562092db2755b28e6730c3508ed1c2045786409db4f2b7ca04956b551e9cfe",
+      "localHash": "84562092db2755b28e6730c3508ed1c2045786409db4f2b7ca04956b551e9cfe",
       "locallyModified": false
     },
     ".claude/agents/coder.md": {
-      "templateHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
-      "templateRawHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
-      "localHash": "3b6ed363a81b2c6c76d6cc7b005de6f80664274f0ae17e8b9e0e848d986ad004",
+      "templateHash": "d6c2a3f652b140ca0de811939cac9a8af2b1c48c904eb8854638b8136a06a4fb",
+      "templateRawHash": "d6c2a3f652b140ca0de811939cac9a8af2b1c48c904eb8854638b8136a06a4fb",
+      "localHash": "d6c2a3f652b140ca0de811939cac9a8af2b1c48c904eb8854638b8136a06a4fb",
       "locallyModified": false
     },
     ".claude/agents/doc-generator.md": {
@@ -36,21 +36,21 @@
       "locallyModified": false
     },
     ".claude/agents/test-writer.md": {
-      "templateHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
-      "templateRawHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
-      "localHash": "7de67e0d1bf00c4a867fbd4e7629f3a79d2390a0c68b094334a653ef26490a8c",
+      "templateHash": "39cb1fd014d7c30c12b1cd4056c7c18e002470a662fe4361a8e1064ad9f185da",
+      "templateRawHash": "39cb1fd014d7c30c12b1cd4056c7c18e002470a662fe4361a8e1064ad9f185da",
+      "localHash": "39cb1fd014d7c30c12b1cd4056c7c18e002470a662fe4361a8e1064ad9f185da",
       "locallyModified": false
     },
     ".claude/agents/tester.md": {
-      "templateHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
-      "templateRawHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
-      "localHash": "78a9bcfe44773746494b45dcc71fccca78830267f90fbee184b6646e33681fc2",
+      "templateHash": "895a9b14478c37a4fd52cf2031f3d29b79c5a5f4f53083f8c0204907061eb20c",
+      "templateRawHash": "895a9b14478c37a4fd52cf2031f3d29b79c5a5f4f53083f8c0204907061eb20c",
+      "localHash": "895a9b14478c37a4fd52cf2031f3d29b79c5a5f4f53083f8c0204907061eb20c",
       "locallyModified": false
     },
     ".claude/settings.json": {
-      "templateHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
-      "templateRawHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
-      "localHash": "101aaec307a2014a4e5398f136fce62de8cdadf469899ad2499c622de97ca782",
+      "templateHash": "d19e54039301486ccaaa270098b53a8b26eb2731e0a43ef88177ce4403c1178c",
+      "templateRawHash": "d19e54039301486ccaaa270098b53a8b26eb2731e0a43ef88177ce4403c1178c",
+      "localHash": "d19e54039301486ccaaa270098b53a8b26eb2731e0a43ef88177ce4403c1178c",
       "locallyModified": false
     },
     ".gitattributes": {
@@ -60,9 +60,9 @@
       "locallyModified": false
     },
     "AGENT_TEAM.md": {
-      "templateHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
-      "templateRawHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
-      "localHash": "c617f08d59fd40c4c3fdc0672c718ec3cf5a43c971cc2e57a7531fbf8f148c44",
+      "templateHash": "9fd81f084c173cad8d70f1def7f297f750ed29c6725678c9a775be1bc95aecdf",
+      "templateRawHash": "9fd81f084c173cad8d70f1def7f297f750ed29c6725678c9a775be1bc95aecdf",
+      "localHash": "9fd81f084c173cad8d70f1def7f297f750ed29c6725678c9a775be1bc95aecdf",
       "locallyModified": false
     },
     "CLAUDE.local.md": {
@@ -72,18 +72,68 @@
       "locallyModified": false
     },
     "CLAUDE.md": {
-      "templateHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
-      "templateRawHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
-      "localHash": "ac0976b0d8f611a89c8a8544352bd527a4b27bd1c5ff4f2c01529d89960d5b67",
+      "templateHash": "abdb360ae76ea2401405c6550f49bd1069b6de5b03943f28cdfac6895b0a0e7b",
+      "templateRawHash": "abdb360ae76ea2401405c6550f49bd1069b6de5b03943f28cdfac6895b0a0e7b",
+      "localHash": "abdb360ae76ea2401405c6550f49bd1069b6de5b03943f28cdfac6895b0a0e7b",
       "locallyModified": false
     },
     "PROJECT_CONTEXT.md": {
-      "reason": "Project-specific config",
+      "templateHash": "bf6b47f62c394c91cb8a367a75e7cfe3f5bb6e1f44f937ad8f745697da42e742",
+      "templateRawHash": "748e46ff76068b06c39ebe5f91f52c2e1cb27deb6b451b77e98b8e25c59f4e4f",
+      "localHash": "0b3c7242bb4a4d435c615a563d0428731d1d9e2e77237164d689f7c375a80736",
       "locallyModified": true,
-      "templateHash": "8b9cdc358cac34eb31bc617cacc10bc22de470da120542188bc02223c6cd78ba"
+      "reason": "Project-specific config"
     },
     "PROJECT_STATE.md": {
       "templateHash": "e68fff9966d3e176ae5cb709187f1ac30b2292f1464432d626ac9a6b420996a2",
+      "locallyModified": false
+    },
+    "VERIFICATION_PLAYBOOK.md": {
+      "templateHash": "551d7af4052742afa59af552147b163b27296cd60a3311b109d8676a86537b16",
+      "templateRawHash": "551d7af4052742afa59af552147b163b27296cd60a3311b109d8676a86537b16",
+      "localHash": "551d7af4052742afa59af552147b163b27296cd60a3311b109d8676a86537b16",
+      "locallyModified": false
+    },
+    "hooks/block-bash-vcs.sh": {
+      "templateHash": "1e173e6b499f1f8cc274a6b9c3dbc1131d8b01fb47cb4dfd363d5e8049f53d11",
+      "templateRawHash": "1e173e6b499f1f8cc274a6b9c3dbc1131d8b01fb47cb4dfd363d5e8049f53d11",
+      "localHash": "1e173e6b499f1f8cc274a6b9c3dbc1131d8b01fb47cb4dfd363d5e8049f53d11",
+      "locallyModified": false
+    },
+    "hooks/enforce-agent-contract.sh": {
+      "templateHash": "b6cc25973c0483addb6b501640a06fbaec13c58dda46ca4795d180a2d52673ba",
+      "templateRawHash": "b6cc25973c0483addb6b501640a06fbaec13c58dda46ca4795d180a2d52673ba",
+      "localHash": "b6cc25973c0483addb6b501640a06fbaec13c58dda46ca4795d180a2d52673ba",
+      "locallyModified": false
+    },
+    "hooks/gate-before-merge.sh": {
+      "templateHash": "362fbc38b9ae81f6e47e680b65e08d83ffa97c468c4d6d78f9cacd089a6e7fb1",
+      "templateRawHash": "362fbc38b9ae81f6e47e680b65e08d83ffa97c468c4d6d78f9cacd089a6e7fb1",
+      "localHash": "362fbc38b9ae81f6e47e680b65e08d83ffa97c468c4d6d78f9cacd089a6e7fb1",
+      "locallyModified": false
+    },
+    "hooks/no-push-main.sh": {
+      "templateHash": "9b4b659913156496a300bff900f596c0bb50c8f2eb2a60bbc2e7b8a25d9b1255",
+      "templateRawHash": "9b4b659913156496a300bff900f596c0bb50c8f2eb2a60bbc2e7b8a25d9b1255",
+      "localHash": "9b4b659913156496a300bff900f596c0bb50c8f2eb2a60bbc2e7b8a25d9b1255",
+      "locallyModified": false
+    },
+    "hooks/pre-commit-test.sh": {
+      "templateHash": "74ecdbecb0375492d15071925a77fe490cd35cbbabe8c50401cbf112fbbe73d1",
+      "templateRawHash": "74ecdbecb0375492d15071925a77fe490cd35cbbabe8c50401cbf112fbbe73d1",
+      "localHash": "74ecdbecb0375492d15071925a77fe490cd35cbbabe8c50401cbf112fbbe73d1",
+      "locallyModified": false
+    },
+    "hooks/require-skills-block.sh": {
+      "templateHash": "73fae79838f4ea85671e8d03442b9b7879f6f3a94988af242cf2e932088740b1",
+      "templateRawHash": "73fae79838f4ea85671e8d03442b9b7879f6f3a94988af242cf2e932088740b1",
+      "localHash": "73fae79838f4ea85671e8d03442b9b7879f6f3a94988af242cf2e932088740b1",
+      "locallyModified": false
+    },
+    "hooks/tier-before-coder.sh": {
+      "templateHash": "a4b06c0085a1ed142fba596b55217cf8eb83ebbba73f5c80a8d6867446750c13",
+      "templateRawHash": "a4b06c0085a1ed142fba596b55217cf8eb83ebbba73f5c80a8d6867446750c13",
+      "localHash": "a4b06c0085a1ed142fba596b55217cf8eb83ebbba73f5c80a8d6867446750c13",
       "locallyModified": false
     }
   },

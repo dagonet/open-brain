@@ -9,10 +9,13 @@
 
 ## Commands
 
-- **Build**: `npx tsc --noEmit` (per component: `cd cli && npx tsc --noEmit`, `cd mcp-server && npx tsc --noEmit`)
-- **Test**: `npx vitest run` (per component where tests exist)
+- **Build**: `npx tsc --noEmit`
+- **Test**: `npx vitest run`
 - **Format**: `npx prettier --write .`
 - **Lint**: `npx eslint .`
+- **Gate**: {{GATE_COMMAND}}
+
+<!-- Per-component variants: `cd cli && npx tsc --noEmit`, `cd mcp-server && npx tsc --noEmit`; tests likewise per component -->
 
 ## Paths
 
