@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { allTools } from "../index.js";
 
 describe("allTools registry", () => {
-  it("has exactly 19 tool definitions", () => {
-    expect(allTools).toHaveLength(19);
+  it("has exactly 22 tool definitions", () => {
+    expect(allTools).toHaveLength(22);
   });
 
   it("each tool has required fields", () => {
@@ -23,7 +23,7 @@ describe("allTools registry", () => {
   });
 
   it("every tool name uses one of the known family prefixes", () => {
-    const allowedPrefixes = ["thoughts_", "wiki_", "contradictions_", "task_"];
+    const allowedPrefixes = ["thoughts_", "wiki_", "contradictions_", "task_", "entities_"];
     const allowedExact = new Set(["system_status"]);
     for (const tool of allTools) {
       if (allowedExact.has(tool.name)) continue;
@@ -36,7 +36,7 @@ describe("allTools registry", () => {
     const names = new Set(allTools.map((t) => t.name));
     expect(names).toEqual(
       new Set([
-        // thoughts (9)
+        // thoughts (10)
         "thoughts_search",
         "thoughts_recent",
         "thoughts_delete",
@@ -46,6 +46,7 @@ describe("allTools registry", () => {
         "thoughts_review",
         "thoughts_capture",
         "thoughts_supersede",
+        "thoughts_search_expanded",
         // wiki (3)
         "wiki_get",
         "wiki_list",
@@ -59,6 +60,9 @@ describe("allTools registry", () => {
         "task_get",
         "task_list",
         "task_update",
+        // entities (2)
+        "entities_search",
+        "entities_graph",
       ])
     );
   });

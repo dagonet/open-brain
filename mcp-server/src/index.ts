@@ -26,14 +26,15 @@ const openai = new OpenAI({ apiKey: openaiKey });
 
 const disabled = disabledFamilies(process.env.OPEN_BRAIN_TOOLS_DISABLED);
 const wikiEnabled = !disabled.has("wiki");
+const entitiesEnabled = !disabled.has("entities");
 
 const server = new McpServer(
   {
     name: "open-brain",
-    version: "0.5.0",
+    version: "0.7.0",
   },
   {
-    instructions: buildInstructions({ wikiEnabled }),
+    instructions: buildInstructions({ wikiEnabled, entitiesEnabled }),
   },
 );
 

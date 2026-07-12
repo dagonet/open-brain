@@ -1,6 +1,6 @@
 ﻿import { SupabaseClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
-import { resolveProject } from "../config.js";
+import { baseSemanticSearch } from "./search-core.js";
 
 export interface SemanticSearchParams {
   query: string;
@@ -26,69 +26,33 @@ export async function semanticSearch(
   openai: OpenAI,
   params: SemanticSearchParams,
 ): Promise<string> {
-  const {
-    query,
-    limit = 10,
-    thought_type,
-    people,
-    topics,
-    days,
-    project,
-    recency_halflife_days,
-    include_superseded,
-    include_archived,
-    apply_contradiction_penalty,
-  } = params;
-
-  const effectiveProject = resolveProject(project);
-
-  let embedding: number[];
-  try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-    });
-    embedding = response.data[0].embedding;
-  } catch (err) {
-    return JSON.stringify({
-      error: "Failed to generate embedding",
-      message: err instanceof Error ? err.message : String(err),
-      suggestion:
-        "Use thoughts_recent as a fallback to browse recent thoughts without semantic search.",
-    });
-  }
-
-  const { data, error } = await supabase.rpc("match_thoughts_v2", {
-    query_embedding: JSON.stringify(embedding),
-    match_count: limit,
-    filter_thought_type: thought_type ?? null,
-    filter_people: people ?? null,
-    filter_topics: topics ?? null,
-    filter_days: days ?? null,
-    filter_project: effectiveProject,
-    recency_halflife_days: recency_halflife_days ?? 30,
-    include_superseded: include_superseded ?? false,
-    include_archived: include_archived ?? false,
-    apply_contradiction_penalty: apply_contradiction_penalty ?? true,
+  const result = await baseSemanticSearch(supabase, openai, {
+    query: params.query,
+    limit: params.limit ?? 10,
+    thought_type: params.thought_type ?? null,
+    people: params.people ?? null,
+    topics: params.topics ?? null,
+    days: params.days ?? null,
+    project: params.project ?? null,
+    recency_halflife_days: params.recency_halflife_days,
+    include_superseded: params.include_superseded,
+    include_archived: params.include_archived,
+    apply_contradiction_penalty: params.apply_contradiction_penalty,
   });
 
-  if (error) {
-    return JSON.stringify({ error: error.message });
+  if (result.error) {
+    if (result.isEmbeddingError) {
+      return JSON.stringify({
+        error: "Failed to generate embedding",
+        message: result.error,
+        suggestion:
+          "Use thoughts_recent as a fallback to browse recent thoughts without semantic search.",
+      });
+    }
+    return JSON.stringify({ error: result.error });
   }
 
-  // Fire-and-forget retrieval tracking — never blocks or fails the response.
-  if (Array.isArray(data) && data.length > 0) {
-    const ids = (data as Array<Record<string, unknown>>).map((r) => r.id);
-    void (async () => {
-      try {
-        await supabase.rpc("increment_retrieval", { ids });
-      } catch (trackErr: unknown) {
-        console.error("[thoughts_search] tracking failed:", trackErr);
-      }
-    })();
-  }
-
-  return JSON.stringify(data);
+  return JSON.stringify(result.data);
 }
 
 import { z } from "zod";
