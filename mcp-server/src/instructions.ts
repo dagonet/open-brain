@@ -22,6 +22,9 @@ const CORE_INSTRUCTIONS = [
   "- thoughts_recent: Review recent thoughts to understand what the user has been working on.",
   "  Supports optional project filter (or OPEN_BRAIN_DEFAULT_PROJECT env var).",
   "- thoughts_review: Use at session start or when planning to get a structured overview of recent activity.",
+  "- thoughts_search_expanded: Search thoughts with entity-expanded results. Prefer it to surface",
+  "  connected memories a pure semantic search misses. Performs semantic search, then uses graph",
+  "  traversal to find related thoughts.",
   "- system_status: Check system health if tools seem to be failing.",
   "",
   "WRITING — Capture durable knowledge:",
@@ -101,10 +104,26 @@ const CITATION_FOOTER = [
   "via Nate B Jones (https://www.youtube.com/watch?v=dxq7WtWxi44).",
 ];
 
-export function buildInstructions(opts: { wikiEnabled: boolean }): string {
+// === entities ===
+const ENTITIES_INSTRUCTIONS = [
+  "",
+  "ENTITIES (v0.7.0) — entity graph over the mind:",
+  "- entities_search({query, entity_type?, limit?}): Search entity nodes by name/type.",
+  "  Returns matching entities with mention count, thought count, and last-mentioned timestamp.",
+  "- entities_graph({entity, max_nodes?}): Get the immediate neighborhood of an entity.",
+  "  Returns connected entities with edge weight, display name, entity type, and shared thought count.",
+];
+
+export function buildInstructions(opts: {
+  wikiEnabled: boolean;
+  entitiesEnabled: boolean;
+}): string {
   const lines = [...CORE_INSTRUCTIONS];
   if (opts.wikiEnabled) {
     lines.push(...WIKI_INSTRUCTIONS);
+  }
+  if (opts.entitiesEnabled) {
+    lines.push(...ENTITIES_INSTRUCTIONS);
   }
   lines.push(...TASKS_INSTRUCTIONS);
   lines.push(...CITATION_FOOTER);

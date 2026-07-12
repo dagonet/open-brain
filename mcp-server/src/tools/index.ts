@@ -18,6 +18,9 @@ import { definition as taskCreate } from "./task-create.js";
 import { definition as taskGet } from "./task-get.js";
 import { definition as taskList } from "./task-list.js";
 import { definition as taskUpdate } from "./task-update.js";
+import { definition as entitiesSearch } from "./entities-search.js";
+import { definition as entitiesGraph } from "./entities-graph.js";
+import { definition as thoughtsSearchExpanded } from "./thoughts-search-expanded.js";
 
 export type { ToolDefinition } from "./registry.js";
 export type { Deps } from "./registry.js";
@@ -42,4 +45,7 @@ export const allTools: ToolDefinition[] = [
   taskGet,
   taskList,
   taskUpdate,
+  entitiesSearch,
+  entitiesGraph,
+  thoughtsSearchExpanded,
 ];
