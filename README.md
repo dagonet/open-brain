@@ -4,7 +4,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dagonet/open-brain)
 [![CI](https://github.com/dagonet/open-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/dagonet/open-brain/actions/workflows/ci.yml)
 
-A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes. v0.4.0 adds **entity descriptions** (rich context for people, projects, and technologies mentioned in your thoughts) and a **contradiction graph visualization** at `/graph`. v0.5.0 adds **hybrid ranking** (recency, salience, contradiction-penalized), **project scoping** for per-repo memory isolation, **salience extraction** during capture, **near-duplicate detection**, a **`thoughts_supersede`** tool, **retrieval-tracking analytics**, an **eval harness** for ranking quality, and **nightly automation** for contradictions and wiki maintenance.
+A personal AI memory system that captures, classifies, and retrieves thoughts using semantic search. Thoughts are automatically embedded, categorized, and made searchable across multiple interfaces: CLI, MCP server (Claude Code), and Slack. Since v0.3.0, Open Brain also compiles topic-level **wiki pages** with provenance-linked sources and surfaces **contradictions** in your captured notes. v0.4.0 adds **entity descriptions** (rich context for people, projects, and technologies mentioned in your thoughts) and a **contradiction graph visualization** at `/graph`. v0.5.0 adds **hybrid ranking** (recency, salience, contradiction-penalized), **project scoping** for per-repo memory isolation, **salience extraction** during capture, **near-duplicate detection**, a **`thoughts_supersede`** tool, **retrieval-tracking analytics**, an **eval harness** for ranking quality, and **nightly automation** for contradictions and wiki maintenance. v0.7.0 adds a **co-occurrence entity graph** — the entity descriptions captured since v0.4.0 are now navigable via 3 new MCP tools: `entities_search`, `entities_graph`, and `thoughts_search_expanded`.
 
 Inspired by:
 
@@ -30,9 +30,10 @@ Inspired by:
 13. **NEW (v0.6.0): It archives itself nightly.** Resolved action items older than 90 days and cold notes/references/questions never retrieved for 180 days are automatically archived — no LLM cost, pure SQL. Decisions and insights are NEVER auto-archived.
 14. **NEW (v0.6.0): It consolidates insights weekly.** A weekly job finds high-signal topics without a wiki page and compiles one, budget-capped to prevent runaway LLM usage.
 15. **NEW (v0.6.0): It tracks tasks.** A dedicated `tasks` table with 4 new MCP tools (`task_create`, `task_get`, `task_list`, `task_update`) lets you manage action items with status history and soft-delete. Tool count: 19.
-16. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
+16. **NEW (v0.7.0): It navigates your entity graph.** The entity descriptions captured since v0.4.0 are now wired into a co-occurrence graph. You can search entities, explore 1-hop neighborhoods, and run expanded searches that surface thoughts related via shared entities — a rare shared entity outranks a common hub. Tool count: 22.
+17. **You own all of it.** The data lives in your own Supabase project, your own files, your own dashboard. No SaaS lock-in, no vendor reading your notes.
 
-> **Already using `claude-code-toolkit`?** Toolkit templates ship with v0.3.0 references built in (synced 2026-04-26). The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
+> **Already using `claude-code-toolkit`?** Toolkit templates ship with v0.3.0 references built in (synced 2026-04-26). The new tools also accept a per-repo `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks,entities` env var in `.mcp.json` to silence them in workspaces where they aren't useful.
 
 ## How It Works
 
@@ -51,7 +52,7 @@ capture-thought edge function (Supabase/Deno)
 PostgreSQL + pgvector (Supabase)
   |
   ├── thoughts (vector, type, people, topics, project, salience, supersedes) v0.5.0
-  ├── entity_descriptions (v0.4.0)
+  ├── entity_descriptions → entity_nodes + entity_edges (v0.7.0)
   ├── wiki_pages + wiki_sources
   └── contradictions
   └── retrieval_count, last_retrieved_at (v0.5.0 tracking)
@@ -62,7 +63,9 @@ Retrieval (MCP server / CLI / web dashboard)
   ├── match_thoughts pure cosine (v1, backward compat)
   ├── List by date, people, topics, project (v0.5.0)
   ├── thoughts_supersede tool (v0.5.0)
-  ├── Entity description lookup (v0.4.0)
+  ├── Entity description + graph lookup (v0.4.0 / v0.7.0)
+  ├── entities_search / entities_graph (v0.7.0)
+  ├── thoughts_search_expanded (v0.7.0) — semantic + 1-hop entity expansion
   └── Weekly review summaries
 
   Wiki layer (v0.3.0)
@@ -81,13 +84,22 @@ Retrieval (MCP server / CLI / web dashboard)
   │                              /contradictions)    │
   └──────────────────────────────────────────────────┘
 
-  Graph layer (v0.4.0)
+  Graph layers
   ┌──────────────────────────────────────────────────┐
+  │ Contradiction graph (v0.4.0)                     │
   │ contradictions + thoughts → force-directed SVG   │
   │   |                                              │
   │   v                                              │
   │ /graph (dashboard) — nodes=thoughts,             │
   │ edges=contradictions, click to drill in          │
+  ├──────────────────────────────────────────────────┤
+  │ Entity graph (v0.7.0)                             │
+  │ entity_descriptions → entity_nodes + entity_edges │
+  │   |                                              │
+  │   v                                              │
+  │ entities_search / entities_graph /               │
+  │ thoughts_search_expanded (MCP)                   │
+  │ — co-occurrence graph, pure SQL, zero LLM cost   │
   └──────────────────────────────────────────────────┘
 ```
 
@@ -103,7 +115,7 @@ Every thought you capture is:
 | Component                                   | Runtime     | Description                                                                                                                                          |
 | ------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cli/`                                      | Node.js 18+ | `brain` command — capture thoughts, import memories, refresh wiki pages, run contradiction audits. Zero runtime dependencies.                        |
-| `mcp-server/`                               | Node.js 18+ | MCP server with 19 tools (9 thoughts + 3 wiki + 3 contradictions + 4 tasks) for Claude Code integration                                              |
+| `mcp-server/`                               | Node.js 18+ | MCP server with 22 tools (10 thoughts + 3 wiki + 3 contradictions + 4 tasks + 2 entities) for Claude Code integration                                              |
 | `web/`                                      | Next.js 15  | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Read-only via Supabase anon key; auto-deployed from `main` to Vercel. |
 | `supabase/functions/capture-thought/`       | Deno        | Edge function for thought processing and storage                                                                                                     |
 | `supabase/functions/compile-wiki/`          | Deno        | (v0.3.0) Compiles a topic-level wiki page from clustered thoughts with citation validation                                                           |
@@ -446,13 +458,29 @@ supabase functions deploy run-nightly-jobs --use-api   # updated in v0.6.0
 supabase functions deploy capture-thought --use-api     # updated in v0.6.0
 ```
 
-After migrations, rebuild the MCP server so it exposes the 4 new task tools (19 total):
+After migrations, rebuild the MCP server so it exposes the 4 new task tools (19 total). For v0.7.0, rebuild again to pick up the 3 entity graph tools (22 total):
 
 ```bash
 cd mcp-server && npm install && npm run build
 ```
 
 See `docs/cron-setup.sql` for the two new `nightly-archive` / `nightly-consolidate` pg_cron schedules.
+
+### v0.7.0 migration — entity graph views + RPCs
+
+Migration 014 adds `entity_nodes` and `entity_edges` views plus `entity_search`, `entity_neighbors`, and `related_thoughts_via_entities` RPCs. Pure additive DDL — no table changes, no edge function redeploys needed.
+
+```bash
+supabase db push                      # applies 014
+```
+
+After migration, rebuild the MCP server to expose the 3 new entity graph tools (22 total):
+
+```bash
+cd mcp-server && npm install && npm run build
+```
+
+No CLI or web dashboard changes in this release. Restart Claude Code to pick up the new tools.
 
 ## Usage
 
@@ -488,7 +516,7 @@ brain audit --resolve <id> --decision resolved
 
 ### MCP Server (Claude Code)
 
-The MCP server exposes 19 tools that Claude Code uses automatically:
+The MCP server exposes 22 tools that Claude Code uses automatically:
 
 **Read tools (thoughts):**
 
@@ -504,6 +532,7 @@ The MCP server exposes 19 tools that Claude Code uses automatically:
 - `thoughts_capture` — Save a thought (auto-classifies, extracts metadata, generates embedding). Optional `project` param (v0.5.0). When response includes `duplicate_candidate`, renders a hint with the duplicate ID, similarity, and pointer to `thoughts_supersede`.
 - `thoughts_delete` — Soft-delete a thought by ID
 - `thoughts_supersede` — (v0.5.0, tool #15) Mark `new_thought_id` as superseding `old_thought_id`. Validates both exist, are distinct, not deleted. Superseded thoughts are excluded from default search results.
+- `thoughts_search_expanded` — (v0.7.0) Semantic search with 1-hop entity expansion. Runs `match_thoughts_v2` then enriches results with related thoughts via shared entities from `related_thoughts_via_entities`. Params: `query`, `project`, `limit`, `recency_halflife_days`. Expansion leg degrades gracefully; base-search failure surfaces as an error.
 
 **Wiki tools (new in v0.3.0):**
 
@@ -524,9 +553,14 @@ The MCP server exposes 19 tools that Claude Code uses automatically:
 - `task_list` — List tasks by status, project, or priority
 - `task_update` — Update a task's status, assignee, or priority. Status transitions are appended to `status_history` for an auditable trail. Soft-delete via `cancel` status.
 
+**Entity tools (new in v0.7.0):**
+
+- `entities_search` — Search entities by name, type, or description. Supports optional `entity_type` filter and `limit` param. Returns matching entities with metadata and co-occurrence counts.
+- `entities_graph` — Get the 1-hop neighborhood of an entity. Accepts `entity` (name) and optional `max_nodes`. Returns `{entity, neighbors}` where each neighbor includes shared-thought count and related thought IDs.
+
 The server includes MCP `instructions` that guide Claude Code to proactively read from and write to Open Brain. The wiki rule is **conditional** on `wiki_list` returning ≥1 row, so unrelated repos don't see new behaviour until they have wiki content.
 
-**Per-repo opt-out.** Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks` in a project's `.mcp.json` env block to silence those tool families in that workspace:
+**Per-repo opt-out.** Set `OPEN_BRAIN_TOOLS_DISABLED=wiki,contradictions,tasks,entities` in a project's `.mcp.json` env block to silence those tool families in that workspace:
 
 ```json
 {
@@ -588,6 +622,8 @@ cd mcp-server && npx vitest
 **Classification:** GPT-4o-mini with JSON mode extracts `thought_type`, `people`, `topics`, and `action_items` from raw text. Temperature 0 for deterministic results.
 
 **Idempotency:** Content-based SHA-256 hashes prevent duplicate captures. The CLI uses `source:normalized_text` as the hash input; the MCP tool uses `mcp:normalized_text`.
+
+**Entity graph (v0.7.0):** The `entity_descriptions` table (v0.4.0) captured entity mentions on every save but was never read. Migration 014 adds `entity_nodes` (canonical entities by `lower(trim(name))`) and `entity_edges` (co-occurrence pairs, weight = shared-thought count) — pure SQL views over the existing data, zero LLM cost, self-maintaining. Three RPCs expose the graph: `entity_search` for full-text entity lookup, `entity_neighbors` for 1-hop traversal, `related_thoughts_via_entities` for hub-suppressed thought expansion (degree cap + inverse-frequency scoring). The MCP server exposes these as `entities_search`, `entities_graph`, and `thoughts_search_expanded` (which combines semantic search with entity expansion). Opt out via `OPEN_BRAIN_TOOLS_DISABLED=entities`. Edges are co-occurrence-based (untyped); LLM-typed relation edges deferred to v0.8.
 
 ## Related Projects
 
