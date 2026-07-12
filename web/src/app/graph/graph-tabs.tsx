@@ -73,7 +73,7 @@ export default function GraphTabs({
               tab === "contradictions"
                 ? "bg-[var(--text-primary)] text-[var(--bg-primary)]"
                 : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }` + " px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"}
+            } px-4 py-1.5 rounded-lg text-sm font-medium transition-colors`}
           >
             Contradictions
           </button>
@@ -83,7 +83,7 @@ export default function GraphTabs({
               tab === "entities"
                 ? "bg-[var(--text-primary)] text-[var(--bg-primary)]"
                 : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }` + " px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"}
+            } px-4 py-1.5 rounded-lg text-sm font-medium transition-colors`}
           >
             Entities
           </button>

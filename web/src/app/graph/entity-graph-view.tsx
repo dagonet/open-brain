@@ -125,7 +125,7 @@ export default function EntityGraphView({
       <div className="flex-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
         <svg
           ref={sim.svgRef}
-          viewBox={`${DEFAULT_WIDTH} ${DEFAULT_HEIGHT}`}
+          viewBox={`0 0 ${DEFAULT_WIDTH} ${DEFAULT_HEIGHT}`}
           className="w-full h-full"
           onPointerMove={sim.handlePointerMove}
           onPointerUp={sim.handlePointerUp}
