@@ -39,11 +39,23 @@
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- One-time: store the service-role key in Supabase Vault.
+-- Store the service-role key in Supabase Vault (idempotent — safe to re-run).
 -- (current_setting('supabase.service_role_key') does NOT exist on Supabase;
 --  Vault is the supported way for cron jobs to read secrets.)
--- Skip if a secret named 'service_role_key' already exists.
-SELECT vault.create_secret('<YOUR_SERVICE_ROLE_KEY>', 'service_role_key');
+-- Use the LEGACY service_role JWT (starts "eyJ..."), NOT the new sb_secret key —
+-- run-nightly-jobs authorizes by decoding this JWT's role claim.
+-- create_secret errors on a duplicate name, so create-or-update explicitly:
+DO $$
+DECLARE
+  existing_id uuid;
+BEGIN
+  SELECT id INTO existing_id FROM vault.secrets WHERE name = 'service_role_key';
+  IF existing_id IS NULL THEN
+    PERFORM vault.create_secret('<YOUR_SERVICE_ROLE_KEY>', 'service_role_key');
+  ELSE
+    PERFORM vault.update_secret(existing_id, '<YOUR_SERVICE_ROLE_KEY>', 'service_role_key');
+  END IF;
+END $$;
 
 -- Schedule 1: contradictions audit at 03:07 UTC daily
 SELECT cron.schedule(
