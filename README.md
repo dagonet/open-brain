@@ -274,6 +274,8 @@ See [docs/slack-setup.md](docs/slack-setup.md) for the full Slack app setup guid
 
 The `run-nightly-jobs` edge function is a cron-driven orchestrator that dispatches to sibling functions for contradiction detection and wiki compilation. Budget-capped per run via `MAX_LLM_CALLS_PER_JOB`.
 
+> **Budget note:** the contradictions job reserves its full `NIGHTLY_CONTRADICTION_LIMIT` against `MAX_LLM_CALLS_PER_JOB` as a conservative over-count; actual LLM usage may be lower (not every candidate produces a judged pair).
+
 **1. Deploy the orchestrator**
 
 ```bash
@@ -291,6 +293,22 @@ supabase secrets set MAX_LLM_CALLS_PER_JOB=50
 **3. Schedule via pg_cron**
 
 Open the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql) and paste the contents of `docs/cron-setup.sql`, replacing `<YOUR_PROJECT_REF>` with your project's subdomain.
+
+**4. On-demand trigger (manual / ad-hoc)**
+
+```bash
+# Trigger a contradictions audit
+curl -X POST https://<project>.supabase.co/functions/v1/run-nightly-jobs \
+  -H "Authorization: Bearer $(supabase secrets get SUPABASE_SERVICE_ROLE_KEY)" \
+  -H "Content-Type: application/json" \
+  -d '{"job":"contradictions"}'
+
+# Trigger stale-wiki compilation
+curl -X POST https://<project>.supabase.co/functions/v1/run-nightly-jobs \
+  -H "Authorization: Bearer $(supabase secrets get SUPABASE_SERVICE_ROLE_KEY)" \
+  -H "Content-Type: application/json" \
+  -d '{"job":"stale-wiki"}'
+```
 
 **Nightly automation env knobs**
 

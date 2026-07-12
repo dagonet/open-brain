@@ -39,7 +39,8 @@ interface JobSummary {
 // Helpers
 
 function envInt(key: string, defaultVal: number): number {
-  const raw = Deno.env.get(key);
+  const raw = (Deno.env.get(key) ?? "").trim();
+  if (raw === "") return defaultVal;
   const val = Number(raw);
   return Number.isFinite(val) && val >= 0 ? val : defaultVal;
 }
@@ -106,6 +107,9 @@ async function runContradictions(
   budget: number,
 ): Promise<JobSummary> {
   const limit = envInt("NIGHTLY_CONTRADICTION_LIMIT", 100);
+  // Conservative over-count: reserve full candidate_limit against budget
+  // though actual LLM usage may be lower (not every candidate produces a
+  // judged pair). This guarantees the hard stop is never exceeded.
   const candidates = Math.min(limit, budget);
   const results: ActionResult[] = [];
 
