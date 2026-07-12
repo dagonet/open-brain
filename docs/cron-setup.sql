@@ -9,7 +9,11 @@
 --   2. pg_cron must be available (available by default on Supabase)
 --   3. pg_net must be available (available by default on Supabase)
 --   4. Replace '<YOUR_PROJECT_REF>' with your actual project ref
---   5. Replace '<YOUR_SERVICE_ROLE_KEY>' in the one-time Vault step below
+--   5. Replace '<YOUR_SERVICE_ROLE_KEY>' in the one-time Vault step below.
+--      Use the LEGACY service_role JWT (starts with "eyJ...", from Dashboard →
+--      Settings → API → Project API keys → service_role). run-nightly-jobs
+--      authorizes by decoding this JWT's role claim, so it MUST be a JWT — the
+--      new sb_secret / sb_publishable keys will NOT work here.
 --
 -- Usage:
 --   Run in Supabase SQL editor or via:
