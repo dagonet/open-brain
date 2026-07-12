@@ -35,6 +35,10 @@ errors=0
 #
 # The two sed steps are intentionally separate commands (piped) to avoid
 # double-quote BRE conflicts with the $$ literal match.
+#
+# NOTE: Assumes the $$-only convention used throughout this project's
+# migrations.  Tagged dollar-quoting (e.g. $func$...$func$) is not parsed
+# -- none of the existing migrations use it.
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== [1/5] Dollar-quote SQL lint ==="

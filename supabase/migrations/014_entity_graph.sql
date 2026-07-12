@@ -155,6 +155,8 @@ BEGIN
     JOIN filtered_neighbors fn ON fn.entity_key = lower(trim(ed.entity_name))
     WHERE ed.thought_id <> ALL(seed_thought_ids)
   ),
+  -- Hub-suppression (b): inverse-frequency scoring — a rare shared entity
+  -- outranks a hub. Each bridging entity contributes 1/thought_count.
   scored AS (
     SELECT
       ct.thought_id,
@@ -180,9 +182,9 @@ $$;
 GRANT SELECT ON entity_nodes TO anon, authenticated;
 GRANT SELECT ON entity_edges TO anon, authenticated;
 
-GRANT EXECUTE ON FUNCTION entity_search(text, text, int) TO anon;
-GRANT EXECUTE ON FUNCTION entity_neighbors(text, int) TO anon;
-GRANT EXECUTE ON FUNCTION related_thoughts_via_entities(uuid[], int, int) TO anon;
+GRANT EXECUTE ON FUNCTION entity_search(text, text, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION entity_neighbors(text, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION related_thoughts_via_entities(uuid[], int, int) TO anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Rollback
