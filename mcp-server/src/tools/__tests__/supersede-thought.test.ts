@@ -12,13 +12,19 @@ describe("supersedeThought", () => {
     ]);
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.success).toBe(true);
     expect(result.message).toContain("new-id");
     expect(result.message).toContain("old-id");
-    const m = mock.client as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const m = mock.client as unknown as Record<
+      string,
+      ReturnType<typeof vi.fn>
+    >;
     // First update: set supersedes_id on new thought
     expect(m.update).toHaveBeenCalledWith({ supersedes_id: "old-id" });
     expect(m.eq).toHaveBeenCalledWith("id", "new-id");
@@ -31,11 +37,19 @@ describe("supersedeThought", () => {
     const mock = createMockSupabase();
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "same-id", old_thought_id: "same-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "same-id",
+        old_thought_id: "same-id",
+      }),
     );
 
-    expect(result.error).toBe("new_thought_id and old_thought_id must be different.");
-    const m2 = mock.client as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    expect(result.error).toBe(
+      "new_thought_id and old_thought_id must be different.",
+    );
+    const m2 = mock.client as unknown as Record<
+      string,
+      ReturnType<typeof vi.fn>
+    >;
     expect(m2.from).not.toHaveBeenCalled();
   });
 
@@ -44,7 +58,10 @@ describe("supersedeThought", () => {
     mock.resolvesWith([{ id: "existing-guid", deleted_at: null }]);
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "existing-guid", old_thought_id: "missing-guid" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "existing-guid",
+        old_thought_id: "missing-guid",
+      }),
     );
 
     expect(result.error).toBe("Thought(s) not found: missing-guid");
@@ -58,7 +75,10 @@ describe("supersedeThought", () => {
     ]);
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.error).toContain("deleted");
@@ -72,7 +92,10 @@ describe("supersedeThought", () => {
     ]);
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.error).toContain("already superseded");
@@ -86,7 +109,10 @@ describe("supersedeThought", () => {
     ]);
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.error).toContain("archived");
@@ -97,7 +123,10 @@ describe("supersedeThought", () => {
     mock.resolvesWith(null, { message: "connection error" });
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.error).toBe("connection error");
@@ -122,7 +151,10 @@ describe("supersedeThought", () => {
     // state between the lookup and the update.
 
     // Workaround: manually mock the update chain to return error
-    const m3 = mock.client as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const m3 = mock.client as unknown as Record<
+      string,
+      ReturnType<typeof vi.fn>
+    >;
     const mockUpdate = m3.update;
     mockUpdate.mockImplementationOnce(() => {
       const chain: Record<string, unknown> = {};
@@ -138,7 +170,10 @@ describe("supersedeThought", () => {
     });
 
     const result = JSON.parse(
-      await supersedeThought(mock.client, { new_thought_id: "new-id", old_thought_id: "old-id" })
+      await supersedeThought(mock.client, {
+        new_thought_id: "new-id",
+        old_thought_id: "old-id",
+      }),
     );
 
     expect(result.error).toBe("update failed");

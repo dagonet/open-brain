@@ -30,7 +30,14 @@ describe("semanticSearch", () => {
     const mock = createMockSupabase();
     const openai = createMockOpenAI();
     const searchResults = [
-      { id: "1", raw_text: "hello", similarity: 0.95, score: 0.85, salience: 3, project: "open-brain" },
+      {
+        id: "1",
+        raw_text: "hello",
+        similarity: 0.95,
+        score: 0.85,
+        salience: 3,
+        project: "open-brain",
+      },
     ];
     mock.resolvesWith(searchResults);
 
@@ -42,7 +49,7 @@ describe("semanticSearch", () => {
         include_superseded: true,
         include_archived: true,
         apply_contradiction_penalty: false,
-      })
+      }),
     );
 
     expect(openai.embeddings.create).toHaveBeenCalledWith({
@@ -82,12 +89,18 @@ describe("semanticSearch", () => {
     const mock = createMockSupabase();
     const openai = createMockOpenAI();
     const resultsWithStatus = [
-      { id: "1", raw_text: "hello", similarity: 0.9, score: 0.8, lifecycle_status: "active" },
+      {
+        id: "1",
+        raw_text: "hello",
+        similarity: 0.9,
+        score: 0.8,
+        lifecycle_status: "active",
+      },
     ];
     mock.resolvesWith(resultsWithStatus);
 
     const result = JSON.parse(
-      await semanticSearch(mock.client, openai, { query: "test" })
+      await semanticSearch(mock.client, openai, { query: "test" }),
     );
 
     expect(result[0].lifecycle_status).toBe("active");
@@ -97,12 +110,19 @@ describe("semanticSearch", () => {
     const mock = createMockSupabase();
     const openai = createMockOpenAI();
     const v2Results = [
-      { id: "1", raw_text: "hybrid result", similarity: 0.9, score: 0.75, salience: 4, project: "open-brain" },
+      {
+        id: "1",
+        raw_text: "hybrid result",
+        similarity: 0.9,
+        score: 0.75,
+        salience: 4,
+        project: "open-brain",
+      },
     ];
     mock.resolvesWith(v2Results);
 
     const result = JSON.parse(
-      await semanticSearch(mock.client, openai, { query: "hybrid" })
+      await semanticSearch(mock.client, openai, { query: "hybrid" }),
     );
 
     expect(result[0].score).toBe(0.75);
@@ -143,10 +163,7 @@ describe("semanticSearch", () => {
   it("fires increment_retrieval tracking RPC after successful search", async () => {
     const mock = createMockSupabase();
     const openai = createMockOpenAI();
-    const searchResults = [
-      { id: "uuid-1" },
-      { id: "uuid-2" },
-    ];
+    const searchResults = [{ id: "uuid-1" }, { id: "uuid-2" }];
     mock.resolvesWith(searchResults);
 
     await semanticSearch(mock.client, openai, { query: "track-me" });
@@ -189,7 +206,7 @@ describe("semanticSearch", () => {
     const openai = createFailingOpenAI();
 
     const result = JSON.parse(
-      await semanticSearch(mock.client, openai, { query: "test" })
+      await semanticSearch(mock.client, openai, { query: "test" }),
     );
 
     expect(result.error).toBe("Failed to generate embedding");
@@ -202,7 +219,7 @@ describe("semanticSearch", () => {
     mock.resolvesWith(null, { message: "function not found" });
 
     const result = JSON.parse(
-      await semanticSearch(mock.client, openai, { query: "test" })
+      await semanticSearch(mock.client, openai, { query: "test" }),
     );
 
     expect(result.error).toBe("function not found");

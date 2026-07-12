@@ -7,7 +7,7 @@ export interface SupersedeParams {
 
 export async function supersedeThought(
   supabase: SupabaseClient,
-  params: SupersedeParams
+  params: SupersedeParams,
 ): Promise<string> {
   const { new_thought_id, old_thought_id } = params;
 
@@ -29,7 +29,9 @@ export async function supersedeThought(
   }
 
   if (!thoughts || thoughts.length < 2) {
-    const found = new Set((thoughts ?? []).map((t: Record<string, unknown>) => t.id));
+    const found = new Set(
+      (thoughts ?? []).map((t: Record<string, unknown>) => t.id),
+    );
     const missing: string[] = [];
     if (!found.has(new_thought_id)) missing.push(new_thought_id);
     if (!found.has(old_thought_id)) missing.push(old_thought_id);
@@ -49,7 +51,7 @@ export async function supersedeThought(
 
   // Lifecycle check: old thought must not be already superseded or archived.
   const oldThought = (thoughts as Array<Record<string, unknown>>).find(
-    (t) => t.id === old_thought_id
+    (t) => t.id === old_thought_id,
   );
   if (oldThought?.lifecycle_status === "superseded") {
     return JSON.stringify({
@@ -103,7 +105,10 @@ export const definition: ToolDefinition = {
     old_thought_id: z
       .string()
       .uuid()
-      .describe("UUID of the thought being superseded. It will be excluded from default search results."),
+      .describe(
+        "UUID of the thought being superseded. It will be excluded from default search results.",
+      ),
   },
-  handler: (deps, params) => supersedeThought(deps.supabase, params as unknown as SupersedeParams),
+  handler: (deps, params) =>
+    supersedeThought(deps.supabase, params as unknown as SupersedeParams),
 };

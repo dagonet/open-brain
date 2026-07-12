@@ -1,4 +1,5 @@
-﻿export type ThoughtSource = "slack" | "cli" | "mcp" | "import" | "import-claude" | "import-chatgpt";
+﻿export type ThoughtSource =
+  "slack" | "cli" | "mcp" | "import" | "import-claude" | "import-chatgpt";
 
 export type ThoughtType =
   | "decision"
