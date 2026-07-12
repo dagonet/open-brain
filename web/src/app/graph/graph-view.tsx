@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
+import {
+  useSimulation,
+  DEFAULT_WIDTH,
+  DEFAULT_HEIGHT,
+  DEFAULT_RADIUS,
+} from "./graph-common";
 
 interface ThoughtNode {
   id: string;
@@ -47,8 +53,6 @@ const TYPE_COLORS: Record<string, string> = {
   note: "#9ca3af",
 };
 
-const RADIUS = 12;
-
 export default function GraphView({
   thoughts,
   contradictions,
@@ -58,211 +62,43 @@ export default function GraphView({
   contradictions: ContradictionEdge[];
   thoughtMap: Map<string, ThoughtNode>;
 }) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const animRef = useRef<number>(0);
   const [selectedNode, setSelectedNode] = useState<ThoughtNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<ContradictionEdge | null>(null);
-  const [simReady, setSimReady] = useState(false);
 
-  const nodesRef = useRef<SimNode[]>([]);
-  const edgesRef = useRef<SimEdge[]>([]);
-  const dragRef = useRef<{ node: SimNode; ox: number; oy: number } | null>(null);
+  const sim = useSimulation(
+    () => {
+      const nodeIds = new Set<string>();
+      const degree = new Map<string, number>();
 
-  const width = 900;
-  const height = 650;
-
-  // Build graph from contradictions
-  useEffect(() => {
-    const nodeIds = new Set<string>();
-    const degree = new Map<string, number>();
-
-    const simEdges: SimEdge[] = [];
-    for (const c of contradictions) {
-      simEdges.push({ source: c.thought_a_id, target: c.thought_b_id, contradiction: c });
-      nodeIds.add(c.thought_a_id);
-      nodeIds.add(c.thought_b_id);
-      degree.set(c.thought_a_id, (degree.get(c.thought_a_id) ?? 0) + 1);
-      degree.set(c.thought_b_id, (degree.get(c.thought_b_id) ?? 0) + 1);
-    }
-
-    const simNodes: SimNode[] = [];
-    for (const id of nodeIds) {
-      const thought = thoughtMap.get(id);
-      if (!thought) continue;
-      simNodes.push({
-        id,
-        x: width / 2 + (Math.random() - 0.5) * 200,
-        y: height / 2 + (Math.random() - 0.5) * 200,
-        vx: 0,
-        vy: 0,
-        thought,
-        degree: degree.get(id) ?? 0,
-      });
-    }
-
-    nodesRef.current = simNodes;
-    edgesRef.current = simEdges;
-    runSimulation();
-    setSimReady(true);
-  }, [thoughts, contradictions, thoughtMap]);
-
-  const runSimulation = useCallback(() => {
-    const nodes = nodesRef.current;
-    const edges = edgesRef.current;
-    if (nodes.length === 0) return;
-
-    const tick = () => {
-      // Repulsion between all node pairs
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
-          const b = nodes[j];
-          let dx = b.x - a.x;
-          let dy = b.y - a.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = 800 / (dist * dist);
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-          a.vx -= fx;
-          a.vy -= fy;
-          b.vx += fx;
-          b.vy += fy;
-        }
+      const simEdges: SimEdge[] = [];
+      for (const c of contradictions) {
+        simEdges.push({ source: c.thought_a_id, target: c.thought_b_id, contradiction: c });
+        nodeIds.add(c.thought_a_id);
+        nodeIds.add(c.thought_b_id);
+        degree.set(c.thought_a_id, (degree.get(c.thought_a_id) ?? 0) + 1);
+        degree.set(c.thought_b_id, (degree.get(c.thought_b_id) ?? 0) + 1);
       }
 
-      // Attraction along edges
-      for (const edge of edges) {
-        const a = nodes.find((n) => n.id === edge.source);
-        const b = nodes.find((n) => n.id === edge.target);
-        if (!a || !b) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = (dist - 120) * 0.01;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        a.vx += fx;
-        a.vy += fy;
-        b.vx -= fx;
-        b.vy -= fy;
+      const simNodes: SimNode[] = [];
+      for (const id of nodeIds) {
+        const thought = thoughtMap.get(id);
+        if (!thought) continue;
+        simNodes.push({
+          id,
+          x: DEFAULT_WIDTH / 2 + (Math.random() - 0.5) * 200,
+          y: DEFAULT_HEIGHT / 2 + (Math.random() - 0.5) * 200,
+          vx: 0,
+          vy: 0,
+          thought,
+          degree: degree.get(id) ?? 0,
+        });
       }
 
-      // Center gravity
-      for (const node of nodes) {
-        node.vx += (width / 2 - node.x) * 0.001;
-        node.vy += (height / 2 - node.y) * 0.001;
-      }
-
-      // Apply velocity with damping
-      for (const node of nodes) {
-        node.vx *= 0.85;
-        node.vy *= 0.85;
-        node.x += node.vx;
-        node.y += node.vy;
-        node.x = Math.max(RADIUS, Math.min(width - RADIUS, node.x));
-        node.y = Math.max(RADIUS, Math.min(height - RADIUS, node.y));
-      }
-
-      animRef.current = requestAnimationFrame(tick);
-    };
-
-    animRef.current = requestAnimationFrame(tick);
-  }, [width, height]);
-
-  // Render SVG
-  useEffect(() => {
-    if (!simReady) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    let raf: number;
-    const render = () => {
-      const nodes = nodesRef.current;
-      const edges = edgesRef.current;
-
-      const nodeEls = svg.querySelectorAll<SVGCircleElement>("circle.node");
-      nodeEls.forEach((el) => {
-        const id = el.getAttribute("data-id");
-        const n = nodes.find((x) => x.id === id);
-        if (n) {
-          el.setAttribute("cx", String(n.x));
-          el.setAttribute("cy", String(n.y));
-          const r = RADIUS + n.degree * 2;
-          el.setAttribute("r", String(r));
-        }
-      });
-
-      const labelEls = svg.querySelectorAll<SVGTextElement>("text.label");
-      labelEls.forEach((el) => {
-        const id = el.getAttribute("data-id");
-        const n = nodes.find((x) => x.id === id);
-        if (n) {
-          el.setAttribute("x", String(n.x));
-          el.setAttribute("y", String(n.y + RADIUS + n.degree * 2 + 14));
-        }
-      });
-
-      const lineEls = svg.querySelectorAll<SVGLineElement>("line.edge");
-      lineEls.forEach((el) => {
-        const src = el.getAttribute("data-source");
-        const tgt = el.getAttribute("data-target");
-        const a = nodes.find((x) => x.id === src);
-        const b = nodes.find((x) => x.id === tgt);
-        if (a && b) {
-          el.setAttribute("x1", String(a.x));
-          el.setAttribute("y1", String(a.y));
-          el.setAttribute("x2", String(b.x));
-          el.setAttribute("y2", String(b.y));
-        }
-      });
-
-      raf = requestAnimationFrame(render);
-    };
-
-    raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
-  }, [simReady]);
-
-  // Cleanup simulation on unmount
-  useEffect(() => {
-    return () => cancelAnimationFrame(animRef.current);
-  }, []);
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent, node: SimNode) => {
-      e.preventDefault();
-      (e.target as Element).setPointerCapture(e.pointerId);
-      const svg = svgRef.current;
-      if (!svg) return;
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return;
-      const svgPt = pt.matrixTransform(ctm.inverse());
-      dragRef.current = { node, ox: node.x - svgPt.x, oy: node.y - svgPt.y };
+      return { nodes: simNodes, edges: simEdges };
     },
-    [],
+    (n) => DEFAULT_RADIUS + (n as SimNode).degree * 2,
+    [thoughts, contradictions, thoughtMap],
   );
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    const drag = dragRef.current;
-    if (!drag) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const svgPt = pt.matrixTransform(ctm.inverse());
-    drag.node.x = svgPt.x + drag.ox;
-    drag.node.y = svgPt.y + drag.oy;
-  }, []);
-
-  const handlePointerUp = useCallback(() => {
-    dragRef.current = null;
-  }, []);
 
   const handleNodeClick = useCallback((node: SimNode) => {
     setSelectedNode(node.thought);
@@ -274,7 +110,7 @@ export default function GraphView({
     setSelectedNode(null);
   }, []);
 
-  if (!simReady) {
+  if (!sim.simReady) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--text-secondary)]">
         Loading graph...
@@ -282,7 +118,7 @@ export default function GraphView({
     );
   }
 
-  if (nodesRef.current.length === 0) {
+  if (sim.nodesRef.current.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--text-secondary)]">
         No contradictions found. Run <code className="text-[var(--text-primary)]">brain audit</code> to detect contradictions, then revisit this page.
@@ -294,16 +130,16 @@ export default function GraphView({
     <div className="flex gap-4 flex-1 min-h-0">
       <div className="flex-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
         <svg
-          ref={svgRef}
-          viewBox={`0 0 ${width} ${height}`}
+          ref={sim.svgRef}
+          viewBox={`0 0 ${DEFAULT_WIDTH} ${DEFAULT_HEIGHT}`}
           className="w-full h-full"
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
+          onPointerMove={sim.handlePointerMove}
+          onPointerUp={sim.handlePointerUp}
         >
           {/* Edges */}
-          {edgesRef.current.map((edge) => {
-            const a = nodesRef.current.find((n) => n.id === edge.source);
-            const b = nodesRef.current.find((n) => n.id === edge.target);
+          {sim.edgesRef.current.map((edge) => {
+            const a = sim.nodesRef.current.find((n) => n.id === edge.source);
+            const b = sim.nodesRef.current.find((n) => n.id === edge.target);
             if (!a || !b) return null;
             const sw = Math.max(0.5, edge.contradiction.severity * 0.8);
             const op = 0.3 + edge.contradiction.confidence * 0.5;
@@ -327,8 +163,8 @@ export default function GraphView({
             );
           })}
           {/* Nodes */}
-          {nodesRef.current.map((node) => {
-            const r = RADIUS + node.degree * 2;
+          {sim.nodesRef.current.map((node) => {
+            const r = DEFAULT_RADIUS + node.degree * 2;
             const color = TYPE_COLORS[node.thought.thought_type] ?? TYPE_COLORS.note;
             return (
               <g key={node.id}>
@@ -343,7 +179,7 @@ export default function GraphView({
                   strokeWidth={2}
                   opacity={0.85}
                   style={{ cursor: "pointer" }}
-                  onPointerDown={(e) => handlePointerDown(e, node)}
+                  onPointerDown={(e) => sim.handlePointerDown(e, node)}
                   onClick={() => handleNodeClick(node)}
                 />
                 <text
