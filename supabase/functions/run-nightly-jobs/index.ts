@@ -1,8 +1,10 @@
 // run-nightly-jobs edge function
 //
-// Nightly maintenance routine for Open Brain. Runs as a scheduled Supabase
-// edge function via pg_cron (see docs/cron-setup.sql). Reports on system
-// health and checks OpenAI API usage against budget caps.
+// Orchestrator: dispatches to sibling edge functions based on job type.
+//   POST {job: "contradictions"} -> invokes detect-contradictions
+//   POST {job: "stale-wiki"}     -> invokes compile-wiki per stale page
+//
+// Requires service-role bearer auth. Capped by MAX_LLM_CALLS_PER_JOB.
 //
 // Inspired by Andrej Karpathy's LLM Wiki gist
 //   https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
@@ -10,201 +12,248 @@
 //   https://www.youtube.com/watch?v=dxq7WtWxi44
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-interface JobReport {
-  success: boolean;
-  timestamp: string;
-  stats: SystemStats;
-  budget: BudgetInfo;
-  maintenance: MaintenanceActions;
+// Types
+
+interface StalePageRow {
+  slug: string;
+  stale_since_n_thoughts: number;
+  compiled_at: string | null;
 }
 
-interface SystemStats {
-  total_thoughts: number;
-  thoughts_today: number;
-  thoughts_this_week: number;
-  thoughts_this_month: number;
-  active_thoughts: number;
-  deleted_thoughts: number;
-  open_contradictions: number;
-  resolved_contradictions: number;
-  stale_wiki_pages: number;
-  unprocessed_thoughts: number;
-  total_wiki_pages: number;
-  projects: string[];
+interface ActionResult {
+  action: string;
+  status: "ok" | "error";
+  detail: string;
 }
 
-interface BudgetInfo {
-  estimated_monthly_cost: number;
-  monthly_budget: number;
-  budget_used_pct: number;
-  warn_threshold: number;
-  over_budget: boolean;
-  near_limit: boolean;
+interface JobSummary {
+  job: string;
+  actions_taken: number;
+  budget_spent: number;
+  budget_remaining: number;
+  errors: number;
+  results: ActionResult[];
 }
 
-interface MaintenanceActions {
-  backfill_verified: boolean;
-  backfill_pending_count: number;
-  notes: string[];
-}
+// Helpers
 
-function getMonthlyBudget(): number {
-  const raw = Deno.env.get("OPEN_BRAIN_MONTHLY_BUDGET_USD");
+function envInt(key: string, defaultVal: number): number {
+  const raw = Deno.env.get(key);
   const val = Number(raw);
-  return Number.isFinite(val) && val > 0 ? val : 50;
+  return Number.isFinite(val) && val >= 0 ? val : defaultVal;
 }
 
-function getWarnThreshold(): number {
-  const raw = Deno.env.get("OPEN_BRAIN_WARN_THRESHOLD");
-  const val = Number(raw);
-  return Number.isFinite(val) && val > 0 && val <= 1 ? val : 0.8;
-}
-
-async function collectStats(supabase: any): Promise<SystemStats> {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const weekStart = new Date(now.getTime() - 7 * 86400000).toISOString();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
-  const [totalR, todayR, weekR, monthR, activeR, deletedR] = await Promise.all([
-    supabase.from("thoughts").select("*", { count: "exact", head: true }),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).gte("created_at", todayStart),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).gte("created_at", weekStart),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).gte("created_at", monthStart),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).is("deleted_at", null),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).not("deleted_at", "is", null),
-  ]);
-
-  const [contraOpen, contraResolved, stalePages, unprocessed, totalWiki, projects] = await Promise.all([
-    supabase.from("contradictions").select("*", { count: "exact", head: true }).eq("status", "open"),
-    supabase.from("contradictions").select("*", { count: "exact", head: true }).in("status", ["resolved", "ignored", "false_positive"]),
-    supabase.from("wiki_page_staleness").select("*", { count: "exact", head: true }).gt("stale_since_n_thoughts", 0),
-    supabase.from("thoughts").select("*", { count: "exact", head: true }).eq("processing_status", "pending"),
-    supabase.from("wiki_pages").select("*", { count: "exact", head: true }),
-    supabase.from("thoughts").select("project").not("project", "is", null).is("deleted_at", null),
-  ]);
-
-  const projectSet = new Set<string>();
-  for (const row of (projects.data ?? []) as Array<{ project: string }>) {
-    if (row.project) projectSet.add(row.project);
-  }
-
-  return {
-    total_thoughts: totalR.count ?? 0,
-    thoughts_today: todayR.count ?? 0,
-    thoughts_this_week: weekR.count ?? 0,
-    thoughts_this_month: monthR.count ?? 0,
-    active_thoughts: activeR.count ?? 0,
-    deleted_thoughts: deletedR.count ?? 0,
-    open_contradictions: contraOpen.count ?? 0,
-    resolved_contradictions: contraResolved.count ?? 0,
-    stale_wiki_pages: stalePages.count ?? 0,
-    unprocessed_thoughts: unprocessed.count ?? 0,
-    total_wiki_pages: totalWiki.count ?? 0,
-    projects: [...projectSet].sort(),
-  };
-}
-
-function estimateCost(stats: SystemStats): number {
-  const perThought = 0.00043;
-  const perContra = 0.00086;
-  const perWiki = 0.01;
-  return (stats.thoughts_this_month * perThought)
-       + (stats.open_contradictions * perContra)
-       + (Math.min(stats.stale_wiki_pages, 10) * perWiki);
-}
-
-async function verifyBackfill(supabase: any): Promise<object> {
-  const { count: pending } = await supabase
-    .from("thoughts")
-    .select("*", { count: "exact", head: true })
-    .not("metadata->>project", "is", null)
-    .is("project", null)
-    .is("deleted_at", null);
-
-  return {
-    verified: (pending?.count ?? 0) === 0,
-    pending_count: pending?.count ?? 0,
-  };
-}
-
-serve(async (req: Request): Promise<Response> => {
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Method not allowed" }), {
-      status: 405, headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
-    return new Response(JSON.stringify({ success: false, error: "Missing env vars" }), {
-      status: 500, headers: { "Content-Type": "application/json" },
-    });
-  }
-  const supabase = createClient(supabaseUrl, serviceKey);
-  const startTime = Date.now();
-  const notes: string[] = [];
-
-  const stats = await collectStats(supabase);
-  console.log("run-nightly-jobs: stats", JSON.stringify(stats));
-
-  const monthlyBudget = getMonthlyBudget();
-  const warnThreshold = getWarnThreshold();
-  const estimatedMonthlyCost = estimateCost(stats);
-  const budgetUsedPct = monthlyBudget > 0
-    ? Math.round((estimatedMonthlyCost / monthlyBudget) * 10000) / 100
-    : 0;
-
-  if (budgetUsedPct >= warnThreshold * 100) {
-    notes.push("Budget warning: " + budgetUsedPct + "% of $" + monthlyBudget + " used");
-  }
-  if (estimatedMonthlyCost >= monthlyBudget) {
-    notes.push("CRITICAL: Estimated cost exceeds monthly budget");
-  }
-  if (stats.unprocessed_thoughts > 0) {
-    notes.push("Unprocessed thoughts: " + stats.unprocessed_thoughts);
-  }
-  if (stats.open_contradictions > 10) {
-    notes.push("High open contradictions: " + stats.open_contradictions);
-  }
-  if (stats.stale_wiki_pages > 0) {
-    notes.push("Stale wiki pages: " + stats.stale_wiki_pages);
-  }
-
-  const backfillResult = await verifyBackfill(supabase);
-  if (!backfillResult.verified) {
-    notes.push("Backfill incomplete: " + backfillResult.pending_count + " rows remaining.");
-  }
-
-  const report: JobReport = {
-    success: true,
-    timestamp: new Date().toISOString(),
-    stats,
-    budget: {
-      estimated_monthly_cost: Math.round(estimatedMonthlyCost * 100) / 100,
-      monthly_budget: monthlyBudget,
-      budget_used_pct: budgetUsedPct,
-      warn_threshold: warnThreshold,
-      over_budget: estimatedMonthlyCost >= monthlyBudget,
-      near_limit: budgetUsedPct >= warnThreshold * 100,
-    },
-    maintenance: {
-      backfill_verified: backfillResult.verified,
-      backfill_pending_count: backfillResult.pending_count,
-      notes,
-    },
-  };
-
-  console.log("run-nightly-jobs: complete", JSON.stringify({
-    duration_ms: Date.now() - startTime,
-    ...report,
-  }));
-
-  return new Response(JSON.stringify(report), {
-    status: 200,
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Handler
+
+serve(async (req: Request): Promise<Response> => {
+  // Auth guard — require service-role bearer
+  const auth = req.headers.get("Authorization") ?? "";
+  const svcRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!auth.startsWith("Bearer ") || auth.slice(7) !== svcRole) {
+    return json(401, { error: "Unauthorized" });
+  }
+
+  if (req.method !== "POST") {
+    return json(405, { error: "Method not allowed" });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) {
+    return json(500, { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" });
+  }
+
+  // Parse job
+  let job: string;
+  try {
+    const body = await req.json();
+    job = body.job;
+  } catch {
+    return json(400, { error: "Invalid JSON body" });
+  }
+
+  if (job !== "contradictions" && job !== "stale-wiki") {
+    return json(400, { error: 'Unknown job: "' + job + '". Must be "contradictions" or "stale-wiki"' });
+  }
+
+  const budget = envInt("MAX_LLM_CALLS_PER_JOB", 50);
+  const authHeaders = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + serviceKey,
+  };
+
+  const summary = job === "contradictions"
+    ? await runContradictions(supabaseUrl, authHeaders, budget)
+    : await runStaleWiki(supabaseUrl, authHeaders, budget, serviceKey);
+
+  console.log("run-nightly-jobs:", JSON.stringify(summary));
+  return json(200, summary);
 });
+
+// Job: contradictions
+
+async function runContradictions(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  budget: number,
+): Promise<JobSummary> {
+  const limit = envInt("NIGHTLY_CONTRADICTION_LIMIT", 100);
+  const candidates = Math.min(limit, budget);
+  const results: ActionResult[] = [];
+
+  try {
+    const res = await fetch(supabaseUrl + "/functions/v1/detect-contradictions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ candidate_limit: candidates }),
+    });
+
+    if (!res.ok) {
+      results.push({
+        action: "detect-contradictions",
+        status: "error",
+        detail: "HTTP " + res.status + ": " + (await res.text()),
+      });
+    } else {
+      const data = await res.json() as Record<string, unknown>;
+      const inserted = data.contradictions_inserted ?? "?";
+      const judged = data.pairs_judged ?? "?";
+      const scanned = data.candidates_scanned ?? "?";
+      const errs = data.errors ?? "?";
+      results.push({
+        action: "detect-contradictions",
+        status: "ok",
+        detail: "inserted=" + inserted + ", judged=" + judged + ", scanned=" + scanned + ", errors=" + errs,
+      });
+    }
+  } catch (err: unknown) {
+    results.push({
+      action: "detect-contradictions",
+      status: "error",
+      detail: String(err),
+    });
+  }
+
+  return {
+    job: "contradictions",
+    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    budget_spent: candidates,
+    budget_remaining: Math.max(0, budget - candidates),
+    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    results,
+  };
+}
+
+// Job: stale-wiki
+
+async function runStaleWiki(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  budget: number,
+  serviceKey: string,
+): Promise<JobSummary> {
+  const compileBudget = envInt("NIGHTLY_COMPILE_BUDGET", 5);
+  const maxPages = Math.min(compileBudget, budget);
+  const results: ActionResult[] = [];
+
+  // Fetch stale pages via REST API (avoids supabase-js esm.sh import)
+  let stalePages: StalePageRow[];
+  try {
+    stalePages = await queryStalePages(supabaseUrl, serviceKey, maxPages);
+  } catch (err: unknown) {
+    results.push({
+      action: "query-wiki_page_staleness",
+      status: "error",
+      detail: String(err),
+    });
+    return {
+      job: "stale-wiki",
+      actions_taken: 0,
+      budget_spent: 0,
+      budget_remaining: budget,
+      errors: 1,
+      results,
+    };
+  }
+
+  let budgetSpent = 0;
+
+  for (const page of stalePages) {
+    if (budgetSpent >= budget) break;
+
+    try {
+      const res = await fetch(supabaseUrl + "/functions/v1/compile-wiki", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ slug: page.slug, dry_run: false }),
+      });
+
+      if (!res.ok) {
+        results.push({
+          action: "compile-wiki:" + page.slug,
+          status: "error",
+          detail: "HTTP " + res.status + ": " + (await res.text()),
+        });
+      } else {
+        const data = await res.json() as Record<string, unknown>;
+        const version = data.version ?? "?";
+        const partial = data.partial ?? "?";
+        const cited = data.cited ?? "?";
+        const sourceCount = data.source_thought_count ?? "?";
+        results.push({
+          action: "compile-wiki:" + page.slug,
+          status: "ok",
+          detail: "version=" + version + ", partial=" + partial + ", cited=" + cited + ", sources=" + sourceCount,
+        });
+      }
+    } catch (err: unknown) {
+      results.push({
+        action: "compile-wiki:" + page.slug,
+        status: "error",
+        detail: String(err),
+      });
+    }
+
+    budgetSpent++;
+  }
+
+  return {
+    job: "stale-wiki",
+    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    budget_spent: budgetSpent,
+    budget_remaining: Math.max(0, budget - budgetSpent),
+    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    results,
+  };
+}
+
+// REST query helper
+
+async function queryStalePages(
+  supabaseUrl: string,
+  serviceKey: string,
+  limit: number,
+): Promise<StalePageRow[]> {
+  const url = new URL(supabaseUrl + "/rest/v1/wiki_page_staleness");
+  url.searchParams.set("select", "slug,stale_since_n_thoughts,compiled_at");
+  url.searchParams.set("stale_since_n_thoughts", "gt.5");
+  url.searchParams.set("order", "stale_since_n_thoughts.desc");
+  url.searchParams.set("limit", String(limit));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      "Authorization": "Bearer " + serviceKey,
+      "apikey": serviceKey,
+    },
+  });
+  if (!res.ok) throw new Error("REST " + res.status + ": " + (await res.text()));
+  return await res.json();
+}
