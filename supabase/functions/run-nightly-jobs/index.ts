@@ -3,6 +3,8 @@
 // Orchestrator: dispatches to sibling edge functions based on job type.
 //   POST {job: "contradictions"} -> invokes detect-contradictions
 //   POST {job: "stale-wiki"}     -> invokes compile-wiki per stale page
+//   POST {job: "archive"}        -> calls archive_thoughts RPC (zero LLM cost)
+//   POST {job: "consolidate"}    -> calls consolidation_candidates RPC, then compile-wiki per candidate
 //
 // Requires service-role bearer auth. Capped by MAX_LLM_CALLS_PER_JOB.
 //
@@ -105,8 +107,8 @@ serve(async (req: Request): Promise<Response> => {
     return json(400, { error: "Invalid JSON body" });
   }
 
-  if (job !== "contradictions" && job !== "stale-wiki") {
-    return json(400, { error: 'Unknown job: "' + job + '". Must be "contradictions" or "stale-wiki"' });
+  if (job !== "contradictions" && job !== "stale-wiki" && job !== "archive" && job !== "consolidate") {
+    return json(400, { error: 'Unknown job: "' + job + '". Must be "contradictions", "stale-wiki", "archive", or "consolidate"' });
   }
 
   const budget = envInt("MAX_LLM_CALLS_PER_JOB", 50);
@@ -118,9 +120,16 @@ serve(async (req: Request): Promise<Response> => {
     "Authorization": "Bearer " + serviceKey,
   };
 
-  const summary = job === "contradictions"
-    ? await runContradictions(supabaseUrl, authHeaders, budget)
-    : await runStaleWiki(supabaseUrl, authHeaders, budget, serviceKey);
+  let summary: JobSummary;
+  if (job === "contradictions") {
+    summary = await runContradictions(supabaseUrl, authHeaders, budget);
+  } else if (job === "stale-wiki") {
+    summary = await runStaleWiki(supabaseUrl, authHeaders, budget, serviceKey);
+  } else if (job === "archive") {
+    summary = await runArchive(supabaseUrl, serviceKey, budget);
+  } else {
+    summary = await runConsolidate(supabaseUrl, authHeaders, budget, serviceKey);
+  }
 
   console.log("run-nightly-jobs:", JSON.stringify(summary));
   return json(200, summary);
@@ -287,4 +296,176 @@ async function queryStalePages(
   });
   if (!res.ok) throw new Error("REST " + res.status + ": " + (await res.text()));
   return await res.json();
+}
+
+// Generic PostgREST RPC caller: POST /rest/v1/rpc/<fn> with JSON body.
+// Used by runArchive and runConsolidate to invoke SECURITY DEFINER functions.
+
+async function callRpc<T>(
+  supabaseUrl: string,
+  serviceKey: string,
+  fnName: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const res = await fetch(supabaseUrl + "/rest/v1/rpc/" + fnName, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": serviceKey,
+      "Authorization": "Bearer " + serviceKey,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("RPC " + fnName + " HTTP " + res.status + ": " + (await res.text()));
+  return await res.json() as T;
+}
+
+// Job: archive (zero LLM budget — pure SQL RPC)
+
+async function runArchive(
+  supabaseUrl: string,
+  serviceKey: string,
+  budget: number,
+): Promise<JobSummary> {
+  const results: ActionResult[] = [];
+  let r1 = 0;
+  let r2 = 0;
+
+  try {
+    const data = await callRpc<{ rule1_archived: number; rule2_archived: number }>(
+      supabaseUrl,
+      serviceKey,
+      "archive_thoughts",
+      {
+        resolved_action_days: envInt("ARCHIVE_RESOLVED_ACTION_DAYS", 90),
+        cold_days: envInt("ARCHIVE_COLD_DAYS", 180),
+      },
+    );
+
+    r1 = data.rule1_archived;
+    r2 = data.rule2_archived;
+
+    if (r1 > 0) {
+      results.push({
+        action: "archive_thoughts:rule1",
+        status: "ok",
+        detail: "archived=" + r1,
+      });
+    }
+    if (r2 > 0) {
+      results.push({
+        action: "archive_thoughts:rule2",
+        status: "ok",
+        detail: "archived=" + r2,
+      });
+    }
+    if (r1 === 0 && r2 === 0) {
+      results.push({
+        action: "archive_thoughts",
+        status: "ok",
+        detail: "no candidates",
+      });
+    }
+  } catch (err: unknown) {
+    results.push({
+      action: "archive_thoughts",
+      status: "error",
+      detail: String(err),
+    });
+  }
+
+  return {
+    job: "archive",
+    actions_taken: (r1 > 0 ? 1 : 0) + (r2 > 0 ? 1 : 0),
+    budget_spent: 0,
+    budget_remaining: budget,
+    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    results,
+  };
+}
+
+// Job: consolidate
+
+async function runConsolidate(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  budget: number,
+  serviceKey: string,
+): Promise<JobSummary> {
+  const minThoughts = envInt("CONSOLIDATE_MIN_THOUGHTS", 3);
+  const resultLimit = Math.min(envInt("CONSOLIDATE_BUDGET", 5), budget);
+  const results: ActionResult[] = [];
+
+  // Fetch consolidation candidates via RPC
+  let candidates: Array<{ slug: string; thought_count: number; aggregate_signal: number }>;
+  try {
+    candidates = await callRpc(supabaseUrl, serviceKey, "consolidation_candidates", {
+      min_thoughts: minThoughts,
+      result_limit: resultLimit,
+    });
+  } catch (err: unknown) {
+    results.push({
+      action: "consolidation_candidates",
+      status: "error",
+      detail: String(err),
+    });
+    return {
+      job: "consolidate",
+      actions_taken: 0,
+      budget_spent: 0,
+      budget_remaining: budget,
+      errors: 1,
+      results,
+    };
+  }
+
+  let budgetSpent = 0;
+
+  for (const candidate of candidates) {
+    if (budgetSpent >= budget) break;
+
+    try {
+      const res = await fetch(supabaseUrl + "/functions/v1/compile-wiki", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ slug: candidate.slug, dry_run: false }),
+      });
+
+      if (!res.ok) {
+        results.push({
+          action: "compile-wiki:" + candidate.slug,
+          status: "error",
+          detail: "HTTP " + res.status + ": " + (await res.text()),
+        });
+      } else {
+        const data = await res.json() as Record<string, unknown>;
+        const version = data.version ?? "?";
+        const partial = data.partial ?? "?";
+        const cited = data.cited ?? "?";
+        const sourceCount = data.source_thought_count ?? "?";
+        results.push({
+          action: "compile-wiki:" + candidate.slug,
+          status: "ok",
+          detail: "version=" + version + ", partial=" + partial + ", cited=" + cited + ", sources=" + sourceCount,
+        });
+      }
+    } catch (err: unknown) {
+      results.push({
+        action: "compile-wiki:" + candidate.slug,
+        status: "error",
+        detail: String(err),
+      });
+    }
+
+    budgetSpent++;
+  }
+
+  return {
+    job: "consolidate",
+    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    budget_spent: budgetSpent,
+    budget_remaining: Math.max(0, budget - budgetSpent),
+    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    results,
+  };
 }
