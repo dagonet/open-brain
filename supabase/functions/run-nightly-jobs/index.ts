@@ -52,13 +52,37 @@ function json(status: number, body: unknown): Response {
   });
 }
 
+// Auth: the caller must present a service-role JWT. The Supabase gateway
+// (verify_jwt, on by default) validates the signature before this code runs,
+// so we only need to read the already-verified `role` claim. We deliberately
+// do NOT compare the bearer against SUPABASE_SERVICE_ROLE_KEY by string
+// equality: this project runs the new dual key system, so the injected env
+// value matches neither the legacy service_role JWT nor the new sb_secret key
+// that a caller (e.g. pg_cron via Vault) can present, which made the old guard
+// unsatisfiable and 401'd every run.
+function isServiceRoleJwt(authHeader: string): boolean {
+  if (!authHeader.startsWith("Bearer ")) return false;
+  const token = authHeader.slice(7);
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4 !== 0) b64 += "=";
+    const payload = JSON.parse(atob(b64)) as { role?: string };
+    return payload.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 // Handler
 
 serve(async (req: Request): Promise<Response> => {
-  // Auth guard — require service-role bearer
+  // Auth guard — require a valid service-role JWT (role claim === service_role).
+  // The gateway already verified the signature; blocks anon-JWT callers from
+  // triggering expensive LLM sweeps.
   const auth = req.headers.get("Authorization") ?? "";
-  const svcRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!auth.startsWith("Bearer ") || auth.slice(7) !== svcRole) {
+  if (!isServiceRoleJwt(auth)) {
     return json(401, { error: "Unauthorized" });
   }
 
@@ -86,8 +110,11 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const budget = envInt("MAX_LLM_CALLS_PER_JOB", 50);
+  // Send both apikey and Authorization so the gateway accepts the injected
+  // service key whether it is a legacy JWT or a new sb_secret.
   const authHeaders = {
     "Content-Type": "application/json",
+    "apikey": serviceKey,
     "Authorization": "Bearer " + serviceKey,
   };
 
