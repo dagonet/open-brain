@@ -126,7 +126,7 @@ serve(async (req: Request): Promise<Response> => {
   } else if (job === "stale-wiki") {
     summary = await runStaleWiki(supabaseUrl, authHeaders, budget, serviceKey);
   } else if (job === "archive") {
-    summary = await runArchive(supabaseUrl, serviceKey, budget);
+    summary = await runArchive(supabaseUrl, serviceKey);
   } else {
     summary = await runConsolidate(supabaseUrl, authHeaders, budget, serviceKey);
   }
@@ -325,14 +325,14 @@ async function callRpc<T>(
 async function runArchive(
   supabaseUrl: string,
   serviceKey: string,
-  budget: number,
 ): Promise<JobSummary> {
   const results: ActionResult[] = [];
-  let r1 = 0;
-  let r2 = 0;
 
   try {
-    const data = await callRpc<{ rule1_archived: number; rule2_archived: number }>(
+    // archive_thoughts RETURNS jsonb — PostgREST delivers scalar jsonb directly,
+    // NOT array-wrapped (arrays only wrap RETURNS TABLE/SETOF). Unwrap defensively
+    // in case of proxy wrapping.
+    const data = await callRpc<unknown>(
       supabaseUrl,
       serviceKey,
       "archive_thoughts",
@@ -342,29 +342,47 @@ async function runArchive(
       },
     );
 
-    r1 = data.rule1_archived;
-    r2 = data.rule2_archived;
-
-    if (r1 > 0) {
-      results.push({
-        action: "archive_thoughts:rule1",
-        status: "ok",
-        detail: "archived=" + r1,
-      });
-    }
-    if (r2 > 0) {
-      results.push({
-        action: "archive_thoughts:rule2",
-        status: "ok",
-        detail: "archived=" + r2,
-      });
-    }
-    if (r1 === 0 && r2 === 0) {
+    const body = Array.isArray(data) ? data[0] : data;
+    if (body === null || typeof body !== "object") {
       results.push({
         action: "archive_thoughts",
-        status: "ok",
-        detail: "no candidates",
+        status: "error",
+        detail: "unexpected RPC response shape: " + JSON.stringify(data),
       });
+    } else {
+      const record = body as Record<string, unknown>;
+      const r1 = typeof record.rule1_archived === "number" ? record.rule1_archived : -1;
+      const r2 = typeof record.rule2_archived === "number" ? record.rule2_archived : -1;
+
+      if (r1 < 0 || r2 < 0) {
+        results.push({
+          action: "archive_thoughts",
+          status: "error",
+          detail: "unexpected RPC response keys: " + JSON.stringify(data),
+        });
+      } else {
+        if (r1 > 0) {
+          results.push({
+            action: "archive_thoughts:rule1",
+            status: "ok",
+            detail: "archived=" + r1,
+          });
+        }
+        if (r2 > 0) {
+          results.push({
+            action: "archive_thoughts:rule2",
+            status: "ok",
+            detail: "archived=" + r2,
+          });
+        }
+        if (r1 === 0 && r2 === 0) {
+          results.push({
+            action: "archive_thoughts",
+            status: "ok",
+            detail: "no candidates",
+          });
+        }
+      }
     }
   } catch (err: unknown) {
     results.push({
@@ -376,9 +394,9 @@ async function runArchive(
 
   return {
     job: "archive",
-    actions_taken: (r1 > 0 ? 1 : 0) + (r2 > 0 ? 1 : 0),
+    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
     budget_spent: 0,
-    budget_remaining: budget,
+    budget_remaining: envInt("MAX_LLM_CALLS_PER_JOB", 50),
     errors: results.filter(function (r) { return r.status === "error"; }).length,
     results,
   };
