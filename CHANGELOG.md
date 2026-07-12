@@ -4,9 +4,61 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-12
+
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c19de94f)
+via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
+
+### Added
+
+- **Entity co-occurrence graph.** The `entity_descriptions` table (v0.4) held 2,260+
+  entity mentions across 585 thoughts, captured on every save but NEVER read — the data
+  was stranded. Migration 014 introduces `entity_nodes` (canonical entities by
+  `lower(trim(name))`) and `entity_edges` (co-occurrence pairs, weight = shared-thought
+  count) views — pure SQL self-joins, zero LLM cost, self-maintaining. Three new RPCs:
+  `entity_search`, `entity_neighbors` (1-hop), `related_thoughts_via_entities`
+  (hub-suppression: degree cap + inverse-frequency scoring so a rare shared entity
+  outranks a hub). (WS1)
+- **Three new MCP tools.** Tool count: 19 -> 22. `entities_search(query, entity_type?,
+  limit?)` — full-text entity lookup; `entities_graph(entity, max_nodes?)` — depth-1
+  entity neighborhood, returns `{entity, neighbors}`; `thoughts_search_expanded(query,
+  project?, limit?, recency_halflife_days?)` — semantic search + 1-hop entity expansion
+  via `related_thoughts_via_entities`. `match_thoughts_v2` unchanged; expansion leg
+  degrades gracefully; base-search failure surfaces as an error. (WS2)
+- **New disable family.** `OPEN_BRAIN_TOOLS_DISABLED` now accepts `entities` alongside
+  `wiki`, `contradictions`, and `tasks`. (WS2)
+
+### Changed
+
+- **MCP server 0.6.0 -> 0.7.0** (19 -> 22 tools). New `entities` tool family
+  (`entities_search`, `entities_graph`) plus `thoughts_search_expanded` on the
+  `thoughts` family. (WS3)
+- **Migration 014** applied. Additive DDL creating `entity_nodes` + `entity_edges`
+  views and the `entity_search`, `entity_neighbors`, `related_thoughts_via_entities`
+  RPCs. (WS1)
+
+### Fixed
+
+- **#29: Dollar-quote SQL lint.** `hooks/run-gate.sh` now accepts dollar-quoted strings
+  (`$$...$$`) in SQL files, ending false positives on migration files with dollar-quote
+  delimiters. (WS1)
+
+### Notes
+
+- Edges are co-occurrence-based (untyped). The canonical entity is the normalized name
+  (`lower(trim(name))`). Deferred to v0.8: LLM-typed relation edges, alias merge
+  (React = ReactJS), entity embeddings, web entity graph view, depth-2 neighborhoods.
+- CLI and web dashboard are unchanged in this release.
+
+### Cross-repo follow-ups (not part of this release)
+
+- A separate PR on `dagonet/claude-code-toolkit` will sync each variant's
+  `CLAUDE.md`, `CLAUDE.local.md`, skill files, and agent definitions to reference
+  the 22-tool set (was 19) and document the `entities` disable family.
+
 ## [0.6.0] - 2026-07-12
 
-Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c19de94f)
 via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?v=dxq7WtWxi44).
 
 ### Added
