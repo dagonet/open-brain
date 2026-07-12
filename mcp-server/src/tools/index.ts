@@ -7,6 +7,7 @@ import { definition as thoughtsPeople } from "./list-people.js";
 import { definition as thoughtsTopics } from "./list-topics.js";
 import { definition as thoughtsReview } from "./weekly-review.js";
 import { definition as thoughtsCapture } from "./capture-thought.js";
+import { definition as thoughtsSupersede } from "./supersede-thought.js";
 import { definition as wikiGet } from "./wiki-get.js";
 import { definition as wikiList } from "./wiki-list.js";
 import { definition as wikiRefresh } from "./wiki-refresh.js";
@@ -26,6 +27,7 @@ export const allTools: ToolDefinition[] = [
   thoughtsTopics,
   thoughtsReview,
   thoughtsCapture,
+  thoughtsSupersede,
   wikiGet,
   wikiList,
   wikiRefresh,

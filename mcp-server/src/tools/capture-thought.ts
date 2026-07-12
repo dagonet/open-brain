@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 export interface CaptureThoughtParams {
   text: string;
   metadata?: Record<string, unknown>;
+  /** If omitted, falls back to OPEN_BRAIN_DEFAULT_PROJECT env var. */
+  project?: string;
 }
 
 export async function captureThought(
@@ -32,6 +34,7 @@ export async function captureThought(
         source: "mcp",
         idempotency_key,
         metadata: params.metadata,
+        project: params.project,
       }),
     });
 
@@ -41,14 +44,24 @@ export async function captureThought(
       return JSON.stringify({ error: data.error || `HTTP ${response.status}` });
     }
 
-    return JSON.stringify({
+    const result: Record<string, unknown> = {
       success: true,
       is_duplicate: data.is_duplicate,
       thought_id: data.thought?.id,
       thought_type: data.thought?.thought_type,
       people: data.thought?.people,
       topics: data.thought?.topics,
-    });
+    };
+
+    // If the edge function returned a near-duplicate candidate, append guidance.
+    if (data.duplicate_candidate) {
+      const dc = data.duplicate_candidate;
+      result.duplicate_candidate = dc;
+      result.note =
+        `Near-duplicate detected: ${dc.thought_id} (similarity ${dc.similarity}). Preview: "${dc.raw_text_preview}". Use thoughts_supersede if this replaces it.`;
+    }
+
+    return JSON.stringify(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return JSON.stringify({ error: "Failed to capture thought", message });
@@ -64,6 +77,10 @@ export const definition: ToolDefinition = {
   schema: {
     text: z.string().describe("The thought to capture. Can be a decision, insight, meeting note, action item, or general note."),
     metadata: z.record(z.unknown()).optional().describe("Optional metadata (e.g., { session_context: 'sprint planning' })"),
+    project: z
+      .string()
+      .optional()
+      .describe("Project to associate this thought with. Falls back to OPEN_BRAIN_DEFAULT_PROJECT env var if set."),
   },
   handler: (_deps, params) => captureThought(params as unknown as CaptureThoughtParams),
 };

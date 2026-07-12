@@ -30,7 +30,7 @@ const wikiEnabled = !disabled.has("wiki");
 const server = new McpServer(
   {
     name: "open-brain",
-    version: "0.3.0",
+    version: "0.5.0",
   },
   {
     instructions: buildInstructions({ wikiEnabled }),
