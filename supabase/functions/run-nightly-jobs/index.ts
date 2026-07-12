@@ -95,7 +95,9 @@ serve(async (req: Request): Promise<Response> => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!supabaseUrl || !serviceKey) {
-    return json(500, { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" });
+    return json(500, {
+      error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    });
   }
 
   // Parse job
@@ -107,8 +109,18 @@ serve(async (req: Request): Promise<Response> => {
     return json(400, { error: "Invalid JSON body" });
   }
 
-  if (job !== "contradictions" && job !== "stale-wiki" && job !== "archive" && job !== "consolidate") {
-    return json(400, { error: 'Unknown job: "' + job + '". Must be "contradictions", "stale-wiki", "archive", or "consolidate"' });
+  if (
+    job !== "contradictions" &&
+    job !== "stale-wiki" &&
+    job !== "archive" &&
+    job !== "consolidate"
+  ) {
+    return json(400, {
+      error:
+        'Unknown job: "' +
+        job +
+        '". Must be "contradictions", "stale-wiki", "archive", or "consolidate"',
+    });
   }
 
   const budget = envInt("MAX_LLM_CALLS_PER_JOB", 50);
@@ -116,8 +128,8 @@ serve(async (req: Request): Promise<Response> => {
   // service key whether it is a legacy JWT or a new sb_secret.
   const authHeaders = {
     "Content-Type": "application/json",
-    "apikey": serviceKey,
-    "Authorization": "Bearer " + serviceKey,
+    apikey: serviceKey,
+    Authorization: "Bearer " + serviceKey,
   };
 
   let summary: JobSummary;
@@ -128,7 +140,12 @@ serve(async (req: Request): Promise<Response> => {
   } else if (job === "archive") {
     summary = await runArchive(supabaseUrl, serviceKey);
   } else {
-    summary = await runConsolidate(supabaseUrl, authHeaders, budget, serviceKey);
+    summary = await runConsolidate(
+      supabaseUrl,
+      authHeaders,
+      budget,
+      serviceKey,
+    );
   }
 
   console.log("run-nightly-jobs:", JSON.stringify(summary));
@@ -150,11 +167,14 @@ async function runContradictions(
   const results: ActionResult[] = [];
 
   try {
-    const res = await fetch(supabaseUrl + "/functions/v1/detect-contradictions", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ candidate_limit: candidates }),
-    });
+    const res = await fetch(
+      supabaseUrl + "/functions/v1/detect-contradictions",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ candidate_limit: candidates }),
+      },
+    );
 
     if (!res.ok) {
       results.push({
@@ -163,7 +183,7 @@ async function runContradictions(
         detail: "HTTP " + res.status + ": " + (await res.text()),
       });
     } else {
-      const data = await res.json() as Record<string, unknown>;
+      const data = (await res.json()) as Record<string, unknown>;
       const inserted = data.contradictions_inserted ?? "?";
       const judged = data.pairs_judged ?? "?";
       const scanned = data.candidates_scanned ?? "?";
@@ -171,7 +191,15 @@ async function runContradictions(
       results.push({
         action: "detect-contradictions",
         status: "ok",
-        detail: "inserted=" + inserted + ", judged=" + judged + ", scanned=" + scanned + ", errors=" + errs,
+        detail:
+          "inserted=" +
+          inserted +
+          ", judged=" +
+          judged +
+          ", scanned=" +
+          scanned +
+          ", errors=" +
+          errs,
       });
     }
   } catch (err: unknown) {
@@ -184,10 +212,14 @@ async function runContradictions(
 
   return {
     job: "contradictions",
-    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    actions_taken: results.filter(function (r) {
+      return r.status === "ok";
+    }).length,
     budget_spent: candidates,
     budget_remaining: Math.max(0, budget - candidates),
-    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    errors: results.filter(function (r) {
+      return r.status === "error";
+    }).length,
     results,
   };
 }
@@ -243,7 +275,7 @@ async function runStaleWiki(
           detail: "HTTP " + res.status + ": " + (await res.text()),
         });
       } else {
-        const data = await res.json() as Record<string, unknown>;
+        const data = (await res.json()) as Record<string, unknown>;
         const version = data.version ?? "?";
         const partial = data.partial ?? "?";
         const cited = data.cited ?? "?";
@@ -251,7 +283,15 @@ async function runStaleWiki(
         results.push({
           action: "compile-wiki:" + page.slug,
           status: "ok",
-          detail: "version=" + version + ", partial=" + partial + ", cited=" + cited + ", sources=" + sourceCount,
+          detail:
+            "version=" +
+            version +
+            ", partial=" +
+            partial +
+            ", cited=" +
+            cited +
+            ", sources=" +
+            sourceCount,
         });
       }
     } catch (err: unknown) {
@@ -267,10 +307,14 @@ async function runStaleWiki(
 
   return {
     job: "stale-wiki",
-    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    actions_taken: results.filter(function (r) {
+      return r.status === "ok";
+    }).length,
     budget_spent: budgetSpent,
     budget_remaining: Math.max(0, budget - budgetSpent),
-    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    errors: results.filter(function (r) {
+      return r.status === "error";
+    }).length,
     results,
   };
 }
@@ -290,11 +334,12 @@ async function queryStalePages(
 
   const res = await fetch(url.toString(), {
     headers: {
-      "Authorization": "Bearer " + serviceKey,
-      "apikey": serviceKey,
+      Authorization: "Bearer " + serviceKey,
+      apikey: serviceKey,
     },
   });
-  if (!res.ok) throw new Error("REST " + res.status + ": " + (await res.text()));
+  if (!res.ok)
+    throw new Error("REST " + res.status + ": " + (await res.text()));
   return await res.json();
 }
 
@@ -311,13 +356,16 @@ async function callRpc<T>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": serviceKey,
-      "Authorization": "Bearer " + serviceKey,
+      apikey: serviceKey,
+      Authorization: "Bearer " + serviceKey,
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("RPC " + fnName + " HTTP " + res.status + ": " + (await res.text()));
-  return await res.json() as T;
+  if (!res.ok)
+    throw new Error(
+      "RPC " + fnName + " HTTP " + res.status + ": " + (await res.text()),
+    );
+  return (await res.json()) as T;
 }
 
 // Job: archive (zero LLM budget — pure SQL RPC)
@@ -351,8 +399,10 @@ async function runArchive(
       });
     } else {
       const record = body as Record<string, unknown>;
-      const r1 = typeof record.rule1_archived === "number" ? record.rule1_archived : -1;
-      const r2 = typeof record.rule2_archived === "number" ? record.rule2_archived : -1;
+      const r1 =
+        typeof record.rule1_archived === "number" ? record.rule1_archived : -1;
+      const r2 =
+        typeof record.rule2_archived === "number" ? record.rule2_archived : -1;
 
       if (r1 < 0 || r2 < 0) {
         results.push({
@@ -394,10 +444,14 @@ async function runArchive(
 
   return {
     job: "archive",
-    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    actions_taken: results.filter(function (r) {
+      return r.status === "ok";
+    }).length,
     budget_spent: 0,
     budget_remaining: envInt("MAX_LLM_CALLS_PER_JOB", 50),
-    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    errors: results.filter(function (r) {
+      return r.status === "error";
+    }).length,
     results,
   };
 }
@@ -415,12 +469,21 @@ async function runConsolidate(
   const results: ActionResult[] = [];
 
   // Fetch consolidation candidates via RPC
-  let candidates: Array<{ slug: string; thought_count: number; aggregate_signal: number }>;
+  let candidates: Array<{
+    slug: string;
+    thought_count: number;
+    aggregate_signal: number;
+  }>;
   try {
-    candidates = await callRpc(supabaseUrl, serviceKey, "consolidation_candidates", {
-      min_thoughts: minThoughts,
-      result_limit: resultLimit,
-    });
+    candidates = await callRpc(
+      supabaseUrl,
+      serviceKey,
+      "consolidation_candidates",
+      {
+        min_thoughts: minThoughts,
+        result_limit: resultLimit,
+      },
+    );
   } catch (err: unknown) {
     results.push({
       action: "consolidation_candidates",
@@ -456,7 +519,7 @@ async function runConsolidate(
           detail: "HTTP " + res.status + ": " + (await res.text()),
         });
       } else {
-        const data = await res.json() as Record<string, unknown>;
+        const data = (await res.json()) as Record<string, unknown>;
         const version = data.version ?? "?";
         const partial = data.partial ?? "?";
         const cited = data.cited ?? "?";
@@ -464,7 +527,15 @@ async function runConsolidate(
         results.push({
           action: "compile-wiki:" + candidate.slug,
           status: "ok",
-          detail: "version=" + version + ", partial=" + partial + ", cited=" + cited + ", sources=" + sourceCount,
+          detail:
+            "version=" +
+            version +
+            ", partial=" +
+            partial +
+            ", cited=" +
+            cited +
+            ", sources=" +
+            sourceCount,
         });
       }
     } catch (err: unknown) {
@@ -480,10 +551,14 @@ async function runConsolidate(
 
   return {
     job: "consolidate",
-    actions_taken: results.filter(function (r) { return r.status === "ok"; }).length,
+    actions_taken: results.filter(function (r) {
+      return r.status === "ok";
+    }).length,
     budget_spent: budgetSpent,
     budget_remaining: Math.max(0, budget - budgetSpent),
-    errors: results.filter(function (r) { return r.status === "error"; }).length,
+    errors: results.filter(function (r) {
+      return r.status === "error";
+    }).length,
     results,
   };
 }
