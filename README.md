@@ -270,6 +270,56 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
 See [docs/slack-setup.md](docs/slack-setup.md) for the full Slack app setup guide.
 
+### 9. Set Up Nightly Automation (v0.5.0)
+
+The `run-nightly-jobs` edge function is a cron-driven orchestrator that dispatches to sibling functions for contradiction detection and wiki compilation. Budget-capped per run via `MAX_LLM_CALLS_PER_JOB`.
+
+> **Budget note:** the contradictions job reserves its full `NIGHTLY_CONTRADICTION_LIMIT` against `MAX_LLM_CALLS_PER_JOB` as a conservative over-count; actual LLM usage may be lower (not every candidate produces a judged pair).
+
+**1. Deploy the orchestrator**
+
+```bash
+supabase functions deploy run-nightly-jobs --use-api
+```
+
+**2. Set budget secrets (optional — defaults apply if omitted)**
+
+```bash
+supabase secrets set NIGHTLY_CONTRADICTION_LIMIT=100
+supabase secrets set NIGHTLY_COMPILE_BUDGET=5
+supabase secrets set MAX_LLM_CALLS_PER_JOB=50
+```
+
+**3. Schedule via pg_cron**
+
+Open the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql) and paste the contents of `docs/cron-setup.sql`, replacing `<YOUR_PROJECT_REF>` with your project's subdomain.
+
+**4. On-demand trigger (manual / ad-hoc)**
+
+```bash
+# Trigger a contradictions audit
+curl -X POST https://<project>.supabase.co/functions/v1/run-nightly-jobs \
+  -H "Authorization: Bearer $(supabase secrets get SUPABASE_SERVICE_ROLE_KEY)" \
+  -H "Content-Type: application/json" \
+  -d '{"job":"contradictions"}'
+
+# Trigger stale-wiki compilation
+curl -X POST https://<project>.supabase.co/functions/v1/run-nightly-jobs \
+  -H "Authorization: Bearer $(supabase secrets get SUPABASE_SERVICE_ROLE_KEY)" \
+  -H "Content-Type: application/json" \
+  -d '{"job":"stale-wiki"}'
+```
+
+**Nightly automation env knobs**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `NIGHTLY_CONTRADICTION_LIMIT` | 100 | Max candidate thoughts to scan each contradictions run |
+| `NIGHTLY_COMPILE_BUDGET` | 5 | Max wiki pages to recompile per stale-wiki run |
+| `MAX_LLM_CALLS_PER_JOB` | 50 | Hard budget cap per single job invocation |
+
+See `.env.example` for the full environment reference.
+
 ## Upgrading from v0.2.x
 
 The v0.3.0 release adds two new edge functions, two strictly additive migrations (`005_wiki.sql`, `006_contradictions_anon_update.sql`), six new MCP tools, and the `/wiki` + `/contradictions` dashboard routes. The `thoughts` table schema is unchanged. The migrations are safe to apply to an existing project.
@@ -326,6 +376,20 @@ DROP FUNCTION IF EXISTS slugify(text);
 ```
 
 After the migrations apply, deploy the new edge functions (step 4 above) and rebuild + restart the MCP server so it exposes the new tools.
+
+### v0.5.0 migration backfill
+
+Migration 008 backfills `project` from `metadata->>'project'`. Verify completeness:
+
+```sql
+SELECT count(*) AS pending_backfill
+FROM thoughts
+WHERE metadata->>'project' IS NOT NULL AND project IS NULL AND deleted_at IS NULL;
+```
+
+If non-zero, re-run: `UPDATE thoughts SET project = metadata->>'project' WHERE metadata->>'project' IS NOT NULL AND project IS NULL;`
+
+See `docs/cron-setup.sql` for the full backfill verify query.
 
 ## Usage
 
