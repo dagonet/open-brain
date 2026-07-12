@@ -9,15 +9,21 @@
 --   2. pg_cron must be available (available by default on Supabase)
 --   3. pg_net must be available (available by default on Supabase)
 --   4. Replace '<YOUR_PROJECT_REF>' with your actual project ref
+--   5. Replace '<YOUR_SERVICE_ROLE_KEY>' in the one-time Vault step below
 --
 -- Usage:
 --   Run in Supabase SQL editor or via:
 --     psql "$SUPABASE_DB_URL" -f docs/cron-setup.sql
 --
 -- To verify schedules:
---   SELECT jobname, schedule, last_run, next_run
+--   SELECT jobname, schedule, active
 --   FROM cron.job
 --   WHERE jobname LIKE 'nightly-%';
+--
+-- To verify runs (after 03:07/04:07 UTC):
+--   SELECT jobname, status, return_message, start_time
+--   FROM cron.job_run_details
+--   ORDER BY start_time DESC LIMIT 10;
 --
 -- To remove a schedule:
 --   SELECT cron.unschedule('nightly-contradictions');
@@ -25,6 +31,13 @@
 -- =========================================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- One-time: store the service-role key in Supabase Vault.
+-- (current_setting('supabase.service_role_key') does NOT exist on Supabase;
+--  Vault is the supported way for cron jobs to read secrets.)
+-- Skip if a secret named 'service_role_key' already exists.
+SELECT vault.create_secret('<YOUR_SERVICE_ROLE_KEY>', 'service_role_key');
 
 -- Schedule 1: contradictions audit at 03:07 UTC daily
 SELECT cron.schedule(
@@ -35,7 +48,7 @@ SELECT cron.schedule(
     url := 'https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/run-nightly-jobs',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('supabase.service_role_key')
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
     ),
     body := '{"job":"contradictions"}'::jsonb
   ) AS request_id;
@@ -51,7 +64,7 @@ SELECT cron.schedule(
     url := 'https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/run-nightly-jobs',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('supabase.service_role_key')
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
     ),
     body := '{"job":"stale-wiki"}'::jsonb
   ) AS request_id;
