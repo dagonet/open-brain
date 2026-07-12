@@ -94,7 +94,7 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
   documents pg_cron + pg_net scheduling at 03:00/04:00. (WP6)
 - **CLI `--project` flag** on `capture` and `import` commands. When the response includes a
   `duplicate_candidate`, prints: `Near-duplicate of <id> (<similarity>): "<preview>" — consider
-  superseding.` (WP4)
+superseding.` (WP4)
 
 ### Changed
 
@@ -142,7 +142,7 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
 2. Apply migrations 008–011 against a **preview branch** first (see the smoke-test recipe in README.md).
    Migrations are strictly additive — no column drops or type changes.
 3. Verify `match_thoughts` was created by migration 008: run `SELECT * FROM information_schema.routines
-   WHERE routine_name = 'match_thoughts'` in the SQL editor.
+WHERE routine_name = 'match_thoughts'` in the SQL editor.
 4. Deploy the updated edge function:
    ```bash
    supabase functions deploy capture-thought --use-api
@@ -168,7 +168,7 @@ via Nate B Jones' [video](https://www.youtube.com/watch?v=dxq7WtWxi44).
 
 - **Wiki citation fidelity at large clusters.** `compile-wiki` previously asked the
   model to echo full 36-char thought UUIDs into its `citations` array. OpenAI
-  Structured Outputs `strict` mode enforces the UUID *shape* but not set
+  Structured Outputs `strict` mode enforces the UUID _shape_ but not set
   membership, so at ~80-thought clusters the model emitted plausible-but-invented
   UUIDs; the old whole-paragraph drop then amplified this into near-empty pages
   (one 80-thought topic compiled to 3 cited sources, `partial=true`). The model

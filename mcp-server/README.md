@@ -23,12 +23,12 @@ npm run build
 
 ### 2. Configure environment variables
 
-| Var | Purpose |
-|---|---|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (NOT the anon key) |
-| `OPENAI_API_KEY` | OpenAI API key for generating embeddings |
-| `OPEN_BRAIN_TOOLS_DISABLED` | (v0.3.0, optional) Comma-separated tool families to filter out: `wiki`, `contradictions`, `tasks`, or any combination. See [Per-repo opt-out](#per-repo-opt-out) below. |
+| Var                          | Purpose                                                                                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`               | Your Supabase project URL                                                                                                                                                         |
+| `SUPABASE_SERVICE_ROLE_KEY`  | Supabase service role key (NOT the anon key)                                                                                                                                      |
+| `OPENAI_API_KEY`             | OpenAI API key for generating embeddings                                                                                                                                          |
+| `OPEN_BRAIN_TOOLS_DISABLED`  | (v0.3.0, optional) Comma-separated tool families to filter out: `wiki`, `contradictions`, `tasks`, or any combination. See [Per-repo opt-out](#per-repo-opt-out) below.           |
 | `OPEN_BRAIN_DEFAULT_PROJECT` | (v0.5.0, optional) Default project scope for all tools when the caller omits the `project` param. Enables per-repo memory isolation — each workspace pins itself via `.mcp.json`. |
 
 ### 3. Apply database migrations
@@ -60,41 +60,41 @@ Add to your `.claude/.mcp.json` (project) or `~/.claude/.mcp.json` (user-level):
 
 ### Thoughts (9)
 
-| Tool | Description |
-|---|---|
-| `thoughts_search` | Semantic search with hybrid ranking (v0.5.0: uses `match_thoughts_v2` with recency decay, salience boost, contradiction penalty, superseded exclusion; v0.6.0: adds `include_archived`, results surface `lifecycle_status`). Params: `query`, `limit`, `thought_type`, `people`, `topics`, `days`, `project` (v0.5.0), `recency_halflife_days`, `include_superseded`, `include_archived` (v0.6.0), `apply_contradiction_penalty`. Results include `score`, `salience`, `project`, `lifecycle_status` (v0.6.0). |
-| `thoughts_recent` | List thoughts ordered by date. Params: `days`, `limit`, `project` (v0.5.0). |
-| `thoughts_capture` | Capture a thought, decision, insight, or note. Auto-classifies + extracts metadata + salience rating (v0.5.0). Params: `text`, `metadata`, `project` (v0.5.0). When `duplicate_candidate` is returned, a hint text suggests using `thoughts_supersede`. |
-| `thoughts_delete` | Soft-delete a thought by UUID. Params: `id`. |
-| `thoughts_people` | List unique people with mention counts. Params: `limit`. |
-| `thoughts_topics` | List unique topics with mention counts. Params: `limit`. |
-| `thoughts_review` | Structured summary over a time period. Params: `days`. |
-| `thoughts_supersede` | (v0.5.0, tool #15) Mark one thought as superseding another. Superseded thoughts excluded from default search results. Params: `new_thought_id`, `old_thought_id`. |
-| `system_status` | Total thoughts, counts by status/source, recent failures, embedding config. No params. |
+| Tool                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thoughts_search`    | Semantic search with hybrid ranking (v0.5.0: uses `match_thoughts_v2` with recency decay, salience boost, contradiction penalty, superseded exclusion; v0.6.0: adds `include_archived`, results surface `lifecycle_status`). Params: `query`, `limit`, `thought_type`, `people`, `topics`, `days`, `project` (v0.5.0), `recency_halflife_days`, `include_superseded`, `include_archived` (v0.6.0), `apply_contradiction_penalty`. Results include `score`, `salience`, `project`, `lifecycle_status` (v0.6.0). |
+| `thoughts_recent`    | List thoughts ordered by date. Params: `days`, `limit`, `project` (v0.5.0).                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `thoughts_capture`   | Capture a thought, decision, insight, or note. Auto-classifies + extracts metadata + salience rating (v0.5.0). Params: `text`, `metadata`, `project` (v0.5.0). When `duplicate_candidate` is returned, a hint text suggests using `thoughts_supersede`.                                                                                                                                                                                                                                                        |
+| `thoughts_delete`    | Soft-delete a thought by UUID. Params: `id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `thoughts_people`    | List unique people with mention counts. Params: `limit`.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `thoughts_topics`    | List unique topics with mention counts. Params: `limit`.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `thoughts_review`    | Structured summary over a time period. Params: `days`.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `thoughts_supersede` | (v0.5.0, tool #15) Mark one thought as superseding another. Superseded thoughts excluded from default search results. Params: `new_thought_id`, `old_thought_id`.                                                                                                                                                                                                                                                                                                                                              |
+| `system_status`      | Total thoughts, counts by status/source, recent failures, embedding config. No params.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Wiki (3 — new in v0.3.0)
 
-| Tool | Description |
-|---|---|
-| `wiki_get` | Latest compiled wiki page for a topic slug. Returns markdown plus staleness signals (`stale_since_n_thoughts`, `open_contradictions_count`, `compiled_at`) and source thought IDs (with optional inline snippets). Params: `slug`, `include_sources` (`snippets` \| `full` \| `none`, default `snippets`). |
-| `wiki_list` | List compiled pages newest-first. Use `{limit:1}` to cheaply check whether wiki content exists at all in this workspace. Params: `limit`, `since`. |
-| `wiki_refresh` | Recompile a topic page from current thoughts via the `compile-wiki` edge function. Citation-validated; returns `partial=true` if some paragraphs were dropped. Params: `slug`, `dry_run`. |
+| Tool           | Description                                                                                                                                                                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wiki_get`     | Latest compiled wiki page for a topic slug. Returns markdown plus staleness signals (`stale_since_n_thoughts`, `open_contradictions_count`, `compiled_at`) and source thought IDs (with optional inline snippets). Params: `slug`, `include_sources` (`snippets` \| `full` \| `none`, default `snippets`). |
+| `wiki_list`    | List compiled pages newest-first. Use `{limit:1}` to cheaply check whether wiki content exists at all in this workspace. Params: `limit`, `since`.                                                                                                                                                         |
+| `wiki_refresh` | Recompile a topic page from current thoughts via the `compile-wiki` edge function. Citation-validated; returns `partial=true` if some paragraphs were dropped. Params: `slug`, `dry_run`.                                                                                                                  |
 
 ### Contradictions (3 — new in v0.3.0)
 
-| Tool | Description |
-|---|---|
-| `contradictions_list` | List contradictions detected between pairs of captured thoughts. Params: `status`, `since`, `limit`. |
+| Tool                     | Description                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `contradictions_list`    | List contradictions detected between pairs of captured thoughts. Params: `status`, `since`, `limit`.                              |
 | `contradictions_resolve` | Mark a contradiction as `resolved` / `ignored` / `false_positive` and capture an audit thought. Params: `id`, `decision`, `note`. |
-| `contradictions_audit` | Trigger an on-demand audit pass via the `detect-contradictions` edge function. Params: `thought_id`, `since`, `candidate_limit`. |
+| `contradictions_audit`   | Trigger an on-demand audit pass via the `detect-contradictions` edge function. Params: `thought_id`, `since`, `candidate_limit`.  |
 
 ### Tasks (4 — new in v0.6.0)
 
-| Tool | Description |
-|---|---|
-| `task_create` | Create a new task. Params: `title`, `description`, `status` (default `backlog`), `priority` (default `medium`), `assignee`, `project`. |
-| `task_get` | Get a single task by ID. Returns full task with `status_history` array. Params: `id`. |
-| `task_list` | List tasks filterable by `status`, `project`, `priority`, `assignee`. Params: `status`, `project`, `priority`, `assignee`, `limit`. |
+| Tool          | Description                                                                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task_create` | Create a new task. Params: `title`, `description`, `status` (default `backlog`), `priority` (default `medium`), `assignee`, `project`.                                                    |
+| `task_get`    | Get a single task by ID. Returns full task with `status_history` array. Params: `id`.                                                                                                     |
+| `task_list`   | List tasks filterable by `status`, `project`, `priority`, `assignee`. Params: `status`, `project`, `priority`, `assignee`, `limit`.                                                       |
 | `task_update` | Update a task's fields. Status transitions are appended to `status_history`. Use `cancel` status for soft-delete. Params: `id`, `status`, `priority`, `assignee`, `title`, `description`. |
 
 The MCP `instructions` string includes a **conditional wiki-first rule**: agents call `wiki_list({limit:1})` before considering `wiki_get`, so unrelated repos with no wiki content see no behavioural change versus v0.2.0.
@@ -125,10 +125,10 @@ When the env var is set, the filtered families do not appear in the `tools/list`
 
 ## Versions
 
-| Version | Notes |
-|---|---|
+| Version | Notes                                                                                                                                                                        |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `0.6.0` | Added 4 task tools (19 total), lifecycle tracking (`include_archived`, `lifecycle_status` on search results), nightly auto-archive and consolidation, `tasks` disable-family |
-| `0.5.0` | Added thoughts_supersede (tool #15), hybrid search params, project scoping, salience, near-dup detection, retrieval tracking |
-| `0.3.0` | Added 6 wiki / contradictions tools, per-repo opt-out, conditional wiki-first rule |
-| `0.2.0` | First write tool (`thoughts_capture`), proactive `instructions` string |
-| `0.1.0` | Initial 6 read tools |
+| `0.5.0` | Added thoughts_supersede (tool #15), hybrid search params, project scoping, salience, near-dup detection, retrieval tracking                                                 |
+| `0.3.0` | Added 6 wiki / contradictions tools, per-repo opt-out, conditional wiki-first rule                                                                                           |
+| `0.2.0` | First write tool (`thoughts_capture`), proactive `instructions` string                                                                                                       |
+| `0.1.0` | Initial 6 read tools                                                                                                                                                         |
