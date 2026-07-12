@@ -1,4 +1,5 @@
-﻿export type ThoughtSource = "slack" | "cli" | "mcp" | "import" | "import-claude" | "import-chatgpt";
+﻿export type ThoughtSource =
+  "slack" | "cli" | "mcp" | "import" | "import-claude" | "import-chatgpt";
 
 export type ThoughtType =
   | "decision"
@@ -36,6 +37,7 @@ export interface ThoughtRecord {
   metadata: Record<string, unknown>;
   project: string | null;
   salience: number | null;
+  lifecycle_status?: string;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;

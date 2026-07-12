@@ -42,6 +42,15 @@ const CORE_INSTRUCTIONS = [
   "",
   "DELETING:",
   "- thoughts_delete: Remove outdated or incorrect memories when noticed.",
+  "",
+  "LIFECYCLE (v0.6):",
+  "- Every thought has a lifecycle_status: 'active' (default), 'superseded' (replaced by a newer",
+  "  capture), or 'archived' (batch-archived resolved actions and cold content).",
+  "- Superseded thoughts are excluded from default search results; archived thoughts are also",
+  "  excluded unless include_archived is passed.",
+  "- thoughts_supersede now marks the old thought as 'superseded' when replacing it.",
+  "- thoughts_search accepts include_archived to include archived thoughts, and surfaces",
+  "  lifecycle_status in every result row.",
 ];
 
 // === wiki ===
