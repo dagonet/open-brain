@@ -1,0 +1,122 @@
+[
+  {
+    "id": "q-fresh-alpha-decision",
+    "query_text": "pgvector index decision search",
+    "description": "Centroid-0: fresh decisions should rank by v2 score (recency*salience). Non-contradicted beat contradicted.",
+    "centroid_index": 0,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000001",
+      "a0000000-0000-0000-0000-000000000002",
+      "a0000000-0000-0000-0000-000000000015",
+      "a0000000-0000-0000-0000-000000000014"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000001": 1.087,
+      "a0000000-0000-0000-0000-000000000002": 0.977,
+      "a0000000-0000-0000-0000-000000000015": 0.727,
+      "a0000000-0000-0000-0000-000000000014": 0.624
+    },
+    "score_derivation": "v2 = cosine(~1) * recency * (0.7+0.1*salience) * (0.7 if open contradiction). Centroid-0 only (cross-centroid cosine ~0). Decision halflife=60d."
+  },
+  {
+    "id": "q-contradiction-demotion",
+    "query_text": "caching strategies decisions",
+    "description": "Centroid-0: contradicted thoughts (contradictionA,B) must rank BELOW non-contradicted centroid-mates (freshDecisionAlpha1,2) under v2 penalty factor 0.7.",
+    "centroid_index": 0,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000001",
+      "a0000000-0000-0000-0000-000000000002",
+      "a0000000-0000-0000-0000-000000000015",
+      "a0000000-0000-0000-0000-000000000014"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000001": 1.087,
+      "a0000000-0000-0000-0000-000000000002": 0.977,
+      "a0000000-0000-0000-0000-000000000015": 0.727,
+      "a0000000-0000-0000-0000-000000000014": 0.624
+    },
+    "score_derivation": "Same 4 thoughts as q-fresh. The critical test: contradicted (score 0.624/0.727) rank below non-contradicted (1.087/0.977). MRR captures ordering."
+  },
+  {
+    "id": "q-superseded-exclusion",
+    "query_text": "database migration tools evaluation",
+    "description": "Centroid-1: supersededA (score would be ~0.059 if included) is EXCLUDED by v2 default (include_superseded=false). 3 remaining expected.",
+    "centroid_index": 1,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000017",
+      "a0000000-0000-0000-0000-000000000003",
+      "a0000000-0000-0000-0000-000000000004"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000017": 0.778,
+      "a0000000-0000-0000-0000-000000000003": 0.05,
+      "a0000000-0000-0000-0000-000000000004": 0.045
+    },
+    "score_derivation": "v2 applies include_superseded=false, so supersededA is filtered out (WHERE NOT EXISTS). Cluster-1 only. Decision halflife=60d, insight halflife=60d."
+  },
+  {
+    "id": "q-recency-floor",
+    "query_text": "monorepo structure decision",
+    "description": "Centroid-5: 400-day-old salience-5 decision. Recency floor at 0.05 ensures score=0.06 > 0. Must appear in top-10 despite extreme age.",
+    "centroid_index": 5,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000011"
+    ],
+    "min_recall_at_5": 0.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000011": 0.06
+    },
+    "score_derivation": "v2 recency = max(exp(-ln2*400/60), 0.05) = 0.05. salience factor = 0.7+5*0.1 = 1.2. score = 0.05*1.2 = 0.06."
+  },
+  {
+    "id": "q-project-filter-alpha",
+    "query_text": "alpha project decisions and notes",
+    "description": "Centroid-0 + filter_project=alpha. All cluster-0 thoughts are alpha; non-alpha cross-centroid thoughts already cosine~0. Verifies filter doesn't break results.",
+    "centroid_index": 0,
+    "params": {
+      "filter_project": "alpha"
+    },
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000001",
+      "a0000000-0000-0000-0000-000000000002",
+      "a0000000-0000-0000-0000-000000000015",
+      "a0000000-0000-0000-0000-000000000014"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000001": 1.087,
+      "a0000000-0000-0000-0000-000000000002": 0.977,
+      "a0000000-0000-0000-0000-000000000015": 0.727,
+      "a0000000-0000-0000-0000-000000000014": 0.624
+    },
+    "score_derivation": "Same cluster-0 scores plus WHERE filter_project='alpha'. All cluster-0 are alpha so result unchanged."
+  },
+  {
+    "id": "q-fresh-insight-beta",
+    "query_text": "connection pooling postgres insight",
+    "description": "Centroid-7: fresh 7-day-old insight, salience 4, beta project. v2 recency gives score 1.015.",
+    "centroid_index": 7,
+    "params": {},
+    "expected_thought_ids": [
+      "a0000000-0000-0000-0000-000000000013"
+    ],
+    "min_recall_at_5": 1.0,
+    "min_recall_at_10": 1.0,
+    "v2_scores": {
+      "a0000000-0000-0000-0000-000000000013": 1.015
+    },
+    "score_derivation": "v2: recency = exp(-ln2*7/60) = 0.922. salience = 0.7+4*0.1 = 1.1. score = 0.922*1.1 = 1.015. Insight halflife=60d."
+  }
+]
