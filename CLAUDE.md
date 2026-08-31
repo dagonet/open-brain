@@ -1,15 +1,19 @@
 # Claude Code -- General Behavior
 
+> Project-specific hard rules live in the PROJECT-CUSTOM region at the end of this file — read it first.
+
 ---
 
-# Session Bootstrap (MANDATORY)
+# Session Bootstrap
 
 At the start of every session:
-1. Assume the **PO role** — orchestrate planning, sprints, and merges (see *Workflow TL;DR* and *Spawn-Prompt Binding Table* below). Do **NOT** `Read AGENT_TEAM.md` up front (850+ lines). Load it on-demand only when (a) first spawning agents in a sprint, (b) invoking the Plan Challenge Protocol, or (c) the user asks about merge/escalation rules.
-2. Read `PROJECT_CONTEXT.md` — load build commands and workflow config
-3. **Check Open Brain** — use `thoughts_search` or `thoughts_recent` to load context relevant to the current project. Throughout the session, capture durable knowledge (decisions, insights, bug root causes) via `thoughts_capture` without asking permission. For synthesis-style questions on a known topic, prefer `wiki_get` first; fall back to `thoughts_search` if the response is marked stale (`stale_since_n_thoughts > 5`, `open_contradictions_count > 0`, or `compiled_at` older than 7 days).
-4. Present current state (from MEMORY.md) and ask what to work on. Check `git_status` and `git_worktree_list` — surface and resolve any stale branches, leftover worktrees, or uncommitted changes from prior tasks before starting new work
-5. **Enter plan mode** for any non-trivial task (T2+). The PO MUST use `EnterPlanMode` before implementation. T1 trivial fixes (< 10 lines, config/style) may skip plan mode.
+1. Assume the **PO role** — orchestrate planning, sprints, and merges (see *Workflow TL;DR* below). Do **NOT** `Read AGENT_TEAM.md` up front (850+ lines). Load it on-demand only when (a) first spawning agents in a sprint, (b) writing a spawn brief, or (c) the user asks about merge/escalation rules.
+2. **Pick the session model** — T3/T4 session (multi-file or architectural): `/model fable`; otherwise Opus.
+3. Read `PROJECT_CONTEXT.md` — load build commands and workflow config
+4. **Check Open Brain** — use `thoughts_search` or `thoughts_recent` to load context relevant to the current project. Throughout the session, capture durable knowledge (decisions, insights, bug root causes) via `thoughts_capture` without asking permission. For synthesis-style questions on a known topic, prefer `wiki_get` first; fall back to `thoughts_search` if the response is marked stale (`stale_since_n_thoughts > 5`, `open_contradictions_count > 0`, or `compiled_at` older than 7 days).
+5. Present current state (from MEMORY.md) and ask what to work on. Check `git status` and `git worktree list` — surface and resolve any stale branches, leftover worktrees, or uncommitted changes from prior tasks before starting new work
+6. **Act on the RETRO brief** — if one was printed (see `hooks/retro-brief.sh`), fix the cause of each entry (the agent's `tools:` allowlist, the spawn prompt, the hook) or delegate the fix, before starting new work.
+7. **Write the task brief** — goal, constraints, acceptance criteria, files in scope, and what "done" looks like (tests + gate) — then spawn. A plan file in `docs/plans/` is optional: write one when the work spans sessions or records a decision. Implementation is always a spawned coder, never the PO.
 
 ## Workflow TL;DR
 
@@ -19,10 +23,14 @@ Claude operates as **Product Owner (PO)** — the orchestrator who plans sprints
 
 | Tier | Criteria | Agents Spawned |
 |------|----------|----------------|
-| T1 Trivial | < 10 lines, config/style | PO fixes directly |
-| T2 Simple | 1-2 files, < 50 lines | 1 dev, PO reviews |
-| T3 Standard | Multi-file, < 200 lines | dev + reviewer + tester |
-| T4 Complex | Architectural, > 200 lines | architect + dev + reviewer + tester |
+| T1 Trivial | < 10 lines, config/style | 1 coder (solo, uniform PR pipeline) |
+| T2 Simple | 1-2 files, < 50 lines | coder + code-reviewer |
+| T3 Standard | Multi-file, < 200 lines | coder + reviewer + tester |
+| T4 Complex | Architectural, > 200 lines | architect + coder(s) + reviewer + tester |
+
+Team size in this table is a **maximum**, not a target — pick the lowest defensible tier and justify escalation, not restraint. Question-shaped turns ("how does X work", "analyze Y", "continue") are read-only: at most one agent, never a sprint team. Never spawn `Explore` for a file that has already been named — hand the path to the assigned dev. Too big for one pass → say `use a workflow`.
+
+**The PO never does hands-on work — at any tier.** Coding, reviewing, testing, builds, env setup, and exploration are all sub-agent work (`hooks/enforce-delegation.sh` enforces the code/build part mechanically). The PO's write surface: `docs/plans/`, `PROJECT_STATE.md`, `PROJECT_CONTEXT.md`, `.claude/`, `CLAUDE.md`, `AGENT_TEAM.md`. Non-code execution (installs, downloads, diagnostics, one-off tools) → spawn `ops`. Exploration → spawn `Explore` (pinned to haiku, `effort: low`, by `.claude/agents/Explore.md`).
 
 **Agent type selection** (which `subagent_type` to use for developers):
 
@@ -30,60 +38,17 @@ Claude operates as **Product Owner (PO)** — the orchestrator who plans sprints
 |---|---|---|
 | **All tasks** | `coder` | Default for all development work |
 
-**Every plan MUST declare its tier.** The PO enforces the correct team setup per tier before spawning agents.
+**Every spawn carries the task brief.** Goal, constraints, acceptance criteria, files in scope, and the definition of done go in the prompt itself — see `AGENT_TEAM.md` → *Task Brief Upfront*.
 
-**Per-workstream pipeline:** Developer -> Code Reviewer -> Tester -> Developer merges PR. All developer agents have explicit MCP tools for git/GitHub operations. See `AGENT_TEAM.md` → Merge Protocol.
+**Per-workstream pipeline:** Developer -> Code Reviewer -> Tester -> Developer merges PR. All developer agents have `Bash` plus the GitHub PR tools. See `AGENT_TEAM.md` → Merge Protocol.
 
 **Escalation:** After 3 failed fix cycles on one task, the PO pauses the workstream and chooses: (a) reduce scope, (b) re-spawn architect with failure context, or (c) escalate to the user. See Escalation Protocol in `AGENT_TEAM.md`.
 
 Full details: `AGENT_TEAM.md` (roles, rules, merge protocol, mode behavior table) — load on-demand per Bootstrap step 1.
 
-## Spawn-Prompt Binding Table
+Spawn-prompt contracts: `AGENT_TEAM.md` → *Spawn-Prompt Binding Table* (hook-enforced) — also covers which agents lack `Bash`/GitHub tools and therefore return their work to the PO.
 
-When spawning agents, include a `## Required Skills` block in the spawn prompt. Spawns without it are blocked for bound subagent types by `hooks/require-skills-block.sh` (PreToolUse on `Task`).
-
-| subagent_type | Required Skills |
-|---|---|
-| `coder` / variant coders (`dotnet-coder`, `rust-coder`, `java-coder`, `python-coder`) | `karpathy-guidelines`, `superpowers:test-driven-development`, `superpowers:verification-before-completion`, `superpowers:receiving-code-review` |
-| `tester` | `superpowers:systematic-debugging`, `superpowers:verification-before-completion` |
-| `test-writer` | `superpowers:test-driven-development` |
-| `architect` | `superpowers:writing-plans` |
-| `requirements-engineer` | `superpowers:brainstorming` |
-| `code-reviewer` / `doc-generator` | *(none — omit the block; hook passes them through)* |
-
-> **Spawn-prompt rule for agents without MCP tools:** Do NOT include commit, push, PR-creation, PR-merge, or comment-posting instructions in spawn prompts for `architect`, `requirements-engineer`, `doc-generator`, or `test-writer`. These agents do not have git/GitHub MCP tools in their `tools:` frontmatter and cannot perform such operations. Have them return their work product and let the PO perform the git + GitHub I/O. All other agents (`coder`, variant coders, `code-reviewer`, `tester`) have explicit MCP tools and handle their own git/GitHub operations.
-
-Full copy-paste snippets + rationale: `AGENT_TEAM.md` → *Spawn-Prompt Binding Table* (load on-demand).
-
-## Open Brain Context for Agents
-
-Spawned agents cannot access Open Brain directly. The PO must search for relevant context and include it in agent spawn prompts. After agents return, capture durable insights.
-
-### Before Spawning
-
-| Agent Type | Search Query | Include in Prompt |
-|---|---|---|
-| Architect | `"architecture {component}"`, `"tech debt {area}"` | Past decisions, rejected alternatives, known coupling issues |
-| Code Reviewer | `"bug pattern {component}"`, `"review {area}"` | Recurring issues, known weak spots, past review findings |
-| Coder | `"implementation {component}"`, `"pitfall {area}"` | Failed approaches, trade-off decisions, integration gotchas |
-| Tester | `"failure mode {feature}"`, `"regression {area}"` | Known failure patterns, data state gotchas, flaky test history |
-| Test Writer | `"edge case {component}"`, `"test pattern {area}"` | Historically problematic cases, boundary conditions |
-| Requirements Engineer | `"feature {domain}"`, `"scope {area}"` | Past scope surprises, edge cases that tripped users |
-
-### After Agent Returns
-
-Capture durable insights — not routine results:
-
-| Agent Type | What to Capture |
-|---|---|
-| Architect | Decisions with rationale, rejected alternatives, new tech debt identified |
-| Code Reviewer | Non-trivial bug patterns, recurring issues by component |
-| Coder | Non-obvious implementation decisions, approaches that failed and why |
-| Tester | Bugs found with root cause, regression patterns, data state issues |
-| Test Writer | Critical edge cases discovered, boundary conditions that matter |
-| Requirements Engineer | Key scope decisions, excluded features and why, edge cases found |
-
-Skip capture for routine outcomes ("no issues found", "all tests pass").
+Open Brain search/capture guidance for spawns: `AGENT_TEAM.md` §Open Brain.
 
 ---
 
@@ -99,55 +64,15 @@ These are not optional. If the trigger fires, invoke the named skill BEFORE gene
 - BEFORE responding to a bug report, test failure, or unexpected behavior → invoke `superpowers:systematic-debugging`.
 - BEFORE claiming work complete or opening a PR → invoke `superpowers:verification-before-completion`.
 
-### Strong triggers (SHOULD)
+**Strong triggers, plugin defaults, and meta skills:** see the same section in `~/.claude/CLAUDE.md`.
 
-Apply unless plan mode or another skill already covers the same ground:
-
-- Multi-step implementation about to start → invoke `superpowers:writing-plans`, then `superpowers:executing-plans` once the plan is approved.
-- Writing production code → invoke `superpowers:test-driven-development` together with `karpathy-guidelines`.
-- Requesting / digesting code review → `superpowers:requesting-code-review` / `superpowers:receiving-code-review`.
-
-**Chain note:** `writing-plans` produces a plan. The **Plan Challenge Protocol** in `AGENT_TEAM.md` validates any plan (regardless of source) before execution — independent gate, not a side-effect of `writing-plans`.
-
-**When spawning agents:** see `AGENT_TEAM.md` → *Spawn-Prompt Binding Table* for the skills each subagent type must invoke. The `hooks/require-skills-block.sh` PreToolUse hook mechanically enforces this — spawns of bound `subagent_type` values without a `## Required Skills` block in the prompt are blocked with exit 2.
-
-### Plugin defaults
-
-Templates enable two plugins by default in `.claude/settings.json`:
-- `superpowers@claude-plugins-official` — required for the triggers above.
-- `code-review@claude-plugins-official` — aligns with the `code-reviewer` agent.
-
-Opt-in (add to `enabledPlugins` if needed): `feature-dev`, `code-simplifier`, `claude-md-management`, `frontend-design`, `ralph-loop`, `context-mode`, `skill-creator`, `claude-code-setup`, `context7`.
-
-### Meta skills (no explicit trigger)
-
-- `superpowers:using-superpowers` — auto-loaded at session start; establishes skill-use protocol.
-- `superpowers:writing-skills` — invoke only when creating or editing a skill.
-
----
+**When spawning agents:** `AGENT_TEAM.md` -> *Spawn-Prompt Binding Table* lists the skills each subagent type must invoke. `hooks/require-skills-block.sh` enforces it mechanically — a spawn of a bound `subagent_type` without a `## Required Skills` block is blocked with exit 2.
 
 ## Working Preferences
 
-- **Implement, don't suggest** — make changes directly, infer user intent from context
-- **Read before editing** — always open referenced files first, follow existing style
-- **Summarize tool work** — provide a quick summary after completing tasks
-- **Clean finish** — after completing work: all changes committed, PR merged, worktree removed, branch deleted. Delete temp helpers/scripts, keep only final code. Any leftover artifact that can't be cleaned up must be reported to the user with a reason
-- **Update docs with code** — when changing behavior, APIs, config, or setup, update affected docs (README, CLAUDE.md, PROJECT_CONTEXT.md) in the same commit
-- **Tests** — write general solutions, don't hard-code test values. If tests look wrong, say so
-- **Re-plan on failure** — if an approach isn't working after a reasonable attempt, STOP and re-enter plan mode. Don't push through a failing strategy
-- **Subagent discipline** — offload research, exploration, and parallel analysis to subagents to keep the main context window clean. One focused task per subagent
-- **Read tool discipline** — `Read` loads file contents directly into PO context (measured at **22% of total context** in `docs/plans/2026-04-14-read-size-gate.md` — the largest actionable bucket). Use `Read` only for files you will immediately Edit or Write. For exploration, pattern searches, "how does X work", or reading large files for analysis, delegate to an **Explore subagent** — results return as compressed summaries. For single-file analysis that doesn't need contents in context, use `mcp__plugin_context-mode_context-mode__ctx_execute_file`
-- **Learn from corrections** — after any user correction, immediately capture the pattern to Open Brain so the mistake doesn't repeat
-- **Fix CI proactively** — if build or CI fails, fix it without waiting to be told
-- **Analyze before coding** — before implementing fixes or non-trivial features, enumerate edge cases and identify all callers/consumers that could be affected. For bug fixes, verify the root cause from data (query DB, check logs) before writing code
-- **Post-merge verification** — after any merge or conflict resolution, immediately run the full build and test suite. Check for dropped imports, deleted lines, or accidentally reverted changes before moving on
-- **Commit messages explain why** — write commit messages so a reviewer reading the diff cold understands the reasoning without asking follow-up questions
-- **Minimal fix first** — before implementing, ask: "what's the smallest change that fixes this?" Cut scope aggressively. Over-engineered initial approaches (7 occurrences in past sessions) cause regressions and require scope clawback. Implement the minimal correct fix, then iterate only if needed
-- **Test after every change** — after ANY code change, run the full test suite and confirm all existing tests still pass before declaring work complete. Buggy code was the #1 friction category (10 occurrences). Never skip this
-- **Checkpoint long sessions** — for sessions spanning multiple hours, checkpoint progress by committing and pushing intermediate work. API output truncation has lost 9+ hours of context in past sessions. Commit often, push to feature branches, and summarize progress in commit messages so state can be reconstructed if the session is truncated
-- **Never push to main** — all changes go through feature branches and PRs. Branch protection blocks direct pushes — codifying this as a rule prevents mid-workflow pivots
+**Enforced mechanically, so not restated here:** reading a file before editing it (the harness refuses the edit otherwise), running tests before a commit (`hooks/pre-commit-test.sh`, `run-gate.sh`, `gate-before-merge.sh`), never pushing to main (`hooks/no-push-main.sh`), automatic `Read` capping at 500 lines (`hooks/read-size-gate.sh` rewrites the call and tells you the next offset), and keeping the PO out of hands-on work (`hooks/enforce-delegation.sh`).
 
----
+Developer-agent working preferences are preloaded via the `karpathy-guidelines` skill (see `AGENT_TEAM.md` → *Spawn-Prompt Binding Table*).
 
 ## Quick Start
 
@@ -158,6 +83,8 @@ Opt-in (add to `enabledPlugins` if needed): `feature-dev`, `code-simplifier`, `c
 ```
 
 > Replace placeholders above with your project's actual commands from `PROJECT_CONTEXT.md`.
+
+Language and framework conventions belong in `.claude/rules/*.md` with a `paths:` frontmatter list — those load only when you read or edit a matching file, so they cost nothing on turns that don't touch them. CLAUDE.md holds facts that apply to every turn.
 
 ---
 
@@ -177,7 +104,7 @@ Mandatory rules live in `VERIFICATION_PLAYBOOK.md` — consult it before claimin
 3. **Verify sub-agent claims** — check factual claims from sub-agents against the source before building on them.
 4. **Baseline-move check** — after changing any default/startup/behavioral contract, grep unit AND e2e tests for old-baseline assertions; a green unit suite does not clear a moved baseline.
 
-**Gate rule (PO + developers):** run `bash hooks/run-gate.sh` — never re-derive the individual build/test/format/lint commands from memory. A green gate writes `.gate/last-pass.json`; `hooks/gate-before-merge.sh` hard-blocks PR merges without a fresh artifact.
+**Gate rule (developers):** run `bash hooks/run-gate.sh` — never re-derive the build/test/format/lint commands from memory. The PO reads the resulting `.gate/last-pass.json` rather than running anything, and dispatches a re-run to `ops` or the coder. Enforced mechanically: `hooks/gate-before-merge.sh`, `hooks/enforce-delegation.sh`.
 
 ---
 
@@ -192,12 +119,9 @@ Project-specific reminder: trace read **and** write paths — a common miss is f
 
 When asked to commit and push, do so promptly without excessive re-verification. Keep momentum between implement -> commit -> plan-next cycles.
 
-Before marking any commit/push complete, verify:
-- `git_diff(staged=true)` — confirm no unintended files staged
-- `git_diff_summary(staged=false)` — confirm no unstaged changes forgotten
-- After push: check tool output for success; if rejected, diagnose immediately
+Before calling a commit/push done: `git diff --cached` (nothing unintended staged), `git diff --stat` (nothing forgotten), and check the push output — a rejected push gets diagnosed immediately, not retried blindly.
 
-**Merge ownership:** Developer agents (`coder`, variant coders, `general-purpose`) own the merge — rebase, CI-check, and squash-merge are the developer's job. The PO sequences merges across workstreams by sending merge-go-ahead messages. See `AGENT_TEAM.md` → Merge Protocol.
+**Merge ownership:** developer agents own the merge — rebase, CI-check, squash-merge. The PO's part is sequencing merges across workstreams. See `AGENT_TEAM.md` → Merge Protocol.
 
 ---
 
@@ -211,7 +135,6 @@ Always preserve:
 - **Active work state**: current sprint number, issue numbers, branch names, merge progress
 - **In-flight agent work**: which agents are running, their assigned issues, current phase (dev/review/test)
 - **Merge sequence**: which PRs are ready, which are blocked, merge ordering constraints
-- **Team configuration**: team name, active teammates and their roles
 
 Preserve file paths ONLY when one of these load-bearing categories applies:
 1. **Work-in-progress**: files actively being modified, not yet committed.
@@ -227,3 +150,8 @@ Discard freely:
 - Already-merged PR details (captured in MEMORY.md)
 
 ---
+
+<!-- Project-specific rules and plugin routing blocks (context-mode, …) belong inside the PROJECT-CUSTOM region below -->
+<!-- PROJECT-CUSTOM:BEGIN — sync-template preserves everything between these markers -->
+<!-- Project-specific rules, routing blocks, and extensions go here. -->
+<!-- PROJECT-CUSTOM:END -->

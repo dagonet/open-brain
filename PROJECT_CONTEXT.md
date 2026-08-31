@@ -5,7 +5,13 @@
 - **Name**: Open Brain (AI Memory)
 - **Tech stack**: TypeScript, Deno (edge functions), Node.js (MCP server + CLI), PostgreSQL + pgvector, Supabase, OpenAI API, Slack Events API, MCP SDK
 - **Repository**: https://github.com/dagonet/open-brain
-- **Branch strategy**: `main` is protected; feature branches per task (see AGENT_TEAM.md Mode Behavior Table for naming convention)
+- **Branch strategy**: feature branches per task, PR into the trunk — the branch named on the `**Protected branches**:` line directly below (see AGENT_TEAM.md Mode Behavior Table for naming convention). Prose for humans — **no hook reads this line**.
+<!-- THE line the protection hooks read; space- or comma-separated names.
+     EDIT THIS if your trunk is not main/master — nothing fills it in for you,
+     and a trunk that is not named here is NOT protected.
+     Absent, empty, or an unfilled {{...}} all fall back to `main master`;
+     `none` protects nothing (branch rules only; a PR merge stays gated). -->
+- **Protected branches**: main master
 
 ## Commands
 
