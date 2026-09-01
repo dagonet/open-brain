@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "variant": "general",
   "templateRepo": "G:/git/claude-code-toolkit",
   "lastSynced": "640ba5e",
@@ -255,6 +256,5 @@
       "templatePartHashAtSync": "4cd5b2ea407c03e57589154613f969eab6fb47d91554a807bc0a9e6c08a15121",
       "resolution": "keep-mine"
     }
-  },
-  "version": 2
+  }
 }

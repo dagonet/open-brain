@@ -25,7 +25,7 @@
 
 ## Paths
 
-- **Worktree base**: `G:\git\worktrees`
+- **Worktree base**: `.claude/worktrees` (repo-relative; this is where the harness actually creates `isolation: worktree` agents, as `.claude/worktrees/agent-<id>`)
 - **Architecture docs**: `docs/`
 - **Log location**: stdout
 

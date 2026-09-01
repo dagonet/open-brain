@@ -77,12 +77,14 @@ Developer-agent working preferences are preloaded via the `karpathy-guidelines` 
 ## Quick Start
 
 ```bash
-{{BUILD_COMMAND}}               # Build the project
-{{TEST_COMMAND}}                # Run tests
-{{FORMAT_COMMAND}}              # Format code
+npx tsc --noEmit                # Build the project (typecheck)
+npx vitest run                  # Run tests
+npx prettier --write .          # Format code
+bash hooks/run-gate.sh          # Full gate — all of the above plus the migration SQL lint
 ```
 
-> Replace placeholders above with your project's actual commands from `PROJECT_CONTEXT.md`.
+> Per-component variants: `cd cli && npx tsc --noEmit`, `cd mcp-server && npx tsc --noEmit`; tests likewise per component.
+> `PROJECT_CONTEXT.md` is the source of truth for these — if they disagree, that file wins.
 
 Language and framework conventions belong in `.claude/rules/*.md` with a `paths:` frontmatter list — those load only when you read or edit a matching file, so they cost nothing on turns that don't touch them. CLAUDE.md holds facts that apply to every turn.
 
