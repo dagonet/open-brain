@@ -23,6 +23,7 @@ next-env.d.ts
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
 
 # Local notes / scratch (not committed)
 nate_new_video_open-brain_update.txt

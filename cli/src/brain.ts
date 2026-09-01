@@ -1,8 +1,16 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import { randomUUID, createHash } from "node:crypto";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  statSync,
+  readdirSync,
+  unlinkSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { randomUUID, createHash } from 'node:crypto';
 
 interface Config {
   api_url: string;
@@ -37,8 +45,8 @@ function loadConfig(): Config | null {
 
   // 2. Config file ~/.brain/config.json
   try {
-    const configPath = join(homedir(), ".brain", "config.json");
-    const raw = readFileSync(configPath, "utf-8");
+    const configPath = join(homedir(), '.brain', 'config.json');
+    const raw = readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as { api_url?: string; api_key?: string };
     if (parsed.api_url && parsed.api_key) {
       return { api_url: parsed.api_url, api_key: parsed.api_key };
@@ -53,20 +61,20 @@ function loadConfig(): Config | null {
 function printSetupInstructions(): void {
   console.error(
     [
-      "",
-      "Open Brain CLI - Setup Required",
-      "",
-      "Configure via environment variables:",
+      '',
+      'Open Brain CLI - Setup Required',
+      '',
+      'Configure via environment variables:',
       '  export BRAIN_API_URL="https://<project>.supabase.co/functions/v1/capture-thought"',
       '  export BRAIN_API_KEY="<your-supabase-anon-key>"',
-      "",
-      "Or create ~/.brain/config.json:",
-      "  {",
+      '',
+      'Or create ~/.brain/config.json:',
+      '  {',
       '    "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",',
       '    "api_key": "<your-supabase-anon-key>"',
-      "  }",
-      "",
-    ].join("\n"),
+      '  }',
+      '',
+    ].join('\n'),
   );
 }
 
@@ -79,42 +87,42 @@ function printUsage(): void {
       '  brain sync-vault <path> [options]    Export thoughts as Obsidian markdown',
       '  brain audit [options]                Audit recent thoughts for contradictions',
       '  brain wiki <subcommand> [options]    Manage wiki pages (get|list|refresh|reject)',
-      "",
-      "Example:",
+      '',
+      'Example:',
       '  brain "Met with Sarah today, she\'s considering consulting"',
-      "",
-      "Capture options:",
+      '',
+      'Capture options:',
       '  --project <name>  Associate with a project (stored in the project column)',
-      "",
-      "Import options:",
+      '',
+      'Import options:',
       '  --source <name>    Source tag (default: "import")',
       '                     Use "import-claude" or "import-chatgpt" for provenance',
-      "  --delay <ms>       Delay between API calls in ms (default: 500)",
-      "  --dry-run          Parse and preview without importing",
+      '  --delay <ms>       Delay between API calls in ms (default: 500)',
+      '  --dry-run          Parse and preview without importing',
       '  --project <name>   Associate with a project (applied to all imported thoughts)',
-      "",
-      "Sync-vault options:",
-      "  --dry-run          Preview changes without writing files",
-      "",
-      "Audit options:",
-      "  --since <iso>      Only consider thoughts created at or after this timestamp",
-      "  --topic <slug>     (Reserved) Restrict candidates to this topic slug",
-      "  --candidate-limit  Max candidate thoughts to scan (default: 50)",
-      "  --resolve <id>     Resolve a contradiction by id (requires --decision)",
-      "  --decision <kind>  Decision: resolved | ignored | false_positive",
-      "  --note <text>      Optional explanation captured into the audit thought",
-      "  --verbose          Print per-row detail in addition to the summary",
-      "",
-      "Wiki subcommands:",
-      "  brain wiki get <slug>                Print the latest compiled page",
-      "  brain wiki list [--limit N]          List compiled pages, newest first",
-      "  brain wiki refresh <slug>            Recompile the page for <slug>",
-      "  brain wiki refresh --all             Recompile top topics by thought count",
-      "  brain wiki refresh --dry-run ...     Print what would be compiled",
-      "  brain wiki reject <page_id> --reason <text>",
-      "                                       Reject a page; feedback nudges next compile",
-      "",
-    ].join("\n"),
+      '',
+      'Sync-vault options:',
+      '  --dry-run          Preview changes without writing files',
+      '',
+      'Audit options:',
+      '  --since <iso>      Only consider thoughts created at or after this timestamp',
+      '  --topic <slug>     (Reserved) Restrict candidates to this topic slug',
+      '  --candidate-limit  Max candidate thoughts to scan (default: 50)',
+      '  --resolve <id>     Resolve a contradiction by id (requires --decision)',
+      '  --decision <kind>  Decision: resolved | ignored | false_positive',
+      '  --note <text>      Optional explanation captured into the audit thought',
+      '  --verbose          Print per-row detail in addition to the summary',
+      '',
+      'Wiki subcommands:',
+      '  brain wiki get <slug>                Print the latest compiled page',
+      '  brain wiki list [--limit N]          List compiled pages, newest first',
+      '  brain wiki refresh <slug>            Recompile the page for <slug>',
+      '  brain wiki refresh --all             Recompile top topics by thought count',
+      '  brain wiki refresh --dry-run ...     Print what would be compiled',
+      '  brain wiki reject <page_id> --reason <text>',
+      '                                       Reject a page; feedback nudges next compile',
+      '',
+    ].join('\n'),
   );
 }
 
@@ -125,25 +133,25 @@ export function deriveFunctionsBase(apiUrl: string): string {
       'Cannot derive functions base from BRAIN_API_URL. Expected format: https://<ref>.supabase.co/functions/v1/...',
     );
   }
-  return match[1] + "/functions/v1";
+  return match[1] + '/functions/v1';
 }
 
-function formatConfirmation(thought: ThoughtResponse["thought"]): string {
-  if (!thought) return "";
+function formatConfirmation(thought: ThoughtResponse['thought']): string {
+  if (!thought) return '';
   const lines: string[] = [];
   if (thought.thought_type) {
-    lines.push("  Type: " + thought.thought_type);
+    lines.push('  Type: ' + thought.thought_type);
   }
   if (thought.people.length > 0) {
-    lines.push("  People: " + thought.people.join(", "));
+    lines.push('  People: ' + thought.people.join(', '));
   }
   if (thought.topics.length > 0) {
-    lines.push("  Topics: " + thought.topics.join(", "));
+    lines.push('  Topics: ' + thought.topics.join(', '));
   }
   for (const item of thought.action_items) {
-    lines.push("  Action: " + item);
+    lines.push('  Action: ' + item);
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 function sleep(ms: number): Promise<void> {
@@ -155,35 +163,35 @@ async function importMemories(): Promise<void> {
 
   // Parse arguments
   let filePath: string | undefined;
-  let source = "import";
+  let source = 'import';
   let delay = 500;
   let dryRun = false;
   let project: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--source" && i + 1 < args.length) {
+    if (args[i] === '--source' && i + 1 < args.length) {
       source = args[++i];
-    } else if (args[i] === "--delay" && i + 1 < args.length) {
+    } else if (args[i] === '--delay' && i + 1 < args.length) {
       delay = parseInt(args[++i], 10);
       if (isNaN(delay) || delay < 0) {
-        console.error("Error: --delay must be a non-negative number");
+        console.error('Error: --delay must be a non-negative number');
         process.exit(1);
       }
-    } else if (args[i] === "--dry-run") {
+    } else if (args[i] === '--dry-run') {
       dryRun = true;
-    } else if (args[i] === "--project" && i + 1 < args.length) {
+    } else if (args[i] === '--project' && i + 1 < args.length) {
       project = args[++i];
     } else if (!filePath) {
       filePath = args[i];
     } else {
-      console.error("Error: unexpected argument: " + args[i]);
+      console.error('Error: unexpected argument: ' + args[i]);
       printUsage();
       process.exit(1);
     }
   }
 
   if (!filePath) {
-    console.error("Error: file path is required for import");
+    console.error('Error: file path is required for import');
     printUsage();
     process.exit(1);
   }
@@ -197,24 +205,27 @@ async function importMemories(): Promise<void> {
   // Read and parse file
   let content: string;
   try {
-    content = readFileSync(filePath, "utf-8");
+    content = readFileSync(filePath, 'utf-8');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("Error reading file: " + message);
+    console.error('Error reading file: ' + message);
     process.exit(1);
   }
 
   const datePrefix = /^\[(\d{4}-\d{2}-\d{2})\]\s*-?\s*/;
-  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 
   if (lines.length === 0) {
-    console.error("No memories found in file.");
+    console.error('No memories found in file.');
     process.exit(1);
   }
 
   console.log(`Found ${lines.length} memories in ${filePath}`);
   if (dryRun) {
-    console.log("(dry run — no changes will be made)\n");
+    console.log('(dry run — no changes will be made)\n');
   }
 
   let captured = 0;
@@ -237,14 +248,14 @@ async function importMemories(): Promise<void> {
 
     if (line.length === 0) continue;
 
-    const idempotency_key = createHash("sha256")
-      .update(source + ":" + line.trim().toLowerCase())
-      .digest("hex");
+    const idempotency_key = createHash('sha256')
+      .update(source + ':' + line.trim().toLowerCase())
+      .digest('hex');
 
-    const preview = line.length > 50 ? line.slice(0, 50) + "..." : line;
+    const preview = line.length > 50 ? line.slice(0, 50) + '...' : line;
 
     if (dryRun) {
-      const dateTag = metadata?.original_date ? ` [${metadata.original_date}]` : "";
+      const dateTag = metadata?.original_date ? ` [${metadata.original_date}]` : '';
       console.log(`${prefix} ${preview}${dateTag}`);
       captured++;
       continue;
@@ -252,10 +263,10 @@ async function importMemories(): Promise<void> {
 
     try {
       const response = await fetch(config!.api_url, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          Authorization: "Bearer " + config!.api_key,
-          "Content-Type": "application/json",
+          Authorization: 'Bearer ' + config!.api_key,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text: line, source, idempotency_key, metadata, project }),
       });
@@ -263,7 +274,7 @@ async function importMemories(): Promise<void> {
       const data = (await response.json()) as ThoughtResponse;
 
       if (!response.ok || !data.success) {
-        const msg = data.error || "HTTP " + response.status;
+        const msg = data.error || 'HTTP ' + response.status;
         console.log(`${prefix} \u2717 Failed: ${msg}`);
         failed++;
       } else if (data.is_duplicate) {
@@ -299,47 +310,45 @@ export async function captureSingleThought(text: string, projectArg?: string): P
   try {
     const body: Record<string, unknown> = {
       text,
-      source: "cli",
+      source: 'cli',
       idempotency_key,
     };
     if (projectArg) {
       body.project = projectArg;
     }
     const response = await fetch(config.api_url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        Authorization: "Bearer " + config.api_key,
-        "Content-Type": "application/json",
+        Authorization: 'Bearer ' + config.api_key,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
     });
 
     if (response.status === 401 || response.status === 403) {
       console.error(
-        "\u2717 Failed to capture thought: Authentication failed. Check your BRAIN_API_KEY.",
+        '\u2717 Failed to capture thought: Authentication failed. Check your BRAIN_API_KEY.',
       );
       process.exit(1);
     }
 
     if (response.status >= 500) {
-      console.error(
-        "\u2717 Failed to capture thought: Server error. Please try again later.",
-      );
+      console.error('\u2717 Failed to capture thought: Server error. Please try again later.');
       process.exit(1);
     }
 
     const data = (await response.json()) as ThoughtResponse;
 
     if (!response.ok || !data.success) {
-      const msg = data.error || "HTTP " + response.status;
-      console.error("\u2717 Failed to capture thought: " + msg);
+      const msg = data.error || 'HTTP ' + response.status;
+      console.error('\u2717 Failed to capture thought: ' + msg);
       process.exit(1);
     }
 
     if (data.is_duplicate) {
-      console.log("\u223C Duplicate thought (already captured)");
+      console.log('\u223C Duplicate thought (already captured)');
     } else {
-      console.log("\u2713 Thought captured");
+      console.log('\u2713 Thought captured');
     }
 
     if (data.duplicate_candidate) {
@@ -355,12 +364,16 @@ export async function captureSingleThought(text: string, projectArg?: string): P
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("fetch") || message.includes("ECONNREFUSED") || message.includes("ENOTFOUND")) {
+    if (
+      message.includes('fetch') ||
+      message.includes('ECONNREFUSED') ||
+      message.includes('ENOTFOUND')
+    ) {
       console.error(
-        "\u2717 Failed to capture thought: Could not reach the API. Check your connection and BRAIN_API_URL.",
+        '\u2717 Failed to capture thought: Could not reach the API. Check your connection and BRAIN_API_URL.',
       );
     } else {
-      console.error("\u2717 Failed to capture thought: " + message);
+      console.error('\u2717 Failed to capture thought: ' + message);
     }
     process.exit(1);
   }
@@ -389,7 +402,7 @@ export function derivePostgrestUrl(apiUrl: string): string {
       'Cannot derive PostgREST URL from BRAIN_API_URL. Expected format: https://<ref>.supabase.co/...',
     );
   }
-  return match[1] + "/rest/v1/thoughts";
+  return match[1] + '/rest/v1/thoughts';
 }
 
 export function slugify(text: string, maxLen = 50): string {
@@ -397,14 +410,14 @@ export function slugify(text: string, maxLen = 50): string {
   const truncated = firstLine.slice(0, maxLen);
   return truncated
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export function thoughtToFilename(thought: Thought, usedNames?: Set<string>): string {
   const date = thought.created_at.slice(0, 10); // YYYY-MM-DD
   const slug = slugify(thought.raw_text);
-  let base = `${date}-${slug}`;
+  const base = `${date}-${slug}`;
   let filename = `${base}.md`;
 
   if (usedNames) {
@@ -438,7 +451,7 @@ export function thoughtToMarkdown(thought: Thought): string {
   const frontmatter: Record<string, unknown> = {
     id: thought.id,
     title,
-    type: thought.thought_type || "note",
+    type: thought.thought_type || 'note',
     people: thought.people,
     topics: thought.topics,
     source: thought.source,
@@ -451,7 +464,7 @@ export function thoughtToMarkdown(thought: Thought): string {
   }
   frontmatter.tags = tags;
 
-  const yamlLines: string[] = ["---"];
+  const yamlLines: string[] = ['---'];
   for (const [key, value] of Object.entries(frontmatter)) {
     if (Array.isArray(value)) {
       if (value.length === 0) {
@@ -462,30 +475,27 @@ export function thoughtToMarkdown(thought: Thought): string {
           yamlLines.push(`  - ${JSON.stringify(String(item))}`);
         }
       }
-    } else if (typeof value === "boolean") {
+    } else if (typeof value === 'boolean') {
       yamlLines.push(`${key}: ${value}`);
     } else {
       yamlLines.push(`${key}: ${JSON.stringify(String(value))}`);
     }
   }
-  yamlLines.push("---");
+  yamlLines.push('---');
 
-  let body = "\n" + thought.raw_text + "\n";
+  let body = '\n' + thought.raw_text + '\n';
 
   if (thought.people.length > 0) {
     const wikilinks = thought.people
       .map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`)
-      .join(", ");
+      .join(', ');
     body += `\n**People:** ${wikilinks}\n`;
   }
 
-  return yamlLines.join("\n") + body;
+  return yamlLines.join('\n') + body;
 }
 
-async function fetchAllThoughts(
-  postgrestUrl: string,
-  apiKey: string,
-): Promise<Thought[]> {
+async function fetchAllThoughts(postgrestUrl: string, apiKey: string): Promise<Thought[]> {
   const pageSize = 100;
   const allThoughts: Thought[] = [];
   let offset = 0;
@@ -493,14 +503,14 @@ async function fetchAllThoughts(
   while (true) {
     const url =
       postgrestUrl +
-      "?deleted_at=is.null&order=created_at.asc&select=id,raw_text,thought_type,people,topics,action_items,action_items_resolved,source,metadata,created_at,updated_at";
+      '?deleted_at=is.null&order=created_at.asc&select=id,raw_text,thought_type,people,topics,action_items,action_items_resolved,source,metadata,created_at,updated_at';
 
     const response = await fetch(url, {
       headers: {
         apikey: apiKey,
-        Authorization: "Bearer " + apiKey,
+        Authorization: 'Bearer ' + apiKey,
         Range: `${offset}-${offset + pageSize - 1}`,
-        Prefer: "count=exact",
+        Prefer: 'count=exact',
       },
     });
 
@@ -534,19 +544,19 @@ async function syncVault(): Promise<void> {
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--dry-run") {
+    if (args[i] === '--dry-run') {
       dryRun = true;
     } else if (!vaultPath) {
       vaultPath = args[i];
     } else {
-      console.error("Error: unexpected argument: " + args[i]);
+      console.error('Error: unexpected argument: ' + args[i]);
       printUsage();
       process.exit(1);
     }
   }
 
   if (!vaultPath) {
-    console.error("Error: vault path is required for sync-vault");
+    console.error('Error: vault path is required for sync-vault');
     printUsage();
     process.exit(1);
   }
@@ -571,33 +581,33 @@ async function syncVault(): Promise<void> {
   if (existsSync(vaultPath)) {
     const stat = statSync(vaultPath);
     if (!stat.isDirectory()) {
-      console.error("Error: vault path exists but is not a directory: " + vaultPath);
+      console.error('Error: vault path exists but is not a directory: ' + vaultPath);
       process.exit(1);
     }
   } else if (!dryRun) {
     mkdirSync(vaultPath, { recursive: true });
-    console.log("Created vault directory: " + vaultPath);
+    console.log('Created vault directory: ' + vaultPath);
   }
 
   // Fetch all thoughts
-  console.log("Fetching thoughts from Open Brain...");
+  console.log('Fetching thoughts from Open Brain...');
   let thoughts: Thought[];
   try {
     thoughts = await fetchAllThoughts(postgrestUrl, config.api_key);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("\u2717 Failed to fetch thoughts: " + message);
+    console.error('\u2717 Failed to fetch thoughts: ' + message);
     process.exit(1);
   }
 
   if (thoughts.length === 0) {
-    console.log("No thoughts found in Open Brain.");
+    console.log('No thoughts found in Open Brain.');
     return;
   }
 
   console.log(`Found ${thoughts.length} thoughts`);
   if (dryRun) {
-    console.log("(dry run \u2014 no files will be written)\n");
+    console.log('(dry run \u2014 no files will be written)\n');
   }
 
   let created = 0;
@@ -611,14 +621,14 @@ async function syncVault(): Promise<void> {
     const filename = thoughtToFilename(thought, usedNames);
     currentFilenames.add(filename);
     const markdown = thoughtToMarkdown(thought);
-    const newHash = createHash("sha256").update(markdown).digest("hex");
+    const newHash = createHash('sha256').update(markdown).digest('hex');
     const filePath = join(vaultPath, filename);
 
     // Check existing file
     let existingHash: string | null = null;
     try {
-      const existing = readFileSync(filePath, "utf-8");
-      existingHash = createHash("sha256").update(existing).digest("hex");
+      const existing = readFileSync(filePath, 'utf-8');
+      existingHash = createHash('sha256').update(existing).digest('hex');
     } catch {
       // File doesn't exist
     }
@@ -630,15 +640,15 @@ async function syncVault(): Promise<void> {
 
     const isNew = existingHash === null;
     const preview = computeTitle(thought.raw_text);
-    const previewTrunc = preview.length > 50 ? preview.slice(0, 50) + "..." : preview;
-    const symbol = isNew ? "\u2713" : "\u223C";
-    const label = isNew ? "new" : "updated";
+    const previewTrunc = preview.length > 50 ? preview.slice(0, 50) + '...' : preview;
+    const symbol = isNew ? '\u2713' : '\u223C';
+    const label = isNew ? 'new' : 'updated';
 
     console.log(`  ${symbol} [${label}] ${filename}: ${previewTrunc}`);
 
     if (!dryRun) {
       try {
-        writeFileSync(filePath, markdown, "utf-8");
+        writeFileSync(filePath, markdown, 'utf-8');
         if (isNew) created++;
         else updated++;
       } catch (err) {
@@ -687,7 +697,7 @@ async function syncVault(): Promise<void> {
   const parts = [`${created} new`, `${updated} updated`, `${unchanged} unchanged`];
   if (failed > 0) parts.push(`${failed} failed`);
   if (cleaned > 0) parts.push(`${cleaned} old files cleaned`);
-  console.log("\nDone: " + parts.join(", "));
+  console.log('\nDone: ' + parts.join(', '));
 }
 
 // --- audit command ---
@@ -710,10 +720,10 @@ async function postFunction(
   body: Record<string, unknown>,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const response = await fetch(`${base}/${functionName}`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Authorization: "Bearer " + apiKey,
-      "Content-Type": "application/json",
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
   });
@@ -728,13 +738,13 @@ async function getFromPostgrest(
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const match = apiUrl.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\//);
   if (!match) {
-    throw new Error("Cannot derive PostgREST base from api_url");
+    throw new Error('Cannot derive PostgREST base from api_url');
   }
-  const url = match[1] + "/rest/v1/" + pathAndQuery;
+  const url = match[1] + '/rest/v1/' + pathAndQuery;
   const response = await fetch(url, {
     headers: {
       apikey: apiKey,
-      Authorization: "Bearer " + apiKey,
+      Authorization: 'Bearer ' + apiKey,
     },
   });
   const data = await response.json().catch(() => ({}));
@@ -753,28 +763,28 @@ async function auditCommand(): Promise<void> {
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === "--since" && i + 1 < args.length) {
+    if (a === '--since' && i + 1 < args.length) {
       since = args[++i];
-    } else if (a.startsWith("--since=")) {
-      since = a.slice("--since=".length);
-    } else if (a === "--topic" && i + 1 < args.length) {
+    } else if (a.startsWith('--since=')) {
+      since = a.slice('--since='.length);
+    } else if (a === '--topic' && i + 1 < args.length) {
       topic = args[++i];
-    } else if (a.startsWith("--topic=")) {
-      topic = a.slice("--topic=".length);
-    } else if (a === "--candidate-limit" && i + 1 < args.length) {
+    } else if (a.startsWith('--topic=')) {
+      topic = a.slice('--topic='.length);
+    } else if (a === '--candidate-limit' && i + 1 < args.length) {
       candidateLimit = parseInt(args[++i], 10);
-    } else if (a.startsWith("--candidate-limit=")) {
-      candidateLimit = parseInt(a.slice("--candidate-limit=".length), 10);
-    } else if (a === "--resolve" && i + 1 < args.length) {
+    } else if (a.startsWith('--candidate-limit=')) {
+      candidateLimit = parseInt(a.slice('--candidate-limit='.length), 10);
+    } else if (a === '--resolve' && i + 1 < args.length) {
       resolveId = args[++i];
-    } else if (a === "--decision" && i + 1 < args.length) {
+    } else if (a === '--decision' && i + 1 < args.length) {
       decision = args[++i];
-    } else if (a === "--note" && i + 1 < args.length) {
+    } else if (a === '--note' && i + 1 < args.length) {
       note = args[++i];
-    } else if (a === "--verbose") {
+    } else if (a === '--verbose') {
       verbose = true;
     } else {
-      console.error("Error: unexpected argument: " + a);
+      console.error('Error: unexpected argument: ' + a);
       printUsage();
       process.exit(1);
     }
@@ -789,10 +799,8 @@ async function auditCommand(): Promise<void> {
   const base = deriveFunctionsBase(config.api_url);
 
   if (resolveId) {
-    if (!decision || !["resolved", "ignored", "false_positive"].includes(decision)) {
-      console.error(
-        "Error: --resolve requires --decision=resolved|ignored|false_positive",
-      );
+    if (!decision || !['resolved', 'ignored', 'false_positive'].includes(decision)) {
+      console.error('Error: --resolve requires --decision=resolved|ignored|false_positive');
       process.exit(1);
     }
     const patch: Record<string, unknown> = {
@@ -801,17 +809,17 @@ async function auditCommand(): Promise<void> {
     };
     const match = config.api_url.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\//);
     if (!match) {
-      console.error("Error: cannot derive PostgREST base");
+      console.error('Error: cannot derive PostgREST base');
       process.exit(1);
     }
-    const url = match[1] + "/rest/v1/contradictions?id=eq." + encodeURIComponent(resolveId);
+    const url = match[1] + '/rest/v1/contradictions?id=eq.' + encodeURIComponent(resolveId);
     const response = await fetch(url, {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
         apikey: config.api_key,
-        Authorization: "Bearer " + config.api_key,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
+        Authorization: 'Bearer ' + config.api_key,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
       },
       body: JSON.stringify(patch),
     });
@@ -840,27 +848,27 @@ async function auditCommand(): Promise<void> {
     // matches the behaviour of the MCP `contradictions_resolve` tool.
     const auditText = [
       `Resolved contradiction ${resolveId} as ${decision}.`,
-      `Thought A: ${updated[0].id ?? "?"} (paired)`,
+      `Thought A: ${updated[0].id ?? '?'} (paired)`,
       note ? `Note: ${note}` : null,
     ]
       .filter(Boolean)
-      .join("\n");
-    const idempotency_key = createHash("sha256")
+      .join('\n');
+    const idempotency_key = createHash('sha256')
       .update(`resolve:${resolveId}:${decision}`)
-      .digest("hex");
+      .digest('hex');
     try {
       await fetch(config.api_url, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          Authorization: "Bearer " + config.api_key,
-          "Content-Type": "application/json",
+          Authorization: 'Bearer ' + config.api_key,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           text: auditText,
-          source: "cli",
+          source: 'cli',
           idempotency_key,
           metadata: {
-            kind: "contradiction-resolution",
+            kind: 'contradiction-resolution',
             contradiction_id: resolveId,
             decision,
           },
@@ -879,19 +887,14 @@ async function auditCommand(): Promise<void> {
     );
   }
 
-  console.log("Running contradiction audit...");
-  const { ok, status, data } = await postFunction(
-    base,
-    config.api_key,
-    "detect-contradictions",
-    {
-      since,
-      candidate_limit: candidateLimit,
-    },
-  );
+  console.log('Running contradiction audit...');
+  const { ok, status, data } = await postFunction(base, config.api_key, 'detect-contradictions', {
+    since,
+    candidate_limit: candidateLimit,
+  });
   if (!ok) {
     const err = (data as { error?: string }).error || `HTTP ${status}`;
-    console.error("✗ Audit failed: " + err);
+    console.error('✗ Audit failed: ' + err);
     process.exit(1);
   }
 
@@ -922,7 +925,7 @@ async function auditCommand(): Promise<void> {
     if (result.ok) {
       const rows = result.data as ContradictionRow[];
       for (const row of rows) {
-        const sevBadge = "*".repeat(Math.min(row.severity, 5));
+        const sevBadge = '*'.repeat(Math.min(row.severity, 5));
         console.log(`  [${row.id}] ${sevBadge} (${row.confidence.toFixed(2)})`);
         console.log(`    ${row.thought_a_id} <-> ${row.thought_b_id}`);
         console.log(`    ${row.reason}`);
@@ -952,7 +955,7 @@ interface TopicCountRow {
 async function wikiGetCommand(args: string[]): Promise<void> {
   const slug = args[0];
   if (!slug) {
-    console.error("Error: brain wiki get <slug> requires a slug argument");
+    console.error('Error: brain wiki get <slug> requires a slug argument');
     process.exit(1);
   }
   const config = loadConfig();
@@ -980,7 +983,7 @@ async function wikiGetCommand(args: string[]): Promise<void> {
   console.log(`# ${page.slug} (v${page.version})`);
   console.log(
     `Compiled ${page.compiled_at}; ${page.source_thought_count} sources${
-      page.partial ? " (partial — some paragraphs were dropped)" : ""
+      page.partial ? ' (partial — some paragraphs were dropped)' : ''
     }\n`,
   );
   console.log(page.content_md);
@@ -989,10 +992,10 @@ async function wikiGetCommand(args: string[]): Promise<void> {
 async function wikiListCommand(args: string[]): Promise<void> {
   let limit = 50;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--limit" && i + 1 < args.length) {
+    if (args[i] === '--limit' && i + 1 < args.length) {
       limit = parseInt(args[++i], 10);
-    } else if (args[i].startsWith("--limit=")) {
-      limit = parseInt(args[i].slice("--limit=".length), 10);
+    } else if (args[i].startsWith('--limit=')) {
+      limit = parseInt(args[i].slice('--limit='.length), 10);
     }
   }
   const config = loadConfig();
@@ -1011,11 +1014,11 @@ async function wikiListCommand(args: string[]): Promise<void> {
   }
   const rows = result.data as CurrentWikiPageRow[];
   if (rows.length === 0) {
-    console.log("(no wiki pages yet — run `brain wiki refresh --all`)");
+    console.log('(no wiki pages yet — run `brain wiki refresh --all`)');
     return;
   }
   for (const row of rows) {
-    const partial = row.partial ? " [partial]" : "";
+    const partial = row.partial ? ' [partial]' : '';
     console.log(
       `  v${row.version}  ${row.slug}  (${row.source_thought_count} sources, compiled ${row.compiled_at})${partial}`,
     );
@@ -1029,19 +1032,19 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
   let topK = 25;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === "--all") all = true;
-    else if (a === "--dry-run") dryRun = true;
-    else if (a === "--top" && i + 1 < args.length) topK = parseInt(args[++i], 10);
-    else if (a.startsWith("--top=")) topK = parseInt(a.slice("--top=".length), 10);
-    else if (!slug && !a.startsWith("--")) slug = a;
+    if (a === '--all') all = true;
+    else if (a === '--dry-run') dryRun = true;
+    else if (a === '--top' && i + 1 < args.length) topK = parseInt(args[++i], 10);
+    else if (a.startsWith('--top=')) topK = parseInt(a.slice('--top='.length), 10);
+    else if (!slug && !a.startsWith('--')) slug = a;
     else {
-      console.error("Error: unexpected argument: " + a);
+      console.error('Error: unexpected argument: ' + a);
       process.exit(1);
     }
   }
 
   if (!all && !slug) {
-    console.error("Error: brain wiki refresh requires <slug> or --all");
+    console.error('Error: brain wiki refresh requires <slug> or --all');
     process.exit(1);
   }
 
@@ -1066,11 +1069,11 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
     const rows = result.data as TopicCountRow[];
     slugs = rows.filter((r) => r.thought_count >= 3).map((r) => r.slug);
     if (slugs.length === 0) {
-      console.log("(no slugs with >=3 thoughts — nothing to compile)");
+      console.log('(no slugs with >=3 thoughts — nothing to compile)');
       return;
     }
     console.log(
-      `Refreshing top ${slugs.length} slugs by thought count${dryRun ? " (dry run)" : ""}...`,
+      `Refreshing top ${slugs.length} slugs by thought count${dryRun ? ' (dry run)' : ''}...`,
     );
   } else {
     slugs = [slug!.toLowerCase()];
@@ -1082,7 +1085,7 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
   let errors = 0;
 
   for (const s of slugs) {
-    const { ok, data } = await postFunction(base, config.api_key, "compile-wiki", {
+    const { ok, data } = await postFunction(base, config.api_key, 'compile-wiki', {
       slug: s,
       dry_run: dryRun,
     });
@@ -1091,36 +1094,34 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
       continue;
     }
     const status = (data as { status?: string }).status;
-    if (status === "compiled" || status === "would_compile") {
+    if (status === 'compiled' || status === 'would_compile') {
       compiled += 1;
-    } else if (status === "refused") {
+    } else if (status === 'refused') {
       refused += 1;
-    } else if (status === "raced") {
+    } else if (status === 'raced') {
       raced += 1;
     }
   }
 
-  console.log(
-    `Done: compiled ${compiled}, refused ${refused}, raced ${raced}, errors ${errors}`,
-  );
+  console.log(`Done: compiled ${compiled}, refused ${refused}, raced ${raced}, errors ${errors}`);
 }
 
 async function wikiRejectCommand(args: string[]): Promise<void> {
   const pageId = args[0];
   if (!pageId) {
-    console.error("Error: brain wiki reject <page_id> requires a page id");
+    console.error('Error: brain wiki reject <page_id> requires a page id');
     process.exit(1);
   }
   let reason: string | undefined;
   for (let i = 1; i < args.length; i++) {
-    if (args[i] === "--reason" && i + 1 < args.length) {
+    if (args[i] === '--reason' && i + 1 < args.length) {
       reason = args[++i];
-    } else if (args[i].startsWith("--reason=")) {
-      reason = args[i].slice("--reason=".length);
+    } else if (args[i].startsWith('--reason=')) {
+      reason = args[i].slice('--reason='.length);
     }
   }
   if (!reason) {
-    console.error("Error: --reason <text> is required");
+    console.error('Error: --reason <text> is required');
     process.exit(1);
   }
 
@@ -1133,19 +1134,19 @@ async function wikiRejectCommand(args: string[]): Promise<void> {
   const idempotency_key = randomUUID();
   const text = `Wiki page ${pageId} rejected: ${reason}`;
   const response = await fetch(config.api_url, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Authorization: "Bearer " + config.api_key,
-      "Content-Type": "application/json",
+      Authorization: 'Bearer ' + config.api_key,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       text,
-      source: "cli",
+      source: 'cli',
       idempotency_key,
       metadata: {
-        kind: "wiki-feedback",
+        kind: 'wiki-feedback',
         page_id: pageId,
-        decision: "invalidate",
+        decision: 'invalidate',
       },
     }),
   });
@@ -1160,20 +1161,20 @@ async function wikiCommand(): Promise<void> {
   const sub = process.argv[3];
   const rest = process.argv.slice(4);
   switch (sub) {
-    case "get":
+    case 'get':
       await wikiGetCommand(rest);
       return;
-    case "list":
+    case 'list':
       await wikiListCommand(rest);
       return;
-    case "refresh":
+    case 'refresh':
       await wikiRefreshCommand(rest);
       return;
-    case "reject":
+    case 'reject':
       await wikiRejectCommand(rest);
       return;
     default:
-      console.error("Error: unknown wiki subcommand: " + (sub ?? "(none)"));
+      console.error('Error: unknown wiki subcommand: ' + (sub ?? '(none)'));
       printUsage();
       process.exit(1);
   }
@@ -1182,22 +1183,22 @@ async function wikiCommand(): Promise<void> {
 async function main(): Promise<void> {
   const command = process.argv[2];
 
-  if (command === "import") {
+  if (command === 'import') {
     await importMemories();
     return;
   }
 
-  if (command === "sync-vault") {
+  if (command === 'sync-vault') {
     await syncVault();
     return;
   }
 
-  if (command === "audit") {
+  if (command === 'audit') {
     await auditCommand();
     return;
   }
 
-  if (command === "wiki") {
+  if (command === 'wiki') {
     await wikiCommand();
     return;
   }
@@ -1213,10 +1214,10 @@ async function main(): Promise<void> {
   const remaining = process.argv.slice(3);
   let projectArg: string | undefined;
   for (let i = 0; i < remaining.length; i++) {
-    if (remaining[i] === "--project" && i + 1 < remaining.length) {
+    if (remaining[i] === '--project' && i + 1 < remaining.length) {
       projectArg = remaining[++i];
     } else {
-      console.error("Error: unexpected argument: " + remaining[i]);
+      console.error('Error: unexpected argument: ' + remaining[i]);
       printUsage();
       process.exit(1);
     }
@@ -1227,10 +1228,10 @@ async function main(): Promise<void> {
 
 const isMainModule =
   process.argv[1] &&
-  (process.argv[1].endsWith("/brain.js") ||
-    process.argv[1].endsWith("\\brain.js") ||
-    process.argv[1].endsWith("/brain.ts") ||
-    process.argv[1].endsWith("\\brain.ts"));
+  (process.argv[1].endsWith('/brain.js') ||
+    process.argv[1].endsWith('\\brain.js') ||
+    process.argv[1].endsWith('/brain.ts') ||
+    process.argv[1].endsWith('\\brain.ts'));
 
 if (isMainModule) {
   main();

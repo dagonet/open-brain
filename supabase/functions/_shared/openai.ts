@@ -1,24 +1,24 @@
-﻿import { EntityExtractionResult, MetadataExtraction } from "./types.ts";
+﻿import { EntityExtractionResult, MetadataExtraction } from './types.ts';
 
-const OPENAI_API_URL = "https://api.openai.com/v1";
+const OPENAI_API_URL = 'https://api.openai.com/v1';
 
 function getApiKey(): string {
-  const key = Deno.env.get("OPENAI_API_KEY");
+  const key = Deno.env.get('OPENAI_API_KEY');
   if (!key) {
-    throw new Error("OPENAI_API_KEY environment variable is not set");
+    throw new Error('OPENAI_API_KEY environment variable is not set');
   }
   return key;
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const response = await fetch(`${OPENAI_API_URL}/embeddings`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Authorization": `Bearer ${getApiKey()}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${getApiKey()}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: "text-embedding-3-small",
+      model: 'text-embedding-3-small',
       input: text,
     }),
   });
@@ -63,18 +63,18 @@ If salience is unclear, default to 3.`;
 
 export async function extractMetadata(text: string): Promise<MetadataExtraction> {
   const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Authorization": `Bearer ${getApiKey()}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${getApiKey()}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
-        { role: "system", content: METADATA_SYSTEM_PROMPT },
-        { role: "user", content: text },
+        { role: 'system', content: METADATA_SYSTEM_PROMPT },
+        { role: 'user', content: text },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0,
     }),
   });
@@ -107,26 +107,23 @@ Return JSON with this exact structure:
 
 If no meaningful entities are found, return an empty entities array.`;
 
-export async function extractEntityDescriptions(
-  text: string,
-): Promise<EntityExtractionResult> {
-
+export async function extractEntityDescriptions(text: string): Promise<EntityExtractionResult> {
   const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Authorization": `Bearer ${getApiKey()}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${getApiKey()}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
-        { role: "system", content: ENTITY_DESCRIPTIONS_SYSTEM_PROMPT },
+        { role: 'system', content: ENTITY_DESCRIPTIONS_SYSTEM_PROMPT },
         {
-          role: "user",
+          role: 'user',
           content: text,
         },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0,
     }),
   });
@@ -154,7 +151,7 @@ export async function extractEntityDescriptions(
 // ---------------------------------------------------------------------------
 
 export interface StructuredMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -170,16 +167,16 @@ export async function chatCompletionsStructured<T>(
   options: StructuredOptions,
 ): Promise<T> {
   const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Authorization": `Bearer ${getApiKey()}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${getApiKey()}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: options.model ?? "gpt-4o-mini",
+      model: options.model ?? 'gpt-4o-mini',
       messages,
       response_format: {
-        type: "json_schema",
+        type: 'json_schema',
         json_schema: {
           name: options.schema_name,
           schema: options.schema,
@@ -192,9 +189,7 @@ export async function chatCompletionsStructured<T>(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(
-      `OpenAI structured chat request failed (${response.status}): ${error}`,
-    );
+    throw new Error(`OpenAI structured chat request failed (${response.status}): ${error}`);
   }
 
   const data = await response.json();
@@ -203,4 +198,4 @@ export async function chatCompletionsStructured<T>(
 }
 
 export const UUID_PATTERN =
-  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';

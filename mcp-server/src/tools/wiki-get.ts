@@ -1,10 +1,10 @@
-import { z } from "zod";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ToolDefinition } from './registry.js';
 
 export interface WikiGetParams {
   slug: string;
-  include_sources?: "snippets" | "full" | "none";
+  include_sources?: 'snippets' | 'full' | 'none';
 }
 
 const SOURCE_SNIPPET_LEN = 120;
@@ -41,37 +41,34 @@ interface ThoughtRow {
 
 function truncate(text: string, max: number, slug: string): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + "\n\n… [truncated, see /wiki/" + slug + "]";
+  return text.slice(0, max) + '\n\n… [truncated, see /wiki/' + slug + ']';
 }
 
-export async function wikiGet(
-  supabase: SupabaseClient,
-  params: WikiGetParams,
-): Promise<string> {
+export async function wikiGet(supabase: SupabaseClient, params: WikiGetParams): Promise<string> {
   const slug = params.slug.toLowerCase();
-  const includeSources = params.include_sources ?? "snippets";
+  const includeSources = params.include_sources ?? 'snippets';
 
   const { data: page, error: pageErr } = await supabase
-    .from("current_wiki_pages")
+    .from('current_wiki_pages')
     .select(
-      "id, slug, version, content_md, partial, source_thought_count, oldest_source_at, newest_source_at, compiled_at",
+      'id, slug, version, content_md, partial, source_thought_count, oldest_source_at, newest_source_at, compiled_at',
     )
-    .eq("slug", slug)
+    .eq('slug', slug)
     .maybeSingle();
 
   if (pageErr) {
     return JSON.stringify({ error: pageErr.message });
   }
   if (!page) {
-    return JSON.stringify({ status: "not_found", slug });
+    return JSON.stringify({ status: 'not_found', slug });
   }
 
   const wikiPage = page as WikiPageRow;
 
   const { data: staleness, error: staleErr } = await supabase
-    .from("wiki_page_staleness")
-    .select("page_id, stale_since_n_thoughts, open_contradictions_count")
-    .eq("page_id", wikiPage.id)
+    .from('wiki_page_staleness')
+    .select('page_id, stale_since_n_thoughts, open_contradictions_count')
+    .eq('page_id', wikiPage.id)
     .maybeSingle();
   if (staleErr) {
     return JSON.stringify({ error: staleErr.message });
@@ -90,29 +87,27 @@ export async function wikiGet(
     raw_text?: string;
   }> = [];
 
-  if (includeSources !== "none") {
+  if (includeSources !== 'none') {
     const { data: joins, error: joinsErr } = await supabase
-      .from("wiki_sources")
-      .select("thought_id")
-      .eq("page_id", wikiPage.id);
+      .from('wiki_sources')
+      .select('thought_id')
+      .eq('page_id', wikiPage.id);
     if (joinsErr) {
       return JSON.stringify({ error: joinsErr.message });
     }
-    const thoughtIds = (joins as SourceJoinRow[] | null ?? []).map(
-      (j) => j.thought_id,
-    );
+    const thoughtIds = ((joins as SourceJoinRow[] | null) ?? []).map((j) => j.thought_id);
     if (thoughtIds.length > 0) {
       const { data: thoughts, error: thoughtsErr } = await supabase
-        .from("thoughts")
-        .select("id, raw_text, created_at, deleted_at")
-        .in("id", thoughtIds);
+        .from('thoughts')
+        .select('id, raw_text, created_at, deleted_at')
+        .in('id', thoughtIds);
       if (thoughtsErr) {
         return JSON.stringify({ error: thoughtsErr.message });
       }
       const rows = (thoughts as ThoughtRow[] | null) ?? [];
       sources = rows.map((t) => {
         const deleted = t.deleted_at !== null;
-        if (includeSources === "full") {
+        if (includeSources === 'full') {
           return {
             thought_id: t.id,
             created_at: t.created_at,
@@ -126,7 +121,7 @@ export async function wikiGet(
           deleted,
           snippet:
             t.raw_text.length > SOURCE_SNIPPET_LEN
-              ? t.raw_text.slice(0, SOURCE_SNIPPET_LEN) + "…"
+              ? t.raw_text.slice(0, SOURCE_SNIPPET_LEN) + '…'
               : t.raw_text,
         };
       });
@@ -136,7 +131,7 @@ export async function wikiGet(
   const content_md = truncate(wikiPage.content_md, CONTENT_SOFT_CAP, wikiPage.slug);
 
   return JSON.stringify({
-    status: "ok",
+    status: 'ok',
     slug: wikiPage.slug,
     version: wikiPage.version,
     content_md,
@@ -152,23 +147,20 @@ export async function wikiGet(
 }
 
 export const definition: ToolDefinition = {
-  name: "wiki_get",
+  name: 'wiki_get',
   description:
-    "Get the latest compiled wiki page for a topic slug. Returns markdown plus staleness signals and source thought IDs. For synthesis questions, prefer this over thoughts_search when the page is fresh.",
+    'Get the latest compiled wiki page for a topic slug. Returns markdown plus staleness signals and source thought IDs. For synthesis questions, prefer this over thoughts_search when the page is fresh.',
   schema: {
     slug: z
       .string()
-      .describe(
-        "Topic slug, e.g. 'open-brain'. Lowercase, hyphenated; matches slugify(topic).",
-      ),
+      .describe("Topic slug, e.g. 'open-brain'. Lowercase, hyphenated; matches slugify(topic)."),
     include_sources: z
-      .enum(["snippets", "full", "none"])
+      .enum(['snippets', 'full', 'none'])
       .optional()
-      .default("snippets")
+      .default('snippets')
       .describe(
         "Source detail level. 'snippets' (default) returns 120-char previews; 'full' returns raw text; 'none' omits sources.",
       ),
   },
-  handler: (deps, params) =>
-    wikiGet(deps.supabase, params as unknown as WikiGetParams),
+  handler: (deps, params) => wikiGet(deps.supabase, params as unknown as WikiGetParams),
 };

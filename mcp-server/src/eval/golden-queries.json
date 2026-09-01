@@ -69,9 +69,7 @@
     "description": "Centroid-5: 400-day-old salience-5 decision. Recency floor at 0.05 ensures score=0.06 > 0. Must appear in top-10 despite extreme age.",
     "centroid_index": 5,
     "params": {},
-    "expected_thought_ids": [
-      "a0000000-0000-0000-0000-000000000011"
-    ],
+    "expected_thought_ids": ["a0000000-0000-0000-0000-000000000011"],
     "min_recall_at_5": 0.0,
     "min_recall_at_10": 1.0,
     "v2_scores": {
@@ -109,9 +107,7 @@
     "description": "Centroid-7: fresh 7-day-old insight, salience 4, beta project. v2 recency gives score 1.015.",
     "centroid_index": 7,
     "params": {},
-    "expected_thought_ids": [
-      "a0000000-0000-0000-0000-000000000013"
-    ],
+    "expected_thought_ids": ["a0000000-0000-0000-0000-000000000013"],
     "min_recall_at_5": 1.0,
     "min_recall_at_10": 1.0,
     "v2_scores": {

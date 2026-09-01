@@ -1,0 +1,9 @@
+{
+  "name": "open-brain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repo-root tooling config (prettier) for the Open Brain monorepo",
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  }
+}

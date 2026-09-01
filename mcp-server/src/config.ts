@@ -4,14 +4,14 @@
 // `.mcp.json` env block to silence those tool families in that workspace.
 // Useful for sensitive client repos where wiki/audit/task overhead is unwanted.
 
-export type ToolFamily = "wiki" | "contradictions" | "tasks" | "entities";
+export type ToolFamily = 'wiki' | 'contradictions' | 'tasks' | 'entities';
 
-const KNOWN_FAMILIES: ToolFamily[] = ["wiki", "contradictions", "tasks", "entities"];
+const KNOWN_FAMILIES: ToolFamily[] = ['wiki', 'contradictions', 'tasks', 'entities'];
 
 export function disabledFamilies(envValue: string | undefined): Set<ToolFamily> {
   const result = new Set<ToolFamily>();
   if (!envValue) return result;
-  for (const raw of envValue.split(",")) {
+  for (const raw of envValue.split(',')) {
     const trimmed = raw.trim().toLowerCase();
     if ((KNOWN_FAMILIES as string[]).includes(trimmed)) {
       result.add(trimmed as ToolFamily);
@@ -21,10 +21,10 @@ export function disabledFamilies(envValue: string | undefined): Set<ToolFamily> 
 }
 
 export function familyForToolName(name: string): ToolFamily | null {
-  if (name.startsWith("wiki_")) return "wiki";
-  if (name.startsWith("contradictions_")) return "contradictions";
-  if (name.startsWith("task_")) return "tasks";
-  if (name.startsWith("entities_")) return "entities";
+  if (name.startsWith('wiki_')) return 'wiki';
+  if (name.startsWith('contradictions_')) return 'contradictions';
+  if (name.startsWith('task_')) return 'tasks';
+  if (name.startsWith('entities_')) return 'entities';
   return null;
 }
 

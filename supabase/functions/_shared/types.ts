@@ -1,16 +1,9 @@
-﻿export type ThoughtSource =
-  "slack" | "cli" | "mcp" | "import" | "import-claude" | "import-chatgpt";
+﻿export type ThoughtSource = 'slack' | 'cli' | 'mcp' | 'import' | 'import-claude' | 'import-chatgpt';
 
 export type ThoughtType =
-  | "decision"
-  | "insight"
-  | "meeting"
-  | "action"
-  | "reference"
-  | "question"
-  | "note";
+  'decision' | 'insight' | 'meeting' | 'action' | 'reference' | 'question' | 'note';
 
-export type ProcessingStatus = "complete" | "partial" | "failed";
+export type ProcessingStatus = 'complete' | 'partial' | 'failed';
 
 export interface ThoughtInput {
   text: string;

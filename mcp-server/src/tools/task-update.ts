@@ -1,6 +1,6 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export interface TaskUpdateParams {
   id: string;
@@ -22,10 +22,10 @@ export async function taskUpdate(
 
   // Read the current task (must exist and not be deleted).
   const { data: current, error: readError } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("id", id)
-    .is("deleted_at", null)
+    .from('tasks')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (readError) {
@@ -33,7 +33,7 @@ export async function taskUpdate(
   }
 
   if (!current) {
-    return JSON.stringify({ error: "not found" });
+    return JSON.stringify({ error: 'not found' });
   }
 
   // Build the update payload with only the fields that changed.
@@ -41,7 +41,7 @@ export async function taskUpdate(
 
   if (title !== undefined) {
     if (title.trim().length === 0) {
-      return JSON.stringify({ error: "title must be non-empty." });
+      return JSON.stringify({ error: 'title must be non-empty.' });
     }
     updates.title = title;
   }
@@ -63,14 +63,14 @@ export async function taskUpdate(
   }
 
   // If status is 'cancelled', soft-delete.
-  if (status === "cancelled") {
+  if (status === 'cancelled') {
     updates.deleted_at = new Date().toISOString();
   }
 
   const { data, error: writeError } = await supabase
-    .from("tasks")
+    .from('tasks')
     .update(updates)
-    .eq("id", id)
+    .eq('id', id)
     .select()
     .single();
 
@@ -82,37 +82,27 @@ export async function taskUpdate(
 }
 
 export const definition: ToolDefinition = {
-  name: "task_update",
+  name: 'task_update',
   description:
     "Update a task by ID. Supports changing title, description, priority, linked_thought_ids, metadata, and status. When status changes, appends an entry to status_history. Setting status to 'cancelled' also sets deleted_at (soft-delete).",
   schema: {
-    id: z.string().uuid().describe("UUID of the task to update."),
-    title: z.string().min(1).optional().describe("New title (non-empty when provided)."),
-    description: z.string().optional().describe("New description."),
-    priority: z
-      .number()
-      .int()
-      .min(1)
-      .max(5)
-      .optional()
-      .describe("New priority 1-5."),
-    linked_thought_ids: z
-      .array(z.string().uuid())
-      .optional()
-      .describe("New linked thought IDs."),
+    id: z.string().uuid().describe('UUID of the task to update.'),
+    title: z.string().min(1).optional().describe('New title (non-empty when provided).'),
+    description: z.string().optional().describe('New description.'),
+    priority: z.number().int().min(1).max(5).optional().describe('New priority 1-5.'),
+    linked_thought_ids: z.array(z.string().uuid()).optional().describe('New linked thought IDs.'),
     metadata: z
       .record(z.unknown())
       .optional()
-      .describe("New metadata JSON object (replaces existing)."),
+      .describe('New metadata JSON object (replaces existing).'),
     status: z
       .string()
       .optional()
-      .describe("New status: open, in_progress, blocked, done, cancelled."),
+      .describe('New status: open, in_progress, blocked, done, cancelled.'),
     note: z
       .string()
       .optional()
-      .describe("Optional note appended to status_history when status changes."),
+      .describe('Optional note appended to status_history when status changes.'),
   },
-  handler: (deps, params) =>
-    taskUpdate(deps.supabase, params as unknown as TaskUpdateParams),
+  handler: (deps, params) => taskUpdate(deps.supabase, params as unknown as TaskUpdateParams),
 };

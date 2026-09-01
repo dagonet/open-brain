@@ -1,8 +1,8 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
-import { z } from "zod";
-import { baseSemanticSearch } from "./search-core.js";
-import type { ToolDefinition } from "./registry.js";
+import { SupabaseClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
+import { z } from 'zod';
+import { baseSemanticSearch } from './search-core.js';
+import type { ToolDefinition } from './registry.js';
 
 export interface ThoughtsSearchExpandedParams {
   query: string;
@@ -46,7 +46,7 @@ export async function thoughtsSearchExpanded(
     const ids = baseResults.map((r) => r.id as string);
     if (ids.length > 0) {
       const { data: expData, error: expError } = await supabase.rpc(
-        "related_thoughts_via_entities",
+        'related_thoughts_via_entities',
         {
           seed_thought_ids: ids,
           result_limit: limit,
@@ -57,18 +57,13 @@ export async function thoughtsSearchExpanded(
         expansionResults = expData;
 
         // Fire-and-forget retrieval tracking for expansion results too.
-        const expIds = (expData as Array<Record<string, unknown>>).map(
-          (r) => r.thought_id,
-        );
+        const expIds = (expData as Array<Record<string, unknown>>).map((r) => r.thought_id);
         if (expIds.length > 0) {
           void (async () => {
             try {
-              await supabase.rpc("increment_retrieval", { ids: expIds });
+              await supabase.rpc('increment_retrieval', { ids: expIds });
             } catch (trackErr: unknown) {
-              console.error(
-                "[thoughts_search_expanded] expansion tracking failed:",
-                trackErr,
-              );
+              console.error('[thoughts_search_expanded] expansion tracking failed:', trackErr);
             }
           })();
         }
@@ -85,28 +80,24 @@ export async function thoughtsSearchExpanded(
 }
 
 export const definition: ToolDefinition = {
-  name: "thoughts_search_expanded",
+  name: 'thoughts_search_expanded',
   description:
-    "Search thoughts with entity-expanded results. Performs semantic search, then uses entity graph traversal to find related thoughts the pure semantic match would miss. Prefer it to surface connected memories a pure semantic search misses.",
+    'Search thoughts with entity-expanded results. Performs semantic search, then uses entity graph traversal to find related thoughts the pure semantic match would miss. Prefer it to surface connected memories a pure semantic search misses.',
   schema: {
-    query: z.string().describe("The search query to embed and match against thoughts"),
+    query: z.string().describe('The search query to embed and match against thoughts'),
     project: z
       .string()
       .optional()
       .describe(
-        "Filter by project. Falls back to OPEN_BRAIN_DEFAULT_PROJECT env var if set and this param is omitted.",
+        'Filter by project. Falls back to OPEN_BRAIN_DEFAULT_PROJECT env var if set and this param is omitted.',
       ),
-    limit: z
-      .number()
-      .optional()
-      .default(10)
-      .describe("Max results to return (default 10)"),
+    limit: z.number().optional().default(10).describe('Max results to return (default 10)'),
     recency_halflife_days: z
       .number()
       .optional()
       .default(30)
       .describe(
-        "Half-life in days for recency decay (default 30). A 30-day-old thought scores 0.5x.",
+        'Half-life in days for recency decay (default 30). A 30-day-old thought scores 0.5x.',
       ),
   },
   handler: (deps, params) =>

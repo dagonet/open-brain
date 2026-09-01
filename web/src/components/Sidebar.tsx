@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, type ReactNode } from "react";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase-browser";
+import { useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { createClient } from '@/lib/supabase-browser';
 
 interface SidebarProps {
   totalThoughts: number;
@@ -74,48 +74,50 @@ function GraphIcon() {
   );
 }
 
-export default function Sidebar({
-  totalThoughts,
-  wikiPages,
-  openContradictions,
-}: SidebarProps) {
+export default function Sidebar({ totalThoughts, wikiPages, openContradictions }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const navItems: NavItem[] = [
     {
-      href: "/",
-      label: "Thoughts",
+      href: '/',
+      label: 'Thoughts',
       icon: <HomeIcon />,
-      match: (p) => p === "/" || (p !== "/wiki" && p !== "/contradictions" && p !== "/graph" && !p.startsWith("/wiki/") && !p.startsWith("/contradictions/")),
+      match: (p) =>
+        p === '/' ||
+        (p !== '/wiki' &&
+          p !== '/contradictions' &&
+          p !== '/graph' &&
+          !p.startsWith('/wiki/') &&
+          !p.startsWith('/contradictions/')),
     },
     {
-      href: "/wiki",
-      label: "Wiki",
+      href: '/wiki',
+      label: 'Wiki',
       icon: <BookIcon />,
       badge: wikiPages,
-      match: (p) => p === "/wiki" || p.startsWith("/wiki/"),
+      match: (p) => p === '/wiki' || p.startsWith('/wiki/'),
     },
     {
-      href: "/contradictions",
-      label: "Contradictions",
+      href: '/contradictions',
+      label: 'Contradictions',
       icon: <AlertIcon />,
       badge: openContradictions,
-      match: (p) => p === "/contradictions" || p.startsWith("/contradictions/"),
+      match: (p) => p === '/contradictions' || p.startsWith('/contradictions/'),
     },
     {
-      href: "/graph",
-      label: "Graph",
+      href: '/graph',
+      label: 'Graph',
       icon: <GraphIcon />,
-      match: (p) => p === "/graph",
+      match: (p) => p === '/graph',
     },
   ];
 
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push('/login');
     router.refresh();
   }
 
@@ -162,16 +164,14 @@ export default function Sidebar({
       {/* Sidebar */}
       <aside
         className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col transition-transform md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="p-6">
           <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
             Open Brain
           </h1>
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            Your second brain
-          </p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Your second brain</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
@@ -184,20 +184,20 @@ export default function Sidebar({
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                   active
-                    ? "text-[var(--text-primary)] bg-[var(--accent)]/10 border border-[var(--accent)]/20"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                    ? 'text-[var(--text-primary)] bg-[var(--accent)]/10 border border-[var(--accent)]/20'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
                 }`}
               >
                 <span className="flex items-center gap-3">
                   {item.icon}
                   {item.label}
                 </span>
-                {typeof item.badge === "number" && item.badge > 0 ? (
+                {typeof item.badge === 'number' && item.badge > 0 ? (
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded ${
-                      item.label === "Contradictions"
-                        ? "bg-amber-500/20 text-amber-300"
-                        : "bg-[var(--bg-card)] text-[var(--text-muted)]"
+                      item.label === 'Contradictions'
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-[var(--bg-card)] text-[var(--text-muted)]'
                     }`}
                   >
                     {item.badge}
@@ -212,7 +212,7 @@ export default function Sidebar({
           <div className="text-xs text-[var(--text-muted)] mb-3">
             <span className="text-[var(--text-secondary)] font-medium">
               {totalThoughts.toLocaleString()}
-            </span>{" "}
+            </span>{' '}
             thoughts captured
           </div>
           <button

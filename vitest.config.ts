@@ -6,7 +6,7 @@
 // (190/28 reported vs the real 95/14 at the v0.5 baseline).
 //
 // NOTE: plain object export (no `import { defineConfig } from 'vitest/config'`)
-// because the repo root has no package.json/node_modules — the import cannot
+// because the root package.json has no vitest dependency — the import cannot
 // resolve when vitest is invoked via bare `npx vitest run`.
 export default {
   test: {
@@ -15,6 +15,7 @@ export default {
       '**/dist/**',
       '**/.next/**',
       '**/coverage/**',
+      '**/.claude/worktrees/**',
     ],
   },
 };

@@ -13,11 +13,7 @@
  * @param k        - cutoff rank
  * @returns fraction of expected items found in the top K results (0..1)
  */
-export function recallAtK(
-  expected: string[],
-  actual: string[],
-  k: number,
-): number {
+export function recallAtK(expected: string[], actual: string[], k: number): number {
   if (expected.length === 0) return 1.0;
   const topK = actual.slice(0, k);
   const found = expected.filter((id) => topK.includes(id));

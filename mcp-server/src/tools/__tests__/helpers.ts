@@ -1,5 +1,5 @@
-import { vi } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { vi } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Creates a chainable mock that mimics Supabase query builder.
@@ -12,23 +12,23 @@ export function createMockSupabase() {
 
   const builder: Record<string, unknown> = {};
   const chainMethods = [
-    "from",
-    "select",
-    "insert",
-    "update",
-    "delete",
-    "eq",
-    "neq",
-    "in",
-    "is",
-    "not",
-    "gte",
-    "lte",
-    "order",
-    "limit",
-    "single",
-    "maybeSingle",
-    "rpc",
+    'from',
+    'select',
+    'insert',
+    'update',
+    'delete',
+    'eq',
+    'neq',
+    'in',
+    'is',
+    'not',
+    'gte',
+    'lte',
+    'order',
+    'limit',
+    'single',
+    'maybeSingle',
+    'rpc',
   ];
 
   for (const method of chainMethods) {
@@ -55,15 +55,33 @@ export function createMockSupabase() {
  * Creates a mock that supports Promise.all with multiple queries.
  * Each call to from() returns a separate chain that resolves independently.
  */
-export function createMultiQueryMockSupabase(results: Array<{ data: unknown; error?: { message: string } | null; count?: number | null }>) {
+export function createMultiQueryMockSupabase(
+  results: Array<{ data: unknown; error?: { message: string } | null; count?: number | null }>,
+) {
   let callIndex = 0;
 
-  function makeChain(result: { data: unknown; error?: { message: string } | null; count?: number | null }) {
+  function makeChain(result: {
+    data: unknown;
+    error?: { message: string } | null;
+    count?: number | null;
+  }) {
     const chain: Record<string, unknown> = {};
     const chainMethods = [
-      "select", "insert", "update", "delete",
-      "eq", "neq", "in", "is", "not", "gte", "lte",
-      "order", "limit", "single", "maybeSingle",
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'eq',
+      'neq',
+      'in',
+      'is',
+      'not',
+      'gte',
+      'lte',
+      'order',
+      'limit',
+      'single',
+      'maybeSingle',
     ];
     for (const method of chainMethods) {
       chain[method] = vi.fn().mockImplementation(() => chain);

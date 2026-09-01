@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase-server";
-import Sidebar from "@/components/Sidebar";
-import { fetchDashboardCounts } from "@/lib/dashboard-counts";
-import GraphTabs from "./graph-tabs";
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase-server';
+import Sidebar from '@/components/Sidebar';
+import { fetchDashboardCounts } from '@/lib/dashboard-counts';
+import GraphTabs from './graph-tabs';
 
 interface ThoughtNode {
   id: string;
@@ -46,41 +46,38 @@ export default async function GraphPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect("/login");
+    redirect('/login');
   }
 
-  const [{ data: contradictions }, { data: thoughts }, { data: entityNodes }] =
-    await Promise.all([
-      supabase
-        .from("contradictions")
-        .select("*")
-        .order("detected_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("thoughts")
-        .select("id, raw_text, thought_type, topics, created_at")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1000),
-      supabase
-        .from("entity_nodes")
-        .select("*")
-        .order("thought_count", { ascending: false })
-        .limit(60),
-    ]);
+  const [{ data: contradictions }, { data: thoughts }, { data: entityNodes }] = await Promise.all([
+    supabase
+      .from('contradictions')
+      .select('*')
+      .order('detected_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('thoughts')
+      .select('id, raw_text, thought_type, topics, created_at')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1000),
+    supabase
+      .from('entity_nodes')
+      .select('*')
+      .order('thought_count', { ascending: false })
+      .limit(60),
+  ]);
 
   // Entity edges constrained to the top-60 entity keys
-  const keys = (entityNodes ?? []).map(
-    (e: Record<string, unknown>) => e.entity_key as string,
-  );
+  const keys = (entityNodes ?? []).map((e: Record<string, unknown>) => e.entity_key as string);
   let entityEdgesData: EntityEdgeRow[] | null = [];
   if (keys.length > 0) {
     const { data } = await supabase
-      .from("entity_edges")
-      .select("*")
-      .in("source_key", keys)
-      .in("target_key", keys)
-      .order("weight", { ascending: false })
+      .from('entity_edges')
+      .select('*')
+      .in('source_key', keys)
+      .in('target_key', keys)
+      .order('weight', { ascending: false })
       .limit(150);
     entityEdgesData = data as EntityEdgeRow[] | null;
   }

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase-server";
+import { createClient } from '@/lib/supabase-server';
 
 export interface DashboardCounts {
   totalThoughts: number;
@@ -15,17 +15,12 @@ export async function fetchDashboardCounts(): Promise<DashboardCounts> {
   const supabase = await createClient();
 
   const [thoughtsRes, wikiRes, contradictionsRes] = await Promise.all([
+    supabase.from('thoughts').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+    supabase.from('current_wiki_pages').select('id', { count: 'exact', head: true }),
     supabase
-      .from("thoughts")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null),
-    supabase
-      .from("current_wiki_pages")
-      .select("id", { count: "exact", head: true }),
-    supabase
-      .from("contradictions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open"),
+      .from('contradictions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open'),
   ]);
 
   return {

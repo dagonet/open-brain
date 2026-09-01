@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
+import { useCallback, useState } from 'react';
 import {
   useSimulation,
   SimNodeBase,
@@ -8,7 +8,7 @@ import {
   DEFAULT_WIDTH,
   DEFAULT_HEIGHT,
   DEFAULT_RADIUS,
-} from "./graph-common";
+} from './graph-common';
 
 interface EntityNode {
   entity_key: string;
@@ -37,24 +37,24 @@ interface EntitySimEdge extends SimEdgeBase {
 }
 
 const ENTITY_COLORS: Record<string, string> = {
-  function: "#3b82f6",
-  variable: "#10b981",
-  constant: "#f59e0b",
-  script: "#ef4444",
-  version: "#8b5cf6",
-  task: "#6366f1",
-  process: "#ec4899",
-  issue: "#84cc16",
-  person: "#14b8a6",
-  document: "#f97316",
-  project: "#a855f7",
-  tool: "#06b6d4",
-  library: "#0ea5e9",
-  concept: "#d946ef",
-  location: "#22c55e",
+  function: '#3b82f6',
+  variable: '#10b981',
+  constant: '#f59e0b',
+  script: '#ef4444',
+  version: '#8b5cf6',
+  task: '#6366f1',
+  process: '#ec4899',
+  issue: '#84cc16',
+  person: '#14b8a6',
+  document: '#f97316',
+  project: '#a855f7',
+  tool: '#06b6d4',
+  library: '#0ea5e9',
+  concept: '#d946ef',
+  location: '#22c55e',
 };
 
-const FALLBACK_COLOR = "#78716c";
+const FALLBACK_COLOR = '#78716c';
 
 function entityRadius(entity: EntityNode): number {
   return Math.max(DEFAULT_RADIUS, Math.min(36, Math.sqrt(entity.mention_count) * 3));
@@ -132,12 +132,8 @@ export default function EntityGraphView({
         >
           {sim.edgesRef.current.map((edge) => {
             const e = edge as EntitySimEdge;
-            const a = sim.nodesRef.current.find(
-              (n) => n.id === e.source,
-            );
-            const b = sim.nodesRef.current.find(
-              (n) => n.id === e.target,
-            );
+            const a = sim.nodesRef.current.find((n) => n.id === e.source);
+            const b = sim.nodesRef.current.find((n) => n.id === e.target);
             if (!a || !b) return null;
             const sw = Math.max(0.5, e.edge_data.weight * 0.05);
             return (
@@ -160,8 +156,7 @@ export default function EntityGraphView({
           {sim.nodesRef.current.map((node) => {
             const n = node as EntitySimNode;
             const r = entityRadius(n.entity);
-            const color =
-              ENTITY_COLORS[n.entity.entity_type] ?? FALLBACK_COLOR;
+            const color = ENTITY_COLORS[n.entity.entity_type] ?? FALLBACK_COLOR;
             return (
               <g key={n.id}>
                 <circle
@@ -174,7 +169,7 @@ export default function EntityGraphView({
                   stroke="#292524"
                   strokeWidth={2}
                   opacity={0.9}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: 'pointer' }}
                   onPointerDown={(e) => sim.handlePointerDown(e, n)}
                   onClick={() => handleNodeClick(n)}
                 />
@@ -186,7 +181,7 @@ export default function EntityGraphView({
                   textAnchor="middle"
                   fill="#a8a29e"
                   fontSize={10}
-                  style={{ pointerEvents: "none" }}
+                  style={{ pointerEvents: 'none' }}
                 >
                   {n.entity.display_name.slice(0, 24)}
                 </text>
@@ -207,11 +202,8 @@ export default function EntityGraphView({
           <div
             className="inline-block px-2 py-0.5 rounded text-xs mb-2"
             style={{
-              backgroundColor:
-                (ENTITY_COLORS[selectedEntity.entity_type] ??
-                  FALLBACK_COLOR) + "30",
-              color:
-                ENTITY_COLORS[selectedEntity.entity_type] ?? FALLBACK_COLOR,
+              backgroundColor: (ENTITY_COLORS[selectedEntity.entity_type] ?? FALLBACK_COLOR) + '30',
+              color: ENTITY_COLORS[selectedEntity.entity_type] ?? FALLBACK_COLOR,
             }}
           >
             {selectedEntity.entity_type}

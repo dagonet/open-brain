@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.next/
+.gate/
+.playwright-mcp/
+.claude/worktrees/
+*.md
+*.sql
+*.toml
+docs/
+supabase/.temp/
+.github/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

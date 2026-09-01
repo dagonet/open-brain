@@ -1,12 +1,7 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import {
-  useSimulation,
-  DEFAULT_WIDTH,
-  DEFAULT_HEIGHT,
-  DEFAULT_RADIUS,
-} from "./graph-common";
+import { useState, useCallback } from 'react';
+import { useSimulation, DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_RADIUS } from './graph-common';
 
 interface ThoughtNode {
   id: string;
@@ -44,13 +39,13 @@ interface SimEdge {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  decision: "#f59e0b",
-  insight: "#10b981",
-  meeting: "#6366f1",
-  action: "#ef4444",
-  reference: "#3b82f6",
-  question: "#8b5cf6",
-  note: "#9ca3af",
+  decision: '#f59e0b',
+  insight: '#10b981',
+  meeting: '#6366f1',
+  action: '#ef4444',
+  reference: '#3b82f6',
+  question: '#8b5cf6',
+  note: '#9ca3af',
 };
 
 export default function GraphView({
@@ -121,7 +116,8 @@ export default function GraphView({
   if (sim.nodesRef.current.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--text-secondary)]">
-        No contradictions found. Run <code className="text-[var(--text-primary)]">brain audit</code> to detect contradictions, then revisit this page.
+        No contradictions found. Run <code className="text-[var(--text-primary)]">brain audit</code>{' '}
+        to detect contradictions, then revisit this page.
       </div>
     );
   }
@@ -143,7 +139,7 @@ export default function GraphView({
             if (!a || !b) return null;
             const sw = Math.max(0.5, edge.contradiction.severity * 0.8);
             const op = 0.3 + edge.contradiction.confidence * 0.5;
-            const color = edge.contradiction.status === "open" ? "#f59e0b" : "#6b7280";
+            const color = edge.contradiction.status === 'open' ? '#f59e0b' : '#6b7280';
             return (
               <line
                 key={edge.contradiction.id}
@@ -157,7 +153,7 @@ export default function GraphView({
                 stroke={color}
                 strokeWidth={sw}
                 opacity={op}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: 'pointer' }}
                 onClick={() => handleEdgeClick(edge)}
               />
             );
@@ -178,7 +174,7 @@ export default function GraphView({
                   stroke="#1f2937"
                   strokeWidth={2}
                   opacity={0.85}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: 'pointer' }}
                   onPointerDown={(e) => sim.handlePointerDown(e, node)}
                   onClick={() => handleNodeClick(node)}
                 />
@@ -190,9 +186,9 @@ export default function GraphView({
                   textAnchor="middle"
                   fill="#9ca3af"
                   fontSize={10}
-                  style={{ pointerEvents: "none" }}
+                  style={{ pointerEvents: 'none' }}
                 >
-                  {node.thought.topics.slice(0, 2).join(", ") || node.thought.thought_type}
+                  {node.thought.topics.slice(0, 2).join(', ') || node.thought.thought_type}
                 </text>
               </g>
             );
@@ -214,7 +210,8 @@ export default function GraphView({
               <div
                 className="inline-block px-2 py-0.5 rounded text-xs mb-2"
                 style={{
-                  backgroundColor: (TYPE_COLORS[selectedNode.thought_type] ?? TYPE_COLORS.note) + "30",
+                  backgroundColor:
+                    (TYPE_COLORS[selectedNode.thought_type] ?? TYPE_COLORS.note) + '30',
                   color: TYPE_COLORS[selectedNode.thought_type] ?? TYPE_COLORS.note,
                 }}
               >
@@ -252,8 +249,8 @@ export default function GraphView({
                 <span
                   className="inline-block px-2 py-0.5 rounded text-xs"
                   style={{
-                    backgroundColor: selectedEdge.status === "open" ? "#f59e0b30" : "#6b728030",
-                    color: selectedEdge.status === "open" ? "#f59e0b" : "#6b7280",
+                    backgroundColor: selectedEdge.status === 'open' ? '#f59e0b30' : '#6b728030',
+                    color: selectedEdge.status === 'open' ? '#f59e0b' : '#6b7280',
                   }}
                 >
                   {selectedEdge.status}
