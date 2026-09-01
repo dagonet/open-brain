@@ -1,4 +1,4 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface SupersedeParams {
   new_thought_id: string;
@@ -14,29 +14,27 @@ export async function supersedeThought(
   // Validate: IDs must be different.
   if (new_thought_id === old_thought_id) {
     return JSON.stringify({
-      error: "new_thought_id and old_thought_id must be different.",
+      error: 'new_thought_id and old_thought_id must be different.',
     });
   }
 
   // Validate: both thoughts exist.
   const { data: thoughts, error: lookupError } = await supabase
-    .from("thoughts")
-    .select("id, deleted_at, lifecycle_status")
-    .in("id", [new_thought_id, old_thought_id]);
+    .from('thoughts')
+    .select('id, deleted_at, lifecycle_status')
+    .in('id', [new_thought_id, old_thought_id]);
 
   if (lookupError) {
     return JSON.stringify({ error: lookupError.message });
   }
 
   if (!thoughts || thoughts.length < 2) {
-    const found = new Set(
-      (thoughts ?? []).map((t: Record<string, unknown>) => t.id),
-    );
+    const found = new Set((thoughts ?? []).map((t: Record<string, unknown>) => t.id));
     const missing: string[] = [];
     if (!found.has(new_thought_id)) missing.push(new_thought_id);
     if (!found.has(old_thought_id)) missing.push(old_thought_id);
     return JSON.stringify({
-      error: `Thought(s) not found: ${missing.join(", ")}`,
+      error: `Thought(s) not found: ${missing.join(', ')}`,
     });
   }
 
@@ -53,12 +51,12 @@ export async function supersedeThought(
   const oldThought = (thoughts as Array<Record<string, unknown>>).find(
     (t) => t.id === old_thought_id,
   );
-  if (oldThought?.lifecycle_status === "superseded") {
+  if (oldThought?.lifecycle_status === 'superseded') {
     return JSON.stringify({
       error: `Thought ${old_thought_id} is already superseded.`,
     });
   }
-  if (oldThought?.lifecycle_status === "archived") {
+  if (oldThought?.lifecycle_status === 'archived') {
     return JSON.stringify({
       error: `Thought ${old_thought_id} has been archived and cannot be superseded.`,
     });
@@ -66,9 +64,9 @@ export async function supersedeThought(
 
   // Set supersedes_id on the new thought to point at the old thought.
   const { error: updateError } = await supabase
-    .from("thoughts")
+    .from('thoughts')
     .update({ supersedes_id: old_thought_id })
-    .eq("id", new_thought_id);
+    .eq('id', new_thought_id);
 
   if (updateError) {
     return JSON.stringify({ error: updateError.message });
@@ -76,9 +74,9 @@ export async function supersedeThought(
 
   // Set lifecycle_status on the old thought to 'superseded'.
   const { error: oldUpdateError } = await supabase
-    .from("thoughts")
-    .update({ lifecycle_status: "superseded" })
-    .eq("id", old_thought_id);
+    .from('thoughts')
+    .update({ lifecycle_status: 'superseded' })
+    .eq('id', old_thought_id);
 
   if (oldUpdateError) {
     return JSON.stringify({ error: oldUpdateError.message });
@@ -90,25 +88,24 @@ export async function supersedeThought(
   });
 }
 
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export const definition: ToolDefinition = {
-  name: "thoughts_supersede",
+  name: 'thoughts_supersede',
   description:
-    "Mark new_thought_id as superseding old_thought_id — the old thought is excluded from default search results. Use this when a capture returned a duplicate_candidate and the new thought replaces the old one.",
+    'Mark new_thought_id as superseding old_thought_id — the old thought is excluded from default search results. Use this when a capture returned a duplicate_candidate and the new thought replaces the old one.',
   schema: {
     new_thought_id: z
       .string()
       .uuid()
-      .describe("UUID of the new thought that replaces the old one."),
+      .describe('UUID of the new thought that replaces the old one.'),
     old_thought_id: z
       .string()
       .uuid()
       .describe(
-        "UUID of the thought being superseded. It will be excluded from default search results.",
+        'UUID of the thought being superseded. It will be excluded from default search results.',
       ),
   },
-  handler: (deps, params) =>
-    supersedeThought(deps.supabase, params as unknown as SupersedeParams),
+  handler: (deps, params) => supersedeThought(deps.supabase, params as unknown as SupersedeParams),
 };

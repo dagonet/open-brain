@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface SearchBarProps {
   topics: string[];
@@ -9,14 +9,10 @@ interface SearchBarProps {
   thoughtTypes: string[];
 }
 
-export default function SearchBar({
-  topics,
-  people,
-  thoughtTypes,
-}: SearchBarProps) {
+export default function SearchBar({ topics, people, thoughtTypes }: SearchBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateParams = useCallback(
@@ -28,18 +24,18 @@ export default function SearchBar({
         params.delete(key);
       }
       // Reset pagination when filters change
-      params.delete("page");
-      params.delete("cursor");
-      params.delete("cursor_id");
+      params.delete('page');
+      params.delete('cursor');
+      params.delete('cursor_id');
       router.push(`/?${params.toString()}`);
     },
-    [router, searchParams]
+    [router, searchParams],
   );
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      updateParams("q", query);
+      updateParams('q', query);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -57,8 +53,8 @@ export default function SearchBar({
       />
 
       <select
-        value={searchParams.get("type") ?? ""}
-        onChange={(e) => updateParams("type", e.target.value)}
+        value={searchParams.get('type') ?? ''}
+        onChange={(e) => updateParams('type', e.target.value)}
         className="px-3 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
       >
         <option value="">All types</option>
@@ -70,8 +66,8 @@ export default function SearchBar({
       </select>
 
       <select
-        value={searchParams.get("topic") ?? ""}
-        onChange={(e) => updateParams("topic", e.target.value)}
+        value={searchParams.get('topic') ?? ''}
+        onChange={(e) => updateParams('topic', e.target.value)}
         className="px-3 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
       >
         <option value="">All topics</option>
@@ -83,8 +79,8 @@ export default function SearchBar({
       </select>
 
       <select
-        value={searchParams.get("person") ?? ""}
-        onChange={(e) => updateParams("person", e.target.value)}
+        value={searchParams.get('person') ?? ''}
+        onChange={(e) => updateParams('person', e.target.value)}
         className="px-3 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
       >
         <option value="">All people</option>

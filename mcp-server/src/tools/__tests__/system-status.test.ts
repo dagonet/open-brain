@@ -1,27 +1,23 @@
-import { describe, it, expect } from "vitest";
-import { systemStatus } from "../system-status.js";
-import { createMultiQueryMockSupabase } from "./helpers.js";
+import { describe, it, expect } from 'vitest';
+import { systemStatus } from '../system-status.js';
+import { createMultiQueryMockSupabase } from './helpers.js';
 
-describe("systemStatus", () => {
-  it("returns aggregated status", async () => {
+describe('systemStatus', () => {
+  it('returns aggregated status', async () => {
     const { client } = createMultiQueryMockSupabase([
       // totalResult
       { data: null, count: 5 },
       // statusResult
       {
         data: [
-          { processing_status: "complete" },
-          { processing_status: "complete" },
-          { processing_status: "partial" },
+          { processing_status: 'complete' },
+          { processing_status: 'complete' },
+          { processing_status: 'partial' },
         ],
       },
       // sourceResult
       {
-        data: [
-          { source: "slack" },
-          { source: "slack" },
-          { source: "cli" },
-        ],
+        data: [{ source: 'slack' }, { source: 'slack' }, { source: 'cli' }],
       },
       // failuresResult
       { data: [] },
@@ -35,11 +31,11 @@ describe("systemStatus", () => {
     expect(result.by_source.slack).toBe(2);
     expect(result.by_source.cli).toBe(1);
     expect(result.recent_failures).toEqual([]);
-    expect(result.embedding_model).toBe("text-embedding-3-small");
+    expect(result.embedding_model).toBe('text-embedding-3-small');
     expect(result.embedding_dimensions).toBe(1536);
   });
 
-  it("handles empty database", async () => {
+  it('handles empty database', async () => {
     const { client } = createMultiQueryMockSupabase([
       { data: null, count: 0 },
       { data: [] },
@@ -54,9 +50,9 @@ describe("systemStatus", () => {
     expect(result.by_source).toEqual({ slack: 0, cli: 0, mcp: 0 });
   });
 
-  it("returns error when a query fails instead of masking as zeros", async () => {
+  it('returns error when a query fails instead of masking as zeros', async () => {
     const { client } = createMultiQueryMockSupabase([
-      { data: null, count: null, error: { message: "could not connect to server" } },
+      { data: null, count: null, error: { message: 'could not connect to server' } },
       { data: [] },
       { data: [] },
       { data: [] },
@@ -64,8 +60,8 @@ describe("systemStatus", () => {
 
     const result = JSON.parse(await systemStatus(client));
 
-    expect(result.status).toBe("error");
-    expect(result.error).toBe("backend_unreachable");
-    expect(result.detail).toBe("could not connect to server");
+    expect(result.status).toBe('error');
+    expect(result.error).toBe('backend_unreachable');
+    expect(result.detail).toBe('could not connect to server');
   });
 });

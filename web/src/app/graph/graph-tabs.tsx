@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import GraphView from "./graph-view";
-import EntityGraphView from "./entity-graph-view";
+import { useMemo, useState } from 'react';
+import GraphView from './graph-view';
+import EntityGraphView from './entity-graph-view';
 
 interface ThoughtNode {
   id: string;
@@ -51,62 +51,53 @@ export default function GraphTabs({
   entities: EntityNodeRow[];
   entityEdges: EntityEdgeRow[];
 }) {
-  const [tab, setTab] = useState<"contradictions" | "entities">("contradictions");
+  const [tab, setTab] = useState<'contradictions' | 'entities'>('contradictions');
 
-  const thoughtMap = useMemo(
-    () => new Map(thoughts.map((t) => [t.id, t])),
-    [thoughts],
-  );
+  const thoughtMap = useMemo(() => new Map(thoughts.map((t) => [t.id, t])), [thoughts]);
 
   return (
     <>
       <header className="mb-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-            Graph View
-          </h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Graph View</h1>
         </div>
         <div className="flex gap-2 mt-3">
           <button
-            onClick={() => setTab("contradictions")}
+            onClick={() => setTab('contradictions')}
             className={`${
-              tab === "contradictions"
-                ? "bg-[var(--text-primary)] text-[var(--bg-primary)]"
-                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              tab === 'contradictions'
+                ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             } px-4 py-1.5 rounded-lg text-sm font-medium transition-colors`}
           >
             Contradictions
           </button>
           <button
-            onClick={() => setTab("entities")}
+            onClick={() => setTab('entities')}
             className={`${
-              tab === "entities"
-                ? "bg-[var(--text-primary)] text-[var(--bg-primary)]"
-                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              tab === 'entities'
+                ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+                : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             } px-4 py-1.5 rounded-lg text-sm font-medium transition-colors`}
           >
             Entities
           </button>
         </div>
-        {tab === "contradictions" && (
+        {tab === 'contradictions' && (
           <p className="text-sm text-[var(--text-secondary)] mt-2">
-            Each node is a thought, colored by type. Edges are contradictions
-            imposed on the timeline of thought events.
+            Each node is a thought, colored by type. Edges are contradictions imposed on the
+            timeline of thought events.
           </p>
         )}
-        {tab === "entities" && (
+        {tab === 'entities' && (
           <p className="text-sm text-[var(--text-secondary)] mt-2">
-            Each node is an entity, sized by mention count and colored by
-            type. Edges show co-occurrence across thoughts.
+            Each node is an entity, sized by mention count and colored by type. Edges show
+            co-occurrence across thoughts.
           </p>
         )}
       </header>
-      {tab === "contradictions" ? (
-        <GraphView
-          thoughts={thoughts}
-          contradictions={contradictions}
-          thoughtMap={thoughtMap}
-        />
+      {tab === 'contradictions' ? (
+        <GraphView thoughts={thoughts} contradictions={contradictions} thoughtMap={thoughtMap} />
       ) : (
         <EntityGraphView entities={entities} edges={entityEdges} />
       )}

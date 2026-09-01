@@ -1,5 +1,5 @@
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export interface ContradictionsAuditParams {
   thought_id?: string;
@@ -7,15 +7,13 @@ export interface ContradictionsAuditParams {
   candidate_limit?: number;
 }
 
-export async function contradictionsAudit(
-  params: ContradictionsAuditParams,
-): Promise<string> {
+export async function contradictionsAudit(params: ContradictionsAuditParams): Promise<string> {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return JSON.stringify({
-      error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
     });
   }
 
@@ -23,10 +21,10 @@ export async function contradictionsAudit(
 
   try {
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         thought_id: params.thought_id,
@@ -44,33 +42,30 @@ export async function contradictionsAudit(
     return JSON.stringify(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return JSON.stringify({ error: "Failed to run audit", message });
+    return JSON.stringify({ error: 'Failed to run audit', message });
   }
 }
 
 export const definition: ToolDefinition = {
-  name: "contradictions_audit",
+  name: 'contradictions_audit',
   description:
-    "Trigger an on-demand audit pass for contradictions. Walks recent thoughts, finds embedding-similar pairs, and asks an LLM judge whether each pair actually contradicts. New rows go into the contradictions table; duplicates are silently skipped via idempotency keys.",
+    'Trigger an on-demand audit pass for contradictions. Walks recent thoughts, finds embedding-similar pairs, and asks an LLM judge whether each pair actually contradicts. New rows go into the contradictions table; duplicates are silently skipped via idempotency keys.',
   schema: {
     thought_id: z
       .string()
       .optional()
-      .describe(
-        "Restrict the audit to this single thought (and its embedding neighbours).",
-      ),
+      .describe('Restrict the audit to this single thought (and its embedding neighbours).'),
     since: z
       .string()
       .optional()
       .describe(
-        "ISO timestamp. Only consider thoughts created at or after this time as candidates.",
+        'ISO timestamp. Only consider thoughts created at or after this time as candidates.',
       ),
     candidate_limit: z
       .number()
       .optional()
       .default(50)
-      .describe("Max number of candidate thoughts to scan (1..200, default 50)"),
+      .describe('Max number of candidate thoughts to scan (1..200, default 50)'),
   },
-  handler: (_deps, params) =>
-    contradictionsAudit(params as unknown as ContradictionsAuditParams),
+  handler: (_deps, params) => contradictionsAudit(params as unknown as ContradictionsAuditParams),
 };

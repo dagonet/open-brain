@@ -1,6 +1,6 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
-import { resolveProject } from "../config.js";
+import { SupabaseClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
+import { resolveProject } from '../config.js';
 
 /**
  * Parameters for the base semantic search (embed + match_thoughts_v2).
@@ -59,7 +59,7 @@ export async function baseSemanticSearch(
   let embedding: number[];
   try {
     const response = await openai.embeddings.create({
-      model: "text-embedding-3-small",
+      model: 'text-embedding-3-small',
       input: query,
     });
     embedding = response.data[0].embedding;
@@ -72,7 +72,7 @@ export async function baseSemanticSearch(
   }
 
   // --- match_thoughts_v2 ---
-  const { data, error } = await supabase.rpc("match_thoughts_v2", {
+  const { data, error } = await supabase.rpc('match_thoughts_v2', {
     query_embedding: JSON.stringify(embedding),
     match_count: limit,
     filter_thought_type: thought_type ?? null,
@@ -95,9 +95,9 @@ export async function baseSemanticSearch(
     const ids = (data as Array<Record<string, unknown>>).map((r) => r.id);
     void (async () => {
       try {
-        await supabase.rpc("increment_retrieval", { ids });
+        await supabase.rpc('increment_retrieval', { ids });
       } catch (trackErr: unknown) {
-        console.error("[baseSemanticSearch] tracking failed:", trackErr);
+        console.error('[baseSemanticSearch] tracking failed:', trackErr);
       }
     })();
   }

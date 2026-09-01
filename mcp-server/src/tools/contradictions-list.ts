@@ -1,9 +1,9 @@
-import { z } from "zod";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ToolDefinition } from './registry.js';
 
 export interface ContradictionsListParams {
-  status?: "open" | "resolved" | "ignored" | "false_positive";
+  status?: 'open' | 'resolved' | 'ignored' | 'false_positive';
   since?: string;
   limit?: number;
 }
@@ -27,18 +27,18 @@ export async function contradictionsList(
   const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
 
   let query = supabase
-    .from("contradictions")
+    .from('contradictions')
     .select(
-      "id, thought_a_id, thought_b_id, reason, severity, confidence, status, detected_at, resolved_at",
+      'id, thought_a_id, thought_b_id, reason, severity, confidence, status, detected_at, resolved_at',
     )
-    .order("detected_at", { ascending: false })
+    .order('detected_at', { ascending: false })
     .limit(limit);
 
   if (params.status) {
-    query = query.eq("status", params.status);
+    query = query.eq('status', params.status);
   }
   if (params.since) {
-    query = query.gte("detected_at", params.since);
+    query = query.gte('detected_at', params.since);
   }
 
   const { data, error } = await query;
@@ -47,35 +47,28 @@ export async function contradictionsList(
   }
 
   return JSON.stringify({
-    status: "ok",
+    status: 'ok',
     contradictions: (data as ContradictionRow[] | null) ?? [],
   });
 }
 
 export const definition: ToolDefinition = {
-  name: "contradictions_list",
+  name: 'contradictions_list',
   description:
     "List contradictions detected between pairs of the user's captured thoughts. Defaults to all statuses; pass status:'open' to see what still needs resolution.",
   schema: {
     status: z
-      .enum(["open", "resolved", "ignored", "false_positive"])
+      .enum(['open', 'resolved', 'ignored', 'false_positive'])
       .optional()
-      .describe("Filter by status (default: all)"),
+      .describe('Filter by status (default: all)'),
     since: z
       .string()
       .optional()
       .describe(
-        "ISO timestamp. If set, only return contradictions detected at or after this time.",
+        'ISO timestamp. If set, only return contradictions detected at or after this time.',
       ),
-    limit: z
-      .number()
-      .optional()
-      .default(50)
-      .describe("Max rows to return (1..200, default 50)"),
+    limit: z.number().optional().default(50).describe('Max rows to return (1..200, default 50)'),
   },
   handler: (deps, params) =>
-    contradictionsList(
-      deps.supabase,
-      params as unknown as ContradictionsListParams,
-    ),
+    contradictionsList(deps.supabase, params as unknown as ContradictionsListParams),
 };

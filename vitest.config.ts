@@ -15,6 +15,7 @@ export default {
       '**/dist/**',
       '**/.next/**',
       '**/coverage/**',
+      '**/.claude/worktrees/**',
     ],
   },
 };

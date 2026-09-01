@@ -1,6 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type OpenAI from "openai";
-import type { z } from "zod";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type OpenAI from 'openai';
+import type { z } from 'zod';
 
 export interface Deps {
   supabase: SupabaseClient;

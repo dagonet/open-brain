@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from 'next/link';
 
 interface PaginationProps {
   currentPage: number;
@@ -10,14 +10,14 @@ interface PaginationProps {
 
 function buildHref(
   params: Record<string, string | undefined>,
-  overrides: Record<string, string | undefined>
+  overrides: Record<string, string | undefined>,
 ) {
   const merged = { ...params, ...overrides };
   const qs = Object.entries(merged)
-    .filter(([, v]) => v !== undefined && v !== "")
+    .filter(([, v]) => v !== undefined && v !== '')
     .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
-    .join("&");
-  return qs ? `/?${qs}` : "/";
+    .join('&');
+  return qs ? `/?${qs}` : '/';
 }
 
 export default function Pagination({
@@ -49,9 +49,7 @@ export default function Pagination({
         </span>
       )}
 
-      <span className="text-[var(--text-secondary)] text-sm">
-        Page {currentPage}
-      </span>
+      <span className="text-[var(--text-secondary)] text-sm">Page {currentPage}</span>
 
       {nextPage ? (
         <Link

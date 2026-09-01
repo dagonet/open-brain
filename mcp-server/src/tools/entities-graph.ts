@@ -1,6 +1,6 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export interface EntitiesGraphParams {
   entity: string;
@@ -14,7 +14,7 @@ export async function entitiesGraph(
   const { entity, max_nodes = 50 } = params;
   const seed_key = entity.trim().toLowerCase();
 
-  const { data, error } = await supabase.rpc("entity_neighbors", {
+  const { data, error } = await supabase.rpc('entity_neighbors', {
     seed_key,
     max_nodes,
   });
@@ -30,19 +30,12 @@ export async function entitiesGraph(
 }
 
 export const definition: ToolDefinition = {
-  name: "entities_graph",
+  name: 'entities_graph',
   description:
-    "Get the immediate neighborhood (neighbors) of an entity in the mind-graph. Returns connected entities with edge weight, display name, entity type, and shared thought count.",
+    'Get the immediate neighborhood (neighbors) of an entity in the mind-graph. Returns connected entities with edge weight, display name, entity type, and shared thought count.',
   schema: {
-    entity: z
-      .string()
-      .describe("The entity name to explore in the graph"),
-    max_nodes: z
-      .number()
-      .optional()
-      .default(50)
-      .describe("Max nodes to return (default 50)"),
+    entity: z.string().describe('The entity name to explore in the graph'),
+    max_nodes: z.number().optional().default(50).describe('Max nodes to return (default 50)'),
   },
-  handler: (deps, params) =>
-    entitiesGraph(deps.supabase, params as unknown as EntitiesGraphParams),
+  handler: (deps, params) => entitiesGraph(deps.supabase, params as unknown as EntitiesGraphParams),
 };

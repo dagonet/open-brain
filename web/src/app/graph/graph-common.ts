@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 /** Base node fields required by the force simulation physics tick. */
 export interface SimNodeBase {
@@ -46,9 +46,7 @@ export function useSimulation<N extends SimNodeBase, E extends SimEdgeBase>(
 
   const nodesRef = useRef<N[]>([]);
   const edgesRef = useRef<E[]>([]);
-  const dragRef = useRef<{ node: SimNodeBase; ox: number; oy: number } | null>(
-    null,
-  );
+  const dragRef = useRef<{ node: SimNodeBase; ox: number; oy: number } | null>(null);
 
   // Keep a live ref so the rAF render loop always sees the latest radius fn.
   const radiusFnRef = useRef(getNodeRadius);
@@ -109,14 +107,8 @@ export function useSimulation<N extends SimNodeBase, E extends SimEdgeBase>(
         node.vy *= 0.85;
         node.x += node.vx;
         node.y += node.vy;
-        node.x = Math.max(
-          DEFAULT_RADIUS,
-          Math.min(width - DEFAULT_RADIUS, node.x),
-        );
-        node.y = Math.max(
-          DEFAULT_RADIUS,
-          Math.min(height - DEFAULT_RADIUS, node.y),
-        );
+        node.x = Math.max(DEFAULT_RADIUS, Math.min(width - DEFAULT_RADIUS, node.x));
+        node.y = Math.max(DEFAULT_RADIUS, Math.min(height - DEFAULT_RADIUS, node.y));
       }
 
       animRef.current = requestAnimationFrame(tick);
@@ -151,41 +143,38 @@ export function useSimulation<N extends SimNodeBase, E extends SimEdgeBase>(
     const render = () => {
       const nodes = nodesRef.current;
 
-      const nodeEls = svg.querySelectorAll<SVGCircleElement>("circle.node");
+      const nodeEls = svg.querySelectorAll<SVGCircleElement>('circle.node');
       nodeEls.forEach((el) => {
-        const id = el.getAttribute("data-id");
+        const id = el.getAttribute('data-id');
         const n = nodes.find((x) => x.id === id);
         if (n) {
-          el.setAttribute("cx", String(n.x));
-          el.setAttribute("cy", String(n.y));
-          el.setAttribute("r", String(radiusFnRef.current(n)));
+          el.setAttribute('cx', String(n.x));
+          el.setAttribute('cy', String(n.y));
+          el.setAttribute('r', String(radiusFnRef.current(n)));
         }
       });
 
-      const labelEls = svg.querySelectorAll<SVGTextElement>("text.label");
+      const labelEls = svg.querySelectorAll<SVGTextElement>('text.label');
       labelEls.forEach((el) => {
-        const id = el.getAttribute("data-id");
+        const id = el.getAttribute('data-id');
         const n = nodes.find((x) => x.id === id);
         if (n) {
-          el.setAttribute("x", String(n.x));
-          el.setAttribute(
-            "y",
-            String(n.y + radiusFnRef.current(n) + 14),
-          );
+          el.setAttribute('x', String(n.x));
+          el.setAttribute('y', String(n.y + radiusFnRef.current(n) + 14));
         }
       });
 
-      const lineEls = svg.querySelectorAll<SVGLineElement>("line.edge");
+      const lineEls = svg.querySelectorAll<SVGLineElement>('line.edge');
       lineEls.forEach((el) => {
-        const src = el.getAttribute("data-source");
-        const tgt = el.getAttribute("data-target");
+        const src = el.getAttribute('data-source');
+        const tgt = el.getAttribute('data-target');
         const a = nodes.find((x) => x.id === src);
         const b = nodes.find((x) => x.id === tgt);
         if (a && b) {
-          el.setAttribute("x1", String(a.x));
-          el.setAttribute("y1", String(a.y));
-          el.setAttribute("x2", String(b.x));
-          el.setAttribute("y2", String(b.y));
+          el.setAttribute('x1', String(a.x));
+          el.setAttribute('y1', String(a.y));
+          el.setAttribute('x2', String(b.x));
+          el.setAttribute('y2', String(b.y));
         }
       });
 
@@ -204,26 +193,23 @@ export function useSimulation<N extends SimNodeBase, E extends SimEdgeBase>(
 
   // ---------- pointer drag handlers ----------
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent, node: SimNodeBase) => {
-      e.preventDefault();
-      (e.target as Element).setPointerCapture(e.pointerId);
-      const svg = svgRef.current;
-      if (!svg) return;
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return;
-      const svgPt = pt.matrixTransform(ctm.inverse());
-      dragRef.current = {
-        node,
-        ox: node.x - svgPt.x,
-        oy: node.y - svgPt.y,
-      };
-    },
-    [],
-  );
+  const handlePointerDown = useCallback((e: React.PointerEvent, node: SimNodeBase) => {
+    e.preventDefault();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const svg = svgRef.current;
+    if (!svg) return;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    dragRef.current = {
+      node,
+      ox: node.x - svgPt.x,
+      oy: node.y - svgPt.y,
+    };
+  }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const drag = dragRef.current;

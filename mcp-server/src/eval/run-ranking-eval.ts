@@ -17,9 +17,9 @@
  * CI-safe: if SUPABASE_URL is unset, prints a message and exits 0.
  */
 
-import { createClient } from "@supabase/supabase-js";
-import { GOLDEN_QUERIES } from "./fixtures.js";
-import { recallAtK, mrr } from "./metrics.js";
+import { createClient } from '@supabase/supabase-js';
+import { GOLDEN_QUERIES } from './fixtures.js';
+import { recallAtK, mrr } from './metrics.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,11 +32,11 @@ interface QueryResult {
 }
 
 function formatPct(v: number): string {
-  return (v * 100).toFixed(1) + "%";
+  return (v * 100).toFixed(1) + '%';
 }
 
 function padRight(s: string, n: number): string {
-  return s.length >= n ? s : s + " ".repeat(n - s.length);
+  return s.length >= n ? s : s + ' '.repeat(n - s.length);
 }
 
 // ---------------------------------------------------------------------------
@@ -49,11 +49,11 @@ async function main() {
 
   // CI-safe: skip when no DB
   if (!url) {
-    console.log("SUPABASE_URL not set — skipping eval (CI mode).");
+    console.log('SUPABASE_URL not set — skipping eval (CI mode).');
     process.exit(0);
   }
   if (!key) {
-    console.error("SUPABASE_SERVICE_ROLE_KEY not set.");
+    console.error('SUPABASE_SERVICE_ROLE_KEY not set.');
     process.exit(1);
   }
 
@@ -62,7 +62,7 @@ async function main() {
   // Detect whether match_thoughts_v2 exists
   let v2Available = false;
   {
-    const { data, error } = await supabase.rpc("match_thoughts_v2", {
+    const { error } = await supabase.rpc('match_thoughts_v2', {
       query_embedding: JSON.stringify(new Array(1536).fill(0)),
       match_count: 1,
       filter_thought_type: null,
@@ -71,15 +71,15 @@ async function main() {
       filter_days: null,
       filter_project: null,
     });
-    if (error && error.message && error.message.includes("does not exist")) {
-      console.log("match_thoughts_v2 not deployed - running v1 baseline only.");
+    if (error && error.message && error.message.includes('does not exist')) {
+      console.log('match_thoughts_v2 not deployed - running v1 baseline only.');
     } else if (error) {
       // Some other error — surface it per PR #10 discipline
-      console.error("Error probing match_thoughts_v2:", error.message);
+      console.error('Error probing match_thoughts_v2:', error.message);
       process.exit(1);
     } else {
       v2Available = true;
-      console.log("match_thoughts_v2 detected - running comparison.");
+      console.log('match_thoughts_v2 detected - running comparison.');
     }
   }
 
@@ -96,7 +96,7 @@ async function main() {
     r2_5: number | null;
     r2_10: number | null;
     mrr2: number | null;
-    passed: boolean | null;  // null when v2 not available
+    passed: boolean | null; // null when v2 not available
   }
 
   const rows: EvalRow[] = [];
@@ -107,7 +107,7 @@ async function main() {
     const expected = q.expected_thought_ids;
 
     // -- v1 call --
-    const { data: v1Data, error: v1Error } = await supabase.rpc("match_thoughts", {
+    const { data: v1Data, error: v1Error } = await supabase.rpc('match_thoughts', {
       query_embedding: queryEmbedding,
       match_count: 10,
       filter_thought_type: null,
@@ -117,7 +117,7 @@ async function main() {
     });
 
     if (v1Error) {
-      console.error("Error calling match_thoughts for %s: %s", q.id, v1Error.message);
+      console.error('Error calling match_thoughts for %s: %s', q.id, v1Error.message);
       process.exit(1);
     }
     const v1Actual = ((v1Data as QueryResult[]) || []).map((r: QueryResult) => r.id);
@@ -145,11 +145,11 @@ async function main() {
         ...(q.params ?? {}),
       };
 
-      const { data: v2Data, error: v2Error } = await supabase.rpc("match_thoughts_v2", v2Params);
+      const { data: v2Data, error: v2Error } = await supabase.rpc('match_thoughts_v2', v2Params);
 
       if (v2Error) {
         // Surface error, don't mask it (PR #10)
-        console.error("Error calling match_thoughts_v2 for %s: %s", q.id, v2Error.message);
+        console.error('Error calling match_thoughts_v2 for %s: %s', q.id, v2Error.message);
         process.exit(1);
       }
       const v2Actual = ((v2Data as QueryResult[]) || []).map((r: QueryResult) => r.id);
@@ -178,35 +178,59 @@ async function main() {
   // Print table
   // -----------------------------------------------------------------------
 
-  const sep = " | ";
-  const hdr1 = padRight("Query", 32) + sep + padRight("v1 R@5", 8) + sep + padRight("v1 R@10", 9) + sep + padRight("v1 MRR", 8);
-  const hdr2 = padRight("", 32) + sep + padRight("v2 R@5", 8) + sep + padRight("v2 R@10", 9) + sep + padRight("v2 MRR", 8) + sep + "Passed";
-  console.log("=".repeat(hdr1.length + 20));
+  const sep = ' | ';
+  const hdr1 =
+    padRight('Query', 32) +
+    sep +
+    padRight('v1 R@5', 8) +
+    sep +
+    padRight('v1 R@10', 9) +
+    sep +
+    padRight('v1 MRR', 8);
+  const hdr2 =
+    padRight('', 32) +
+    sep +
+    padRight('v2 R@5', 8) +
+    sep +
+    padRight('v2 R@10', 9) +
+    sep +
+    padRight('v2 MRR', 8) +
+    sep +
+    'Passed';
+  console.log('='.repeat(hdr1.length + 20));
   console.log(hdr1);
   console.log(hdr2);
-  console.log("-".repeat(hdr1.length + 20));
+  console.log('-'.repeat(hdr1.length + 20));
 
   for (const r of rows) {
-    const l1 = padRight(r.desc.slice(0, 31), 32) + sep +
-      padRight(formatPct(r.r1_5), 8) + sep +
-      padRight(formatPct(r.r1_10), 9) + sep +
+    const l1 =
+      padRight(r.desc.slice(0, 31), 32) +
+      sep +
+      padRight(formatPct(r.r1_5), 8) +
+      sep +
+      padRight(formatPct(r.r1_10), 9) +
+      sep +
       padRight(formatPct(r.mrr1), 8);
 
-    let l2 = padRight("", 32) + sep;
+    let l2 = padRight('', 32) + sep;
     if (r.r2_5 !== null) {
-      l2 += padRight(formatPct(r.r2_5), 8) + sep +
-        padRight(formatPct(r.r2_10!), 9) + sep +
-        padRight(formatPct(r.mrr2!), 8) + sep +
-        (r.passed ? "PASS" : "FAIL");
+      l2 +=
+        padRight(formatPct(r.r2_5), 8) +
+        sep +
+        padRight(formatPct(r.r2_10!), 9) +
+        sep +
+        padRight(formatPct(r.mrr2!), 8) +
+        sep +
+        (r.passed ? 'PASS' : 'FAIL');
     } else {
-      l2 += padRight("N/A", 8) + sep + padRight("N/A", 9) + sep + padRight("N/A", 8);
+      l2 += padRight('N/A', 8) + sep + padRight('N/A', 9) + sep + padRight('N/A', 8);
     }
     console.log(l1);
     console.log(l2);
     console.log();
   }
 
-  console.log("=".repeat(hdr1.length + 20));
+  console.log('='.repeat(hdr1.length + 20));
   console.log();
 
   // -----------------------------------------------------------------------
@@ -214,20 +238,22 @@ async function main() {
   // -----------------------------------------------------------------------
 
   if (!v2Available) {
-    console.log("v2 not deployed — v1 baseline recorded.  Install migrations 008+009 and redeploy to enable comparison.");
+    console.log(
+      'v2 not deployed — v1 baseline recorded.  Install migrations 008+009 and redeploy to enable comparison.',
+    );
     process.exit(0);
   }
 
   if (anyFailure) {
-    console.log("FAIL: one or more v2 thresholds not met.");
+    console.log('FAIL: one or more v2 thresholds not met.');
     process.exit(1);
   }
 
-  console.log("ALL PASS: v2 meets all recall thresholds.");
+  console.log('ALL PASS: v2 meets all recall thresholds.');
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err);
+  console.error('Fatal error:', err);
   process.exit(1);
 });

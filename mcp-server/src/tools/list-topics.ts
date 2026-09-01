@@ -1,4 +1,4 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ListTopicsParams {
   limit?: number;
@@ -6,15 +6,15 @@ export interface ListTopicsParams {
 
 export async function listTopics(
   supabase: SupabaseClient,
-  params: ListTopicsParams
+  params: ListTopicsParams,
 ): Promise<string> {
   const { limit = 50 } = params;
 
   const { data, error } = await supabase
-    .from("thoughts")
-    .select("topics, created_at")
-    .is("deleted_at", null)
-    .not("topics", "is", null);
+    .from('thoughts')
+    .select('topics, created_at')
+    .is('deleted_at', null)
+    .not('topics', 'is', null);
 
   if (error) {
     return JSON.stringify({ error: error.message });
@@ -43,14 +43,15 @@ export async function listTopics(
   return JSON.stringify(results);
 }
 
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export const definition: ToolDefinition = {
-  name: "thoughts_topics",
-  description: "List all unique topics mentioned across thoughts, with mention count and last mentioned date.",
+  name: 'thoughts_topics',
+  description:
+    'List all unique topics mentioned across thoughts, with mention count and last mentioned date.',
   schema: {
-    limit: z.number().optional().default(50).describe("Max topics to return"),
+    limit: z.number().optional().default(50).describe('Max topics to return'),
   },
   handler: (deps, params) => listTopics(deps.supabase, params as ListTopicsParams),
 };

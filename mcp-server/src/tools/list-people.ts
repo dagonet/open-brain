@@ -1,4 +1,4 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ListPeopleParams {
   limit?: number;
@@ -6,15 +6,15 @@ export interface ListPeopleParams {
 
 export async function listPeople(
   supabase: SupabaseClient,
-  params: ListPeopleParams
+  params: ListPeopleParams,
 ): Promise<string> {
   const { limit = 50 } = params;
 
   const { data, error } = await supabase
-    .from("thoughts")
-    .select("people, created_at")
-    .is("deleted_at", null)
-    .not("people", "is", null);
+    .from('thoughts')
+    .select('people, created_at')
+    .is('deleted_at', null)
+    .not('people', 'is', null);
 
   if (error) {
     return JSON.stringify({ error: error.message });
@@ -43,14 +43,15 @@ export async function listPeople(
   return JSON.stringify(results);
 }
 
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export const definition: ToolDefinition = {
-  name: "thoughts_people",
-  description: "List all unique people mentioned across thoughts, with mention count and last mentioned date.",
+  name: 'thoughts_people',
+  description:
+    'List all unique people mentioned across thoughts, with mention count and last mentioned date.',
   schema: {
-    limit: z.number().optional().default(50).describe("Max people to return"),
+    limit: z.number().optional().default(50).describe('Max people to return'),
   },
   handler: (deps, params) => listPeople(deps.supabase, params as ListPeopleParams),
 };

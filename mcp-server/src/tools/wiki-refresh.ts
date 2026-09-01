@@ -1,5 +1,5 @@
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import { z } from 'zod';
+import type { ToolDefinition } from './registry.js';
 
 export interface WikiRefreshParams {
   slug: string;
@@ -12,7 +12,7 @@ export async function wikiRefresh(params: WikiRefreshParams): Promise<string> {
 
   if (!supabaseUrl || !serviceRoleKey) {
     return JSON.stringify({
-      error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
     });
   }
 
@@ -20,10 +20,10 @@ export async function wikiRefresh(params: WikiRefreshParams): Promise<string> {
 
   try {
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         slug: params.slug.toLowerCase(),
@@ -40,12 +40,12 @@ export async function wikiRefresh(params: WikiRefreshParams): Promise<string> {
     return JSON.stringify(data);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return JSON.stringify({ error: "Failed to refresh wiki page", message });
+    return JSON.stringify({ error: 'Failed to refresh wiki page', message });
   }
 }
 
 export const definition: ToolDefinition = {
-  name: "wiki_refresh",
+  name: 'wiki_refresh',
   description:
     "Recompile the wiki page for a topic slug from current thoughts. Acquires a per-slug version, validates citations against the input set, and persists either a fresh page or partial=true if some paragraphs hallucinated IDs. Returns 'refused' with a reason if the cluster has fewer than 3 thoughts.",
   schema: {
@@ -54,10 +54,7 @@ export const definition: ToolDefinition = {
       .boolean()
       .optional()
       .default(false)
-      .describe(
-        "If true, return cluster stats but do not call the LLM or write a new page.",
-      ),
+      .describe('If true, return cluster stats but do not call the LLM or write a new page.'),
   },
-  handler: (_deps, params) =>
-    wikiRefresh(params as unknown as WikiRefreshParams),
+  handler: (_deps, params) => wikiRefresh(params as unknown as WikiRefreshParams),
 };

@@ -1,36 +1,23 @@
-﻿import { SupabaseClient } from "@supabase/supabase-js";
+﻿import { SupabaseClient } from '@supabase/supabase-js';
 export async function systemStatus(supabase: SupabaseClient): Promise<string> {
-  const [totalResult, statusResult, sourceResult, failuresResult] =
-    await Promise.all([
-      supabase
-        .from("thoughts")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null),
-      supabase
-        .from("thoughts")
-        .select("processing_status")
-        .is("deleted_at", null),
-      supabase
-        .from("thoughts")
-        .select("source")
-        .is("deleted_at", null),
-      supabase
-        .from("thoughts")
-        .select("id, raw_text, processing_status, source, created_at")
-        .is("deleted_at", null)
-        .neq("processing_status", "complete")
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+  const [totalResult, statusResult, sourceResult, failuresResult] = await Promise.all([
+    supabase.from('thoughts').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+    supabase.from('thoughts').select('processing_status').is('deleted_at', null),
+    supabase.from('thoughts').select('source').is('deleted_at', null),
+    supabase
+      .from('thoughts')
+      .select('id, raw_text, processing_status, source, created_at')
+      .is('deleted_at', null)
+      .neq('processing_status', 'complete')
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ]);
   const firstError =
-    totalResult.error ??
-    statusResult.error ??
-    sourceResult.error ??
-    failuresResult.error;
+    totalResult.error ?? statusResult.error ?? sourceResult.error ?? failuresResult.error;
   if (firstError) {
     return JSON.stringify({
-      status: "error",
-      error: "backend_unreachable",
+      status: 'error',
+      error: 'backend_unreachable',
       detail: firstError.message,
     });
   }
@@ -53,17 +40,17 @@ export async function systemStatus(supabase: SupabaseClient): Promise<string> {
     by_status: byStatus,
     by_source: bySource,
     recent_failures: failuresResult.data ?? [],
-    embedding_model: "text-embedding-3-small",
+    embedding_model: 'text-embedding-3-small',
     embedding_dimensions: 1536,
   });
 }
 
-import { z } from "zod";
-import type { ToolDefinition } from "./registry.js";
+import type { ToolDefinition } from './registry.js';
 
 export const definition: ToolDefinition = {
-  name: "system_status",
-  description: "Get system status: total thoughts, counts by status and source, recent failures, and embedding config.",
+  name: 'system_status',
+  description:
+    'Get system status: total thoughts, counts by status and source, recent failures, and embedding config.',
   schema: {},
   handler: (deps) => systemStatus(deps.supabase),
 };

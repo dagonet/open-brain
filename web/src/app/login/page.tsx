@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase-browser";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase-browser';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -28,7 +28,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    router.push('/');
     router.refresh();
   }
 
@@ -36,12 +36,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-            Open Brain
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Sign in to your dashboard
-          </p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Open Brain</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Sign in to your dashboard</p>
         </div>
 
         <form
@@ -55,10 +51,7 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm text-[var(--text-secondary)] mb-1.5"
-            >
+            <label htmlFor="email" className="block text-sm text-[var(--text-secondary)] mb-1.5">
               Email
             </label>
             <input
@@ -73,10 +66,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm text-[var(--text-secondary)] mb-1.5"
-            >
+            <label htmlFor="password" className="block text-sm text-[var(--text-secondary)] mb-1.5">
               Password
             </label>
             <input
@@ -95,7 +85,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
       </div>
