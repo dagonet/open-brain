@@ -13,7 +13,7 @@
 // via Nate B Jones
 //   https://www.youtube.com/watch?v=dxq7WtWxi44
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 // Types
 
@@ -25,7 +25,7 @@ interface StalePageRow {
 
 interface ActionResult {
   action: string;
-  status: "ok" | "error";
+  status: 'ok' | 'error';
   detail: string;
 }
 
@@ -41,8 +41,8 @@ interface JobSummary {
 // Helpers
 
 function envInt(key: string, defaultVal: number): number {
-  const raw = (Deno.env.get(key) ?? "").trim();
-  if (raw === "") return defaultVal;
+  const raw = (Deno.env.get(key) ?? '').trim();
+  if (raw === '') return defaultVal;
   const val = Number(raw);
   return Number.isFinite(val) && val >= 0 ? val : defaultVal;
 }
@@ -50,7 +50,7 @@ function envInt(key: string, defaultVal: number): number {
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
   });
 }
 
@@ -63,15 +63,15 @@ function json(status: number, body: unknown): Response {
 // that a caller (e.g. pg_cron via Vault) can present, which made the old guard
 // unsatisfiable and 401'd every run.
 function isServiceRoleJwt(authHeader: string): boolean {
-  if (!authHeader.startsWith("Bearer ")) return false;
+  if (!authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.slice(7);
-  const parts = token.split(".");
+  const parts = token.split('.');
   if (parts.length !== 3) return false;
   try {
-    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    while (b64.length % 4 !== 0) b64 += "=";
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4 !== 0) b64 += '=';
     const payload = JSON.parse(atob(b64)) as { role?: string };
-    return payload.role === "service_role";
+    return payload.role === 'service_role';
   } catch {
     return false;
   }
@@ -83,20 +83,20 @@ serve(async (req: Request): Promise<Response> => {
   // Auth guard — require a valid service-role JWT (role claim === service_role).
   // The gateway already verified the signature; blocks anon-JWT callers from
   // triggering expensive LLM sweeps.
-  const auth = req.headers.get("Authorization") ?? "";
+  const auth = req.headers.get('Authorization') ?? '';
   if (!isServiceRoleJwt(auth)) {
-    return json(401, { error: "Unauthorized" });
+    return json(401, { error: 'Unauthorized' });
   }
 
-  if (req.method !== "POST") {
-    return json(405, { error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return json(405, { error: 'Method not allowed' });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   if (!supabaseUrl || !serviceKey) {
     return json(500, {
-      error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
     });
   }
 
@@ -106,14 +106,14 @@ serve(async (req: Request): Promise<Response> => {
     const body = await req.json();
     job = body.job;
   } catch {
-    return json(400, { error: "Invalid JSON body" });
+    return json(400, { error: 'Invalid JSON body' });
   }
 
   if (
-    job !== "contradictions" &&
-    job !== "stale-wiki" &&
-    job !== "archive" &&
-    job !== "consolidate"
+    job !== 'contradictions' &&
+    job !== 'stale-wiki' &&
+    job !== 'archive' &&
+    job !== 'consolidate'
   ) {
     return json(400, {
       error:
@@ -123,32 +123,27 @@ serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  const budget = envInt("MAX_LLM_CALLS_PER_JOB", 50);
+  const budget = envInt('MAX_LLM_CALLS_PER_JOB', 50);
   // Send both apikey and Authorization so the gateway accepts the injected
   // service key whether it is a legacy JWT or a new sb_secret.
   const authHeaders = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     apikey: serviceKey,
-    Authorization: "Bearer " + serviceKey,
+    Authorization: 'Bearer ' + serviceKey,
   };
 
   let summary: JobSummary;
-  if (job === "contradictions") {
+  if (job === 'contradictions') {
     summary = await runContradictions(supabaseUrl, authHeaders, budget);
-  } else if (job === "stale-wiki") {
+  } else if (job === 'stale-wiki') {
     summary = await runStaleWiki(supabaseUrl, authHeaders, budget, serviceKey);
-  } else if (job === "archive") {
+  } else if (job === 'archive') {
     summary = await runArchive(supabaseUrl, serviceKey);
   } else {
-    summary = await runConsolidate(
-      supabaseUrl,
-      authHeaders,
-      budget,
-      serviceKey,
-    );
+    summary = await runConsolidate(supabaseUrl, authHeaders, budget, serviceKey);
   }
 
-  console.log("run-nightly-jobs:", JSON.stringify(summary));
+  console.log('run-nightly-jobs:', JSON.stringify(summary));
   return json(200, summary);
 });
 
@@ -159,7 +154,7 @@ async function runContradictions(
   headers: Record<string, string>,
   budget: number,
 ): Promise<JobSummary> {
-  const limit = envInt("NIGHTLY_CONTRADICTION_LIMIT", 100);
+  const limit = envInt('NIGHTLY_CONTRADICTION_LIMIT', 100);
   // Conservative over-count: reserve full candidate_limit against budget
   // though actual LLM usage may be lower (not every candidate produces a
   // judged pair). This guarantees the hard stop is never exceeded.
@@ -167,58 +162,55 @@ async function runContradictions(
   const results: ActionResult[] = [];
 
   try {
-    const res = await fetch(
-      supabaseUrl + "/functions/v1/detect-contradictions",
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ candidate_limit: candidates }),
-      },
-    );
+    const res = await fetch(supabaseUrl + '/functions/v1/detect-contradictions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ candidate_limit: candidates }),
+    });
 
     if (!res.ok) {
       results.push({
-        action: "detect-contradictions",
-        status: "error",
-        detail: "HTTP " + res.status + ": " + (await res.text()),
+        action: 'detect-contradictions',
+        status: 'error',
+        detail: 'HTTP ' + res.status + ': ' + (await res.text()),
       });
     } else {
       const data = (await res.json()) as Record<string, unknown>;
-      const inserted = data.contradictions_inserted ?? "?";
-      const judged = data.pairs_judged ?? "?";
-      const scanned = data.candidates_scanned ?? "?";
-      const errs = data.errors ?? "?";
+      const inserted = data.contradictions_inserted ?? '?';
+      const judged = data.pairs_judged ?? '?';
+      const scanned = data.candidates_scanned ?? '?';
+      const errs = data.errors ?? '?';
       results.push({
-        action: "detect-contradictions",
-        status: "ok",
+        action: 'detect-contradictions',
+        status: 'ok',
         detail:
-          "inserted=" +
+          'inserted=' +
           inserted +
-          ", judged=" +
+          ', judged=' +
           judged +
-          ", scanned=" +
+          ', scanned=' +
           scanned +
-          ", errors=" +
+          ', errors=' +
           errs,
       });
     }
   } catch (err: unknown) {
     results.push({
-      action: "detect-contradictions",
-      status: "error",
+      action: 'detect-contradictions',
+      status: 'error',
       detail: String(err),
     });
   }
 
   return {
-    job: "contradictions",
+    job: 'contradictions',
     actions_taken: results.filter(function (r) {
-      return r.status === "ok";
+      return r.status === 'ok';
     }).length,
     budget_spent: candidates,
     budget_remaining: Math.max(0, budget - candidates),
     errors: results.filter(function (r) {
-      return r.status === "error";
+      return r.status === 'error';
     }).length,
     results,
   };
@@ -232,7 +224,7 @@ async function runStaleWiki(
   budget: number,
   serviceKey: string,
 ): Promise<JobSummary> {
-  const compileBudget = envInt("NIGHTLY_COMPILE_BUDGET", 5);
+  const compileBudget = envInt('NIGHTLY_COMPILE_BUDGET', 5);
   const maxPages = Math.min(compileBudget, budget);
   const results: ActionResult[] = [];
 
@@ -242,12 +234,12 @@ async function runStaleWiki(
     stalePages = await queryStalePages(supabaseUrl, serviceKey, maxPages);
   } catch (err: unknown) {
     results.push({
-      action: "query-wiki_page_staleness",
-      status: "error",
+      action: 'query-wiki_page_staleness',
+      status: 'error',
       detail: String(err),
     });
     return {
-      job: "stale-wiki",
+      job: 'stale-wiki',
       actions_taken: 0,
       budget_spent: 0,
       budget_remaining: budget,
@@ -262,42 +254,42 @@ async function runStaleWiki(
     if (budgetSpent >= budget) break;
 
     try {
-      const res = await fetch(supabaseUrl + "/functions/v1/compile-wiki", {
-        method: "POST",
+      const res = await fetch(supabaseUrl + '/functions/v1/compile-wiki', {
+        method: 'POST',
         headers,
         body: JSON.stringify({ slug: page.slug, dry_run: false }),
       });
 
       if (!res.ok) {
         results.push({
-          action: "compile-wiki:" + page.slug,
-          status: "error",
-          detail: "HTTP " + res.status + ": " + (await res.text()),
+          action: 'compile-wiki:' + page.slug,
+          status: 'error',
+          detail: 'HTTP ' + res.status + ': ' + (await res.text()),
         });
       } else {
         const data = (await res.json()) as Record<string, unknown>;
-        const version = data.version ?? "?";
-        const partial = data.partial ?? "?";
-        const cited = data.cited ?? "?";
-        const sourceCount = data.source_thought_count ?? "?";
+        const version = data.version ?? '?';
+        const partial = data.partial ?? '?';
+        const cited = data.cited ?? '?';
+        const sourceCount = data.source_thought_count ?? '?';
         results.push({
-          action: "compile-wiki:" + page.slug,
-          status: "ok",
+          action: 'compile-wiki:' + page.slug,
+          status: 'ok',
           detail:
-            "version=" +
+            'version=' +
             version +
-            ", partial=" +
+            ', partial=' +
             partial +
-            ", cited=" +
+            ', cited=' +
             cited +
-            ", sources=" +
+            ', sources=' +
             sourceCount,
         });
       }
     } catch (err: unknown) {
       results.push({
-        action: "compile-wiki:" + page.slug,
-        status: "error",
+        action: 'compile-wiki:' + page.slug,
+        status: 'error',
         detail: String(err),
       });
     }
@@ -306,14 +298,14 @@ async function runStaleWiki(
   }
 
   return {
-    job: "stale-wiki",
+    job: 'stale-wiki',
     actions_taken: results.filter(function (r) {
-      return r.status === "ok";
+      return r.status === 'ok';
     }).length,
     budget_spent: budgetSpent,
     budget_remaining: Math.max(0, budget - budgetSpent),
     errors: results.filter(function (r) {
-      return r.status === "error";
+      return r.status === 'error';
     }).length,
     results,
   };
@@ -326,20 +318,19 @@ async function queryStalePages(
   serviceKey: string,
   limit: number,
 ): Promise<StalePageRow[]> {
-  const url = new URL(supabaseUrl + "/rest/v1/wiki_page_staleness");
-  url.searchParams.set("select", "slug,stale_since_n_thoughts,compiled_at");
-  url.searchParams.set("stale_since_n_thoughts", "gt.5");
-  url.searchParams.set("order", "stale_since_n_thoughts.desc");
-  url.searchParams.set("limit", String(limit));
+  const url = new URL(supabaseUrl + '/rest/v1/wiki_page_staleness');
+  url.searchParams.set('select', 'slug,stale_since_n_thoughts,compiled_at');
+  url.searchParams.set('stale_since_n_thoughts', 'gt.5');
+  url.searchParams.set('order', 'stale_since_n_thoughts.desc');
+  url.searchParams.set('limit', String(limit));
 
   const res = await fetch(url.toString(), {
     headers: {
-      Authorization: "Bearer " + serviceKey,
+      Authorization: 'Bearer ' + serviceKey,
       apikey: serviceKey,
     },
   });
-  if (!res.ok)
-    throw new Error("REST " + res.status + ": " + (await res.text()));
+  if (!res.ok) throw new Error('REST ' + res.status + ': ' + (await res.text()));
   return await res.json();
 }
 
@@ -352,105 +343,92 @@ async function callRpc<T>(
   fnName: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const res = await fetch(supabaseUrl + "/rest/v1/rpc/" + fnName, {
-    method: "POST",
+  const res = await fetch(supabaseUrl + '/rest/v1/rpc/' + fnName, {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       apikey: serviceKey,
-      Authorization: "Bearer " + serviceKey,
+      Authorization: 'Bearer ' + serviceKey,
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok)
-    throw new Error(
-      "RPC " + fnName + " HTTP " + res.status + ": " + (await res.text()),
-    );
+  if (!res.ok) throw new Error('RPC ' + fnName + ' HTTP ' + res.status + ': ' + (await res.text()));
   return (await res.json()) as T;
 }
 
 // Job: archive (zero LLM budget — pure SQL RPC)
 
-async function runArchive(
-  supabaseUrl: string,
-  serviceKey: string,
-): Promise<JobSummary> {
+async function runArchive(supabaseUrl: string, serviceKey: string): Promise<JobSummary> {
   const results: ActionResult[] = [];
 
   try {
     // archive_thoughts RETURNS jsonb — PostgREST delivers scalar jsonb directly,
     // NOT array-wrapped (arrays only wrap RETURNS TABLE/SETOF). Unwrap defensively
     // in case of proxy wrapping.
-    const data = await callRpc<unknown>(
-      supabaseUrl,
-      serviceKey,
-      "archive_thoughts",
-      {
-        resolved_action_days: envInt("ARCHIVE_RESOLVED_ACTION_DAYS", 90),
-        cold_days: envInt("ARCHIVE_COLD_DAYS", 180),
-      },
-    );
+    const data = await callRpc<unknown>(supabaseUrl, serviceKey, 'archive_thoughts', {
+      resolved_action_days: envInt('ARCHIVE_RESOLVED_ACTION_DAYS', 90),
+      cold_days: envInt('ARCHIVE_COLD_DAYS', 180),
+    });
 
     const body = Array.isArray(data) ? data[0] : data;
-    if (body === null || typeof body !== "object") {
+    if (body === null || typeof body !== 'object') {
       results.push({
-        action: "archive_thoughts",
-        status: "error",
-        detail: "unexpected RPC response shape: " + JSON.stringify(data),
+        action: 'archive_thoughts',
+        status: 'error',
+        detail: 'unexpected RPC response shape: ' + JSON.stringify(data),
       });
     } else {
       const record = body as Record<string, unknown>;
-      const r1 =
-        typeof record.rule1_archived === "number" ? record.rule1_archived : -1;
-      const r2 =
-        typeof record.rule2_archived === "number" ? record.rule2_archived : -1;
+      const r1 = typeof record.rule1_archived === 'number' ? record.rule1_archived : -1;
+      const r2 = typeof record.rule2_archived === 'number' ? record.rule2_archived : -1;
 
       if (r1 < 0 || r2 < 0) {
         results.push({
-          action: "archive_thoughts",
-          status: "error",
-          detail: "unexpected RPC response keys: " + JSON.stringify(data),
+          action: 'archive_thoughts',
+          status: 'error',
+          detail: 'unexpected RPC response keys: ' + JSON.stringify(data),
         });
       } else {
         if (r1 > 0) {
           results.push({
-            action: "archive_thoughts:rule1",
-            status: "ok",
-            detail: "archived=" + r1,
+            action: 'archive_thoughts:rule1',
+            status: 'ok',
+            detail: 'archived=' + r1,
           });
         }
         if (r2 > 0) {
           results.push({
-            action: "archive_thoughts:rule2",
-            status: "ok",
-            detail: "archived=" + r2,
+            action: 'archive_thoughts:rule2',
+            status: 'ok',
+            detail: 'archived=' + r2,
           });
         }
         if (r1 === 0 && r2 === 0) {
           results.push({
-            action: "archive_thoughts",
-            status: "ok",
-            detail: "no candidates",
+            action: 'archive_thoughts',
+            status: 'ok',
+            detail: 'no candidates',
           });
         }
       }
     }
   } catch (err: unknown) {
     results.push({
-      action: "archive_thoughts",
-      status: "error",
+      action: 'archive_thoughts',
+      status: 'error',
       detail: String(err),
     });
   }
 
   return {
-    job: "archive",
+    job: 'archive',
     actions_taken: results.filter(function (r) {
-      return r.status === "ok";
+      return r.status === 'ok';
     }).length,
     budget_spent: 0,
-    budget_remaining: envInt("MAX_LLM_CALLS_PER_JOB", 50),
+    budget_remaining: envInt('MAX_LLM_CALLS_PER_JOB', 50),
     errors: results.filter(function (r) {
-      return r.status === "error";
+      return r.status === 'error';
     }).length,
     results,
   };
@@ -464,8 +442,8 @@ async function runConsolidate(
   budget: number,
   serviceKey: string,
 ): Promise<JobSummary> {
-  const minThoughts = envInt("CONSOLIDATE_MIN_THOUGHTS", 3);
-  const resultLimit = Math.min(envInt("CONSOLIDATE_BUDGET", 5), budget);
+  const minThoughts = envInt('CONSOLIDATE_MIN_THOUGHTS', 3);
+  const resultLimit = Math.min(envInt('CONSOLIDATE_BUDGET', 5), budget);
   const results: ActionResult[] = [];
 
   // Fetch consolidation candidates via RPC
@@ -475,23 +453,18 @@ async function runConsolidate(
     aggregate_signal: number;
   }>;
   try {
-    candidates = await callRpc(
-      supabaseUrl,
-      serviceKey,
-      "consolidation_candidates",
-      {
-        min_thoughts: minThoughts,
-        result_limit: resultLimit,
-      },
-    );
+    candidates = await callRpc(supabaseUrl, serviceKey, 'consolidation_candidates', {
+      min_thoughts: minThoughts,
+      result_limit: resultLimit,
+    });
   } catch (err: unknown) {
     results.push({
-      action: "consolidation_candidates",
-      status: "error",
+      action: 'consolidation_candidates',
+      status: 'error',
       detail: String(err),
     });
     return {
-      job: "consolidate",
+      job: 'consolidate',
       actions_taken: 0,
       budget_spent: 0,
       budget_remaining: budget,
@@ -506,42 +479,42 @@ async function runConsolidate(
     if (budgetSpent >= budget) break;
 
     try {
-      const res = await fetch(supabaseUrl + "/functions/v1/compile-wiki", {
-        method: "POST",
+      const res = await fetch(supabaseUrl + '/functions/v1/compile-wiki', {
+        method: 'POST',
         headers,
         body: JSON.stringify({ slug: candidate.slug, dry_run: false }),
       });
 
       if (!res.ok) {
         results.push({
-          action: "compile-wiki:" + candidate.slug,
-          status: "error",
-          detail: "HTTP " + res.status + ": " + (await res.text()),
+          action: 'compile-wiki:' + candidate.slug,
+          status: 'error',
+          detail: 'HTTP ' + res.status + ': ' + (await res.text()),
         });
       } else {
         const data = (await res.json()) as Record<string, unknown>;
-        const version = data.version ?? "?";
-        const partial = data.partial ?? "?";
-        const cited = data.cited ?? "?";
-        const sourceCount = data.source_thought_count ?? "?";
+        const version = data.version ?? '?';
+        const partial = data.partial ?? '?';
+        const cited = data.cited ?? '?';
+        const sourceCount = data.source_thought_count ?? '?';
         results.push({
-          action: "compile-wiki:" + candidate.slug,
-          status: "ok",
+          action: 'compile-wiki:' + candidate.slug,
+          status: 'ok',
           detail:
-            "version=" +
+            'version=' +
             version +
-            ", partial=" +
+            ', partial=' +
             partial +
-            ", cited=" +
+            ', cited=' +
             cited +
-            ", sources=" +
+            ', sources=' +
             sourceCount,
         });
       }
     } catch (err: unknown) {
       results.push({
-        action: "compile-wiki:" + candidate.slug,
-        status: "error",
+        action: 'compile-wiki:' + candidate.slug,
+        status: 'error',
         detail: String(err),
       });
     }
@@ -550,14 +523,14 @@ async function runConsolidate(
   }
 
   return {
-    job: "consolidate",
+    job: 'consolidate',
     actions_taken: results.filter(function (r) {
-      return r.status === "ok";
+      return r.status === 'ok';
     }).length,
     budget_spent: budgetSpent,
     budget_remaining: Math.max(0, budget - budgetSpent),
     errors: results.filter(function (r) {
-      return r.status === "error";
+      return r.status === 'error';
     }).length,
     results,
   };

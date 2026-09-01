@@ -7,8 +7,9 @@ build/
 .claude/worktrees/
 *.md
 *.sql
+*.toml
 docs/
-supabase/
+supabase/.temp/
 .github/
 package-lock.json
 pnpm-lock.yaml

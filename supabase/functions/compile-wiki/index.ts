@@ -14,9 +14,9 @@
 // `citation_validity` (valid/attempted cites) as the fidelity signal. The
 // compile model is configurable via the WIKI_COMPILE_MODEL env var.
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { chatCompletionsStructured } from "../_shared/openai.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { chatCompletionsStructured } from '../_shared/openai.ts';
 
 interface CompileRequest {
   slug: string;
@@ -51,29 +51,29 @@ interface FeedbackRow {
 }
 
 const PARAGRAPH_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
     paragraphs: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "object",
+        type: 'object',
         properties: {
-          markdown: { type: "string" },
+          markdown: { type: 'string' },
           citations: {
-            type: "array",
+            type: 'array',
             // 1-based indices into the source-note list shown in the prompt.
             // No minimum/maximum: strict mode support is unreliable, so the
             // range is validated server-side in resolveAndSalvage.
-            items: { type: "integer" },
+            items: { type: 'integer' },
           },
         },
-        required: ["markdown", "citations"],
+        required: ['markdown', 'citations'],
         additionalProperties: false,
       },
     },
-    summary: { type: "string" },
+    summary: { type: 'string' },
   },
-  required: ["paragraphs", "summary"],
+  required: ['paragraphs', 'summary'],
   additionalProperties: false,
 } as const;
 
@@ -89,41 +89,37 @@ Rules:
 - Markdown should use plain prose, occasional bullet lists, and short code spans for technical terms — no headers (# / ##), no horizontal rules.`;
 
 function getDenylist(): string[] {
-  const raw = Deno.env.get("WIKI_TOPIC_DENYLIST") ?? "";
+  const raw = Deno.env.get('WIKI_TOPIC_DENYLIST') ?? '';
   return raw
-    .split(",")
+    .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => s.length > 0);
 }
 
 function getDecayDays(): number {
-  const raw = Number(Deno.env.get("WIKI_DECAY_DAYS") ?? "90");
+  const raw = Number(Deno.env.get('WIKI_DECAY_DAYS') ?? '90');
   return Number.isFinite(raw) && raw > 0 ? raw : 90;
 }
 
 function getCompileModel(): string {
-  const m = Deno.env.get("WIKI_COMPILE_MODEL")?.trim();
-  return m && m.length > 0 ? m : "gpt-4o-mini";
+  const m = Deno.env.get('WIKI_COMPILE_MODEL')?.trim();
+  return m && m.length > 0 ? m : 'gpt-4o-mini';
 }
 
 function recencyScore(createdAt: string, decayDays: number): number {
-  const ageDays =
-    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
+  const ageDays = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
   return Math.exp(-Math.max(ageDays, 0) / decayDays);
 }
 
 async function sha256Hex(input: string): Promise<string> {
   const buf = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", buf);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-function topicsIntersectDenylist(
-  topics: string[] | null,
-  denylist: string[],
-): boolean {
+function topicsIntersectDenylist(topics: string[] | null, denylist: string[]): boolean {
   if (denylist.length === 0 || !topics) return false;
   const lowered = topics.map((t) => t.toLowerCase());
   return denylist.some((d) => lowered.includes(d));
@@ -137,32 +133,26 @@ function buildUserPrompt(
 ): string {
   const lines: string[] = [];
   lines.push(`Topic slug: ${slug}`);
-  lines.push("");
+  lines.push('');
   lines.push(`Write ${paraTarget} paragraphs.`);
-  lines.push("");
-  lines.push(
-    "Source notes ([n] — created_at — text). Cite paragraphs by the [n] number:",
-  );
+  lines.push('');
+  lines.push('Source notes ([n] — created_at — text). Cite paragraphs by the [n] number:');
   thoughts.forEach((t, i) => {
     const date = t.created_at.slice(0, 10);
-    lines.push(
-      `- [${i + 1}] — ${date} — ${t.raw_text.replace(/\s+/g, " ").trim()}`,
-    );
+    lines.push(`- [${i + 1}] — ${date} — ${t.raw_text.replace(/\s+/g, ' ').trim()}`);
   });
   if (feedback.length > 0) {
-    lines.push("");
-    lines.push(
-      "Prior user feedback on earlier compilations of this topic — take into account:",
-    );
+    lines.push('');
+    lines.push('Prior user feedback on earlier compilations of this topic — take into account:');
     for (const f of feedback) {
       lines.push(`- ${f}`);
     }
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 interface BatchResult {
-  paragraphs: CompiledPage["paragraphs"];
+  paragraphs: CompiledPage['paragraphs'];
   summary: string;
   attempted: number; // total citation indices the model emitted
   valid: number; // indices that resolved to a real source
@@ -181,7 +171,7 @@ function resolveAndSalvage(
   let attempted = 0;
   let valid = 0;
   let dropped = 0;
-  const paragraphs: CompiledPage["paragraphs"] = [];
+  const paragraphs: CompiledPage['paragraphs'] = [];
 
   for (const p of raw.paragraphs) {
     const seen = new Set<string>();
@@ -223,11 +213,11 @@ async function compileBatch(
 
   let raw = await chatCompletionsStructured<RawCompiledPage>(
     [
-      { role: "system", content: COMPILE_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
+      { role: 'system', content: COMPILE_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
     ],
     {
-      schema_name: "wiki_page",
+      schema_name: 'wiki_page',
       schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
       model,
       temperature: 0.2,
@@ -243,11 +233,11 @@ async function compileBatch(
     try {
       raw = await chatCompletionsStructured<RawCompiledPage>(
         [
-          { role: "system", content: COMPILE_SYSTEM_PROMPT },
-          { role: "user", content: retryPrompt },
+          { role: 'system', content: COMPILE_SYSTEM_PROMPT },
+          { role: 'user', content: retryPrompt },
         ],
         {
-          schema_name: "wiki_page",
+          schema_name: 'wiki_page',
           schema: PARAGRAPH_SCHEMA as unknown as Record<string, unknown>,
           model,
           temperature: 0,
@@ -255,7 +245,7 @@ async function compileBatch(
       );
       result = resolveAndSalvage(raw, thoughts);
     } catch (err) {
-      console.error("retry compile attempt failed:", err);
+      console.error('retry compile attempt failed:', err);
       // Keep the first-attempt salvage; partial below still reflects it.
     }
   }
@@ -275,9 +265,9 @@ async function compileBatch(
 // "[5]" or "[5, 12, 33]" and tidy the surrounding whitespace/punctuation.
 function stripInlineCiteMarkers(md: string): string {
   return md
-    .replace(/\s*\[\d+(?:\s*,\s*\d+)*\]/g, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\s+([.,;:])/g, "$1");
+    .replace(/\s*\[\d+(?:\s*,\s*\d+)*\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([.,;:])/g, '$1');
 }
 
 function renderMarkdown(page: CompiledPage): string {
@@ -288,20 +278,20 @@ function renderMarkdown(page: CompiledPage): string {
       // Plain markdown italic, not raw HTML. The dashboard's `<article>`
       // does NOT pass through a markdown renderer in v0.3.0, so any HTML
       // tags here would render as literal text.
-      const cites = p.citations.map((c) => `[[#${c}]]`).join(" ");
+      const cites = p.citations.map((c) => `[[#${c}]]`).join(' ');
       blocks.push(`*Sources: ${cites}*`);
     }
   }
   if (page.summary && page.summary.trim().length > 0) {
-    blocks.push("");
+    blocks.push('');
     blocks.push(`**Summary:** ${page.summary.trim()}`);
   }
-  return blocks.join("\n\n");
+  return blocks.join('\n\n');
 }
 
 serve(async (req: Request): Promise<Response> => {
-  if (req.method !== "POST") {
-    return jsonResponse(405, { success: false, error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return jsonResponse(405, { success: false, error: 'Method not allowed' });
   }
 
   let body: CompileRequest;
@@ -310,11 +300,11 @@ serve(async (req: Request): Promise<Response> => {
   } catch {
     return jsonResponse(400, {
       success: false,
-      error: "JSON body required with { slug }",
+      error: 'JSON body required with { slug }',
     });
   }
-  if (!body.slug || typeof body.slug !== "string") {
-    return jsonResponse(400, { success: false, error: "slug is required" });
+  if (!body.slug || typeof body.slug !== 'string') {
+    return jsonResponse(400, { success: false, error: 'slug is required' });
   }
 
   const slug = body.slug.toLowerCase();
@@ -324,46 +314,45 @@ serve(async (req: Request): Promise<Response> => {
   if (denylist.includes(slug)) {
     return jsonResponse(200, {
       success: true,
-      status: "refused",
-      reason: "denylisted",
+      status: 'refused',
+      reason: 'denylisted',
       slug,
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceKey) {
     return jsonResponse(500, {
       success: false,
-      error: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing",
+      error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing',
     });
   }
   const supabase = createClient(supabaseUrl, serviceKey);
 
   // ---- 1. Resolve cluster -----------------------------------------------------
-  const currentEmbeddingModel = "text-embedding-3-small";
+  const currentEmbeddingModel = 'text-embedding-3-small';
   const decayDays = getDecayDays();
 
-  const { data: byTopic, error: byTopicErr } = await supabase.rpc(
-    "thoughts_by_slug",
-    { in_slug: slug, in_limit: 80 },
-  );
+  const { data: byTopic, error: byTopicErr } = await supabase.rpc('thoughts_by_slug', {
+    in_slug: slug,
+    in_limit: 80,
+  });
   if (byTopicErr) {
-    console.error("thoughts_by_slug failed:", byTopicErr);
+    console.error('thoughts_by_slug failed:', byTopicErr);
     return jsonResponse(500, { success: false, error: byTopicErr.message });
   }
 
   const cluster = ((byTopic ?? []) as ThoughtRow[]).filter(
     (t) =>
-      t.embedding_model === currentEmbeddingModel &&
-      !topicsIntersectDenylist(t.topics, denylist),
+      t.embedding_model === currentEmbeddingModel && !topicsIntersectDenylist(t.topics, denylist),
   );
 
   if (cluster.length < 3) {
     return jsonResponse(200, {
       success: true,
-      status: "refused",
-      reason: "cluster_too_small",
+      status: 'refused',
+      reason: 'cluster_too_small',
       slug,
       cluster_size: cluster.length,
     });
@@ -372,14 +361,12 @@ serve(async (req: Request): Promise<Response> => {
   // ---- 2. Exclude thoughts in any open contradiction --------------------------
   const clusterIds = cluster.map((t) => t.id);
   const { data: openContras, error: contrasErr } = await supabase
-    .from("contradictions")
-    .select("thought_a_id, thought_b_id")
-    .eq("status", "open")
-    .or(
-      `thought_a_id.in.(${clusterIds.join(",")}),thought_b_id.in.(${clusterIds.join(",")})`,
-    );
+    .from('contradictions')
+    .select('thought_a_id, thought_b_id')
+    .eq('status', 'open')
+    .or(`thought_a_id.in.(${clusterIds.join(',')}),thought_b_id.in.(${clusterIds.join(',')})`);
   if (contrasErr) {
-    console.error("open contradictions query failed:", contrasErr);
+    console.error('open contradictions query failed:', contrasErr);
   }
 
   const flagged = new Set<string>();
@@ -392,8 +379,8 @@ serve(async (req: Request): Promise<Response> => {
   if (cleaned.length < 3) {
     return jsonResponse(200, {
       success: true,
-      status: "refused",
-      reason: "cluster_too_small_after_contradictions",
+      status: 'refused',
+      reason: 'cluster_too_small_after_contradictions',
       slug,
       cluster_size: cleaned.length,
     });
@@ -413,11 +400,11 @@ serve(async (req: Request): Promise<Response> => {
   // guaranteed way to return the literal string "wiki-feedback". The
   // server action / CLI both set `metadata.kind = 'wiki-feedback'` reliably.
   const { data: feedback } = await supabase
-    .from("thoughts")
-    .select("raw_text, metadata")
-    .is("deleted_at", null)
-    .eq("metadata->>kind", "wiki-feedback")
-    .order("created_at", { ascending: false })
+    .from('thoughts')
+    .select('raw_text, metadata')
+    .is('deleted_at', null)
+    .eq('metadata->>kind', 'wiki-feedback')
+    .order('created_at', { ascending: false })
     .limit(20);
 
   const feedbackForSlug: string[] = [];
@@ -435,7 +422,7 @@ serve(async (req: Request): Promise<Response> => {
   if (dryRun) {
     return jsonResponse(200, {
       success: true,
-      status: "would_compile",
+      status: 'would_compile',
       slug,
       cluster_size: cleaned.length,
       feedback_count: feedbackForSlug.length,
@@ -448,12 +435,12 @@ serve(async (req: Request): Promise<Response> => {
 
   let compiled: BatchResult;
   try {
-    compiled = await compileBatch(slug, cleaned, feedbackForSlug, "3 to 8", model);
+    compiled = await compileBatch(slug, cleaned, feedbackForSlug, '3 to 8', model);
   } catch (err) {
-    console.error("compile attempt failed:", err);
+    console.error('compile attempt failed:', err);
     return jsonResponse(500, {
       success: false,
-      error: "compile_failed",
+      error: 'compile_failed',
       message: err instanceof Error ? err.message : String(err),
     });
   }
@@ -467,16 +454,15 @@ serve(async (req: Request): Promise<Response> => {
   if (page.paragraphs.length === 0) {
     return jsonResponse(200, {
       success: true,
-      status: "refused",
-      reason: "all_paragraphs_invalid",
+      status: 'refused',
+      reason: 'all_paragraphs_invalid',
       slug,
     });
   }
 
   // Citation validity (valid/attempted) is the fidelity signal — distinct
   // from cluster-coverage, which is a synthesis property, not a defect.
-  const citationValidity =
-    compiled.attempted > 0 ? compiled.valid / compiled.attempted : 1;
+  const citationValidity = compiled.attempted > 0 ? compiled.valid / compiled.attempted : 1;
   if (citationValidity < 0.9) {
     console.warn(
       `compile-wiki low citation validity for "${slug}": ${compiled.valid}/${compiled.attempted} (${citationValidity.toFixed(2)}) model=${model}`,
@@ -496,17 +482,17 @@ serve(async (req: Request): Promise<Response> => {
   );
 
   const { data: latest } = await supabase
-    .from("wiki_pages")
-    .select("version")
-    .eq("slug", slug)
-    .order("version", { ascending: false })
+    .from('wiki_pages')
+    .select('version')
+    .eq('slug', slug)
+    .order('version', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const nextVersion = (latest?.version ?? 0) + 1;
   const clusterSourceIds = cleaned.map((t) => t.id);
   const idempotencyKey = await sha256Hex(
-    `${slug}|${nextVersion}|${[...clusterSourceIds].sort().join(",")}|${currentEmbeddingModel}`,
+    `${slug}|${nextVersion}|${[...clusterSourceIds].sort().join(',')}|${currentEmbeddingModel}`,
   );
 
   const usedSourceIds = new Set<string>();
@@ -515,7 +501,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const { data: inserted, error: insertErr } = await supabase
-    .from("wiki_pages")
+    .from('wiki_pages')
     .insert({
       slug,
       version: nextVersion,
@@ -528,27 +514,27 @@ serve(async (req: Request): Promise<Response> => {
       partial,
       idempotency_key: idempotencyKey,
     })
-    .select("id, version, compiled_at")
+    .select('id, version, compiled_at')
     .single();
 
   if (insertErr) {
-    if (insertErr.code === "23505") {
+    if (insertErr.code === '23505') {
       // Concurrent writer won — return the current row.
       const { data: current } = await supabase
-        .from("current_wiki_pages")
-        .select("id, version, compiled_at")
-        .eq("slug", slug)
+        .from('current_wiki_pages')
+        .select('id, version, compiled_at')
+        .eq('slug', slug)
         .maybeSingle();
       return jsonResponse(200, {
         success: true,
-        status: "raced",
+        status: 'raced',
         slug,
         page_id: current?.id,
         version: current?.version,
         compiled_at: current?.compiled_at,
       });
     }
-    console.error("wiki_pages insert failed:", insertErr);
+    console.error('wiki_pages insert failed:', insertErr);
     return jsonResponse(500, { success: false, error: insertErr.message });
   }
 
@@ -559,17 +545,15 @@ serve(async (req: Request): Promise<Response> => {
     thought_id,
   }));
   if (sourceRows.length > 0) {
-    const { error: srcErr } = await supabase
-      .from("wiki_sources")
-      .insert(sourceRows);
+    const { error: srcErr } = await supabase.from('wiki_sources').insert(sourceRows);
     if (srcErr) {
-      console.error("wiki_sources insert failed:", srcErr);
+      console.error('wiki_sources insert failed:', srcErr);
     }
   }
 
   return jsonResponse(200, {
     success: true,
-    status: "compiled",
+    status: 'compiled',
     slug,
     page_id: pageId,
     version: nextVersion,
@@ -586,6 +570,6 @@ serve(async (req: Request): Promise<Response> => {
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
   });
 }
