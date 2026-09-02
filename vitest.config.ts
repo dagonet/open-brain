@@ -7,8 +7,21 @@
 //
 // NOTE: plain object export (no `import { defineConfig } from 'vitest/config'`)
 // because the root package.json has no vitest dependency — the import cannot
-// resolve when vitest is invoked via bare `npx vitest run`.
+// resolve when vitest is invoked via bare `npx vitest run`. `node:path` is a
+// built-in, not a package, so it resolves regardless and is safe to use here.
+//
+// resolve.alias mirrors web/vitest.config.ts's '@' -> web/src alias: web/ code
+// imports via '@/...' (see web/tsconfig.json paths), and this root-level run
+// (used by the pre-commit hook and CI) walks into web/src too, so it needs the
+// same alias to import those files successfully.
+import path from 'node:path';
+
 export default {
+  resolve: {
+    alias: {
+      '@': path.resolve(process.cwd(), 'web/src'),
+    },
+  },
   test: {
     exclude: [
       '**/node_modules/**',
