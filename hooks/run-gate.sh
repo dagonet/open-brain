@@ -19,6 +19,14 @@ set -euo pipefail
 REPO_TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo '.')"
 cd "$REPO_TOP"
 
+# Captured before any check runs, so it names the state actually tested.
+# Re-verified at artifact-write time below: whatever key the artifact
+# records must be captured before the gate command runs and re-verified
+# after it, or the guard would compare something the artifact never
+# records and pass silently. This artifact records `sha` only, so that is
+# what we capture and re-verify.
+START_SHA="$(git rev-parse HEAD)"
+
 mkdir -p .gate
 errors=0
 
@@ -144,13 +152,28 @@ fi
 
 # ---------------------------------------------------------------------------
 # All checks passed -- write gate artifact
+#
+# HEAD-moved-during-gate guard: if the checkout moved out from under this
+# run (a concurrent checkout, rebase, or overlapping gate run), the sha the
+# checks ran against and the sha HEAD now points at differ. Writing the
+# artifact at that point would record a state the run never tested. Exit 1
+# (not a terminal exit code) because this is a race: settling the checkout
+# and re-running the gate is genuinely correct advice, not a false promise.
 # ---------------------------------------------------------------------------
-sha="$(git rev-parse HEAD)"
+end_sha="$(git rev-parse HEAD)"
+if [ "$end_sha" != "$START_SHA" ]; then
+  rm -f .gate/last-pass.json
+  echo "" >&2
+  echo "GATE ERROR: HEAD moved during gate run (started at $START_SHA, now at $end_sha)." >&2
+  echo "The checkout changed while checks were running; the results do not describe a single, stable commit. Settle the checkout and re-run the gate." >&2
+  exit 1
+fi
+
 cat > .gate/last-pass.json <<EOF
 {
-  "sha": "$sha",
+  "sha": "$START_SHA",
   "passed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)"
 }
 EOF
 echo ""
-echo "GATE PASS $sha"
+echo "GATE PASS $START_SHA"
