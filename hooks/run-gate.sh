@@ -82,7 +82,7 @@ echo "  All migration files pass dollar-quote lint."
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== [2/5] TypeScript build ==="
-for dir in cli mcp-server; do
+for dir in cli mcp-server web; do
   if [ -f "$dir/package.json" ] && grep -q '"typescript"' "$dir/package.json" 2>/dev/null; then
     echo "  Building $dir..."
     (cd "$dir" && npx tsc --noEmit) || { echo "FAIL: tsc --noEmit in $dir"; errors=$((errors + 1)); }
