@@ -27,3 +27,6 @@ next-env.d.ts
 
 # Local notes / scratch (not committed)
 nate_new_video_open-brain_update.txt
+
+# Gate artifact — machine-local, 60-minute expiry, keyed to local HEAD
+/.gate/
