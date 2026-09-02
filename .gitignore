@@ -30,3 +30,6 @@ nate_new_video_open-brain_update.txt
 
 # Gate artifact — machine-local, 60-minute expiry, keyed to local HEAD
 /.gate/
+
+# Playwright MCP scratch output — machine-local, regenerated on demand
+/.playwright-mcp/
