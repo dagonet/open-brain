@@ -14,7 +14,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const DEFAULT_COLOR = 'bg-gray-500/20 text-gray-300 border-gray-500/30';
 
-function relativeTime(dateStr: string): string {
+export function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;

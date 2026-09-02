@@ -8,7 +8,7 @@ interface PaginationProps {
   searchParams: Record<string, string | undefined>;
 }
 
-function buildHref(
+export function buildHref(
   params: Record<string, string | undefined>,
   overrides: Record<string, string | undefined>,
 ) {

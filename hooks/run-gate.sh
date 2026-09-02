@@ -151,7 +151,7 @@ echo "  All components compiled successfully."
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== [4/6] Unit tests ==="
-for dir in cli mcp-server; do
+for dir in cli mcp-server web; do
   if [ -f "$dir/package.json" ] && grep -q '"vitest"' "$dir/package.json" 2>/dev/null; then
     echo "  Testing $dir..."
     (cd "$dir" && npx vitest run) || { echo "FAIL: vitest run in $dir"; errors=$((errors + 1)); }
