@@ -128,7 +128,7 @@ fi
 echo ""
 echo "=== [5/5] ESLint ==="
 eslint_found=false
-for dir in cli mcp-server; do
+for dir in cli mcp-server web; do
   if [ -f "$dir/package.json" ] && grep -q '"eslint"' "$dir/package.json" 2>/dev/null; then
     echo "  Linting $dir..."
     (cd "$dir" && npx eslint .) || { echo "FAIL: eslint in $dir"; errors=$((errors + 1)); }
