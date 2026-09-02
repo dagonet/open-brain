@@ -69,3 +69,7 @@ jobs:
         working-directory: mcp-server
       - run: npx eslint .
         working-directory: mcp-server
+      - run: npm ci
+        working-directory: web
+      - run: npx eslint .
+        working-directory: web
