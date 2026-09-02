@@ -50,3 +50,22 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npx tsc --noEmit
+
+  format-lint:
+    name: Format & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx prettier --check .
+      - run: npm ci
+        working-directory: cli
+      - run: npx eslint .
+        working-directory: cli
+      - run: npm ci
+        working-directory: mcp-server
+      - run: npx eslint .
+        working-directory: mcp-server
