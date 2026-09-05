@@ -2,9 +2,9 @@
   "version": 2,
   "variant": "general",
   "templateRepo": "G:/git/claude-code-toolkit",
-  "lastSynced": "86561fe",
-  "lastSyncedVersion": "v3.0.3",
-  "lastSyncedVersionOf": "86561fe",
+  "lastSynced": "1450034",
+  "lastSyncedVersion": "v3.0.4",
+  "lastSyncedVersionOf": "1450034",
   "placeholders": {
     "PROJECT_NAME": "AI Memory",
     "PROJECT_NAME_LOWER": "ai memory"
@@ -98,12 +98,12 @@
       "resolution": "keep-mine"
     },
     "PROJECT_CONTEXT.md": {
-      "templateHash": "8a13c2b0de064d3a7f8289973c9a7b66727225fbf01165787e0230295428186f",
-      "templateRawHash": "472b076729defcfc926dcf19622716b73b667c6c08bcbe27ad431aa7323aafef",
-      "localHash": "23d050d2abf6c84c656660f95ed9e166d62e9ec81c33680eab1ea4232480b604",
+      "templateHash": "ebd3f2f2b7b47f56ea52f6d0bbee2d080e4abe6f6671002f5f6ee94912f00839",
+      "templateRawHash": "c4ea1fabf221c759bb47b48b30845b4d3d23b45345e9b45432354cea5e2a7f9e",
+      "localHash": "afd568b87e92257fcb25b8f8631d007827198cc23f260cac8b79e94cafa34e0d",
       "locallyModified": true,
-      "localPartHash": "23d050d2abf6c84c656660f95ed9e166d62e9ec81c33680eab1ea4232480b604",
-      "templatePartHashAtSync": "8a13c2b0de064d3a7f8289973c9a7b66727225fbf01165787e0230295428186f",
+      "localPartHash": "afd568b87e92257fcb25b8f8631d007827198cc23f260cac8b79e94cafa34e0d",
+      "templatePartHashAtSync": "ebd3f2f2b7b47f56ea52f6d0bbee2d080e4abe6f6671002f5f6ee94912f00839",
       "resolution": "keep-mine",
       "reason": "Project-specific config"
     },
@@ -136,12 +136,12 @@
       "templatePartHashAtSync": "c61025bc18233ac02ac3f65074d1a1ee3835bd0a2e670380453682f757f2c88f"
     },
     "hooks/deny-secret-reads.sh": {
-      "templateHash": "4427b15aed409805a51747d93c7d63af98849f8668e5ab6ab373486c95b6532d",
-      "templateRawHash": "4427b15aed409805a51747d93c7d63af98849f8668e5ab6ab373486c95b6532d",
-      "localHash": "4427b15aed409805a51747d93c7d63af98849f8668e5ab6ab373486c95b6532d",
+      "templateHash": "31362b10cfafb369158ad44dcb51500e5f7f1381ec9280d2662b03bd5976deec",
+      "templateRawHash": "31362b10cfafb369158ad44dcb51500e5f7f1381ec9280d2662b03bd5976deec",
+      "localHash": "31362b10cfafb369158ad44dcb51500e5f7f1381ec9280d2662b03bd5976deec",
       "locallyModified": false,
-      "localPartHash": "4427b15aed409805a51747d93c7d63af98849f8668e5ab6ab373486c95b6532d",
-      "templatePartHashAtSync": "4427b15aed409805a51747d93c7d63af98849f8668e5ab6ab373486c95b6532d"
+      "localPartHash": "31362b10cfafb369158ad44dcb51500e5f7f1381ec9280d2662b03bd5976deec",
+      "templatePartHashAtSync": "31362b10cfafb369158ad44dcb51500e5f7f1381ec9280d2662b03bd5976deec"
     },
     "hooks/enforce-agent-contract.sh": {
       "templateHash": "efbeea350496b3da9a5044b77bc974b0ee9384fc938f630d412e50e1f7315292",
@@ -232,12 +232,12 @@
       "templatePartHashAtSync": "2593baafe3b1834e4299de8a698cddbe19a45aa089b5528b335b3a6b6ed69648"
     },
     "hooks/run-gate.sh": {
-      "templateHash": "b0825733287fc226c19b1e8882a2548da65db92ca68b7a498eccd010868d2dd4",
-      "templateRawHash": "b0825733287fc226c19b1e8882a2548da65db92ca68b7a498eccd010868d2dd4",
+      "templateHash": "6e5829b486132031e1f6038ac2744bd769b27d48d3703c12d55bc57daec8ef49",
+      "templateRawHash": "6e5829b486132031e1f6038ac2744bd769b27d48d3703c12d55bc57daec8ef49",
       "localHash": "c0133931fbb18538745a5dc07f89b6cf8de0553730c181175885b01391026a56",
       "locallyModified": true,
       "localPartHash": "c0133931fbb18538745a5dc07f89b6cf8de0553730c181175885b01391026a56",
-      "templatePartHashAtSync": "b0825733287fc226c19b1e8882a2548da65db92ca68b7a498eccd010868d2dd4",
+      "templatePartHashAtSync": "6e5829b486132031e1f6038ac2744bd769b27d48d3703c12d55bc57daec8ef49",
       "resolution": "keep-mine"
     }
   }
