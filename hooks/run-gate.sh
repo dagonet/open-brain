@@ -1,232 +1,302 @@
 #!/usr/bin/env bash
-# run-gate.sh -- pre-merge quality gate for the Open Brain project
+# Gate runner (invoked by developers/PO, not registered as a hook):
+#   bash hooks/run-gate.sh
 #
-# Checks, in order:
-#   1. node_modules / package-lock.json drift check (per component)
-#   2. Dollar-quote balance in migration SQL files (closes issue #29)
-#   3. TypeScript compilation (tsc --noEmit) in each component
-#   4. Vitest unit tests in each component
-#   5. Prettier formatting check
-#   6. ESLint in each component
+# Reads the Gate command from PROJECT_CONTEXT.md ("**Gate**: <command>",
+# with or without a leading list marker) and runs it. On success, writes
+# the gate artifact that hooks/gate-before-merge.sh checks before allowing
+# a PR merge:
 #
-# On passing all checks, writes .gate/last-pass.json for
-# gate-before-merge.sh to validate before allowing a merge.
+#   .gate/last-pass.json  (at the repo toplevel of the current checkout/worktree)
+#   {"sha":"<HEAD sha>","tree":"<working-tree hash>","branch":"<branch>",
+#    "ts":"<UTC ISO-8601>","status":"pass"}
 #
-# Usage: bash hooks/run-gate.sh
-#   (run from repo root or any subdirectory)
-
-set -euo pipefail
-
-REPO_TOP="$(git rev-parse --show-toplevel 2>/dev/null || echo '.')"
-cd "$REPO_TOP"
-
-# Captured before any check runs, so it names the state actually tested.
-# Re-verified at artifact-write time below: whatever key the artifact
-# records must be captured before the gate command runs and re-verified
-# after it, or the guard would compare something the artifact never
-# records and pass silently. This artifact records `sha` only, so that is
-# what we capture and re-verify.
-START_SHA="$(git rev-parse HEAD)"
-
-mkdir -p .gate
-errors=0
-
-# ---------------------------------------------------------------------------
-# [1/6] node_modules / package-lock.json drift check -- per component
+# ARTIFACT DOC NOTE (v3.0.4 item A4, FIXED v3.1): the TREE arm of
+# gate-before-merge's freshness check IS LOAD-BEARING, not a nice-to-have --
+# on a new branch's FIRST commit the SHA arm can never match (a PreToolUse
+# hook runs BEFORE the commit it gates exists, so no sha it could record is
+# the one the commit will get; consumer report, yutraffic), so the tree arm
+# is the only one that can pass at all there. Through v3.0.4 that arm hashed
+# via `git add -A` into a temporary index, which therefore INCLUDED UNTRACKED
+# FILES: build output, an editor swap file, a leftover fixture. Any of those
+# changed the hash, so tree-freshness could report stale after a real sha
+# change while untracked content sat in the working tree, or mask staleness
+# the SHA arm would otherwise have caught cleanly on its own. v3.1: both this
+# script and hooks/pre-commit-test.sh hash via `git add -u -- .` instead --
+# untracked files no longer enter the hash at all. A mutation batched into the
+# SAME Bash call as the commit (the case pre-commit-test.sh's own
+# last-precommit.json `tree` field discriminates, separately from this one)
+# remains exactly as before: tracked-file staleness is still caught.
 #
-# A merge that changes a component's package.json or package-lock.json
-# leaves that component's node_modules stale in every checkout that does
-# not re-run `npm ci`. Worktree checkouts get a fresh install and never
-# see this; the long-lived main checkout does, silently, until some later
-# check fails in a way that looks unrelated. Catch it here, before the
-# expensive checks, and name the exact remedy.
+# On failure, any existing artifact is deleted and the script exits nonzero:
+# 1 for an ordinary red gate (retry after fixing), GC_TERMINAL_RC (78) when the
+# failure is terminal — a configuration the gate command cannot succeed under,
+# where "re-run it" is the wrong advice. See the exit-code conventions block in
+# hooks/lib/git-cmd.sh.
 #
-# `npm ls --depth=0` is a read-only, no-network check: it walks the
-# already-installed tree against package.json/package-lock.json and exits
-# non-zero (ELSPROBLEMS) on UNMET DEPENDENCY / invalid entries. A missing
-# node_modules directory is checked for separately so the failure message
-# can distinguish "never installed" from "stale" -- both fail `npm ls` the
-# same way, but they send the reader to the same remedy for different
-# reasons.
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [1/6] node_modules drift check ==="
-for dir in . cli mcp-server web; do
-  if [ ! -f "$dir/package.json" ]; then
-    continue
+# THE TERMINAL CONTRACT IS PUBLIC (v2.3.0). A **Gate** command — typically a
+# preflight chained ahead of the real gate, `bash preflight.sh && <gate>` — can
+# declare its OWN terminal condition: print the remedy to stderr, touch
+# $RUN_GATE_TERMINAL, exit 78. The clamp below then passes the 78 through
+# instead of collapsing it to 1, and the terminal branch stays silent so the
+# consumer's remedy is the last thing on screen. Worked example and the naming
+# commitment this implies: docs/verification.md.
+# No-op (exit 0) when the Gate field is missing or still a {{...}} placeholder,
+# so templates degrade gracefully before a project configures its gate.
+#
+# v2.1.3 fix round 1 (review): a project whose **Gate** command itself invokes
+# this script (e.g. "bash hooks/run-gate.sh" -- a copy/paste mistake, or a
+# gate that shells out to a wrapper that shells out here) would otherwise
+# recurse until the process/fd limit kills it. RUN_GATE_ACTIVE guards against
+# that: it is exported before the gate command runs and checked on entry.
+
+#
+# v2.2.5 (consumer report): the guard was safe but its follow-on advice was
+# circular — the outer layers appended "fix the failures and re-run" to a
+# condition that no amount of re-running can change. GC_TERMINAL_RC, defined
+# locally for the same standalone reason as GC_KEY_PRE below, is how a caller
+# tells the two apart. See the exit-code conventions block in
+# hooks/lib/git-cmd.sh; scripts/verify-template-consistency.sh asserts the two
+# definitions stay in step.
+GC_TERMINAL_RC=78
+
+if [ "${RUN_GATE_ACTIVE:-}" = "1" ]; then
+  echo "BLOCKED: **Gate** must not invoke run-gate.sh itself" >&2
+  echo "Edit '**Gate**:' in PROJECT_CONTEXT.md to your real build/test commands — run-gate.sh RUNS that value, so it cannot BE that value." >&2
+  # PROVENANCE MARKER, and it is load-bearing (v2.2.5 round 3). The OUTER
+  # run-gate.sh clamps a gate command's 78 to 1, because an arbitrary consumer
+  # gate that exits 78 for its own reasons must not inherit the terminal remedy
+  # text. But in the self-reference case the gate command IS run-gate.sh, so the
+  # clamp would swallow the one signal item K exists to deliver. The exit code
+  # carries a VALUE; what the outer layer needs is PROVENANCE. This file, and
+  # only this file, touches the marker the outer exported — at any nesting depth,
+  # since the variable is inherited through wrappers too. See the clamp below.
+  [ -n "${RUN_GATE_TERMINAL:-}" ] && : > "$RUN_GATE_TERMINAL"
+  exit "$GC_TERMINAL_RC"
+fi
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo "Usage: bash hooks/run-gate.sh"
+  echo ""
+  echo "Runs the Gate command from PROJECT_CONTEXT.md (**Gate**: <command>)."
+  echo "Green: writes .gate/last-pass.json (checked by gate-before-merge.sh) and prints GATE PASS <sha>."
+  echo "Red:   deletes the artifact and exits 1 (78 when the failure is terminal — see hooks/lib/git-cmd.sh)."
+  echo "No Gate configured: prints GATE SKIP and exits 0."
+  echo ""
+  echo "Your Gate command can declare its own terminal condition: print the remedy"
+  echo "to stderr, touch \$RUN_GATE_TERMINAL, and exit with the terminal code."
+  echo "Worked example: docs/verification.md."
+  exit 0
+fi
+
+CWD=$(pwd)
+REPO_TOP=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_TOP" ]; then
+  # TERMINAL (v2.2.5 round 3): re-running this from the same cwd cannot ever make
+  # that directory a git repository. Before this it exited 1, so pre-commit-test
+  # appended "re-run it and fix the failures" — item K's circular advice, in a
+  # guard that already existed rather than a hypothetical future one. The class
+  # is TERMINAL, not "configuration": this one is an ENVIRONMENT error and 78
+  # covers both (see the exit-code conventions in hooks/lib/git-cmd.sh).
+  echo "GATE ERROR: not inside a git repository" >&2
+  echo "Run 'bash hooks/run-gate.sh' from inside the checkout — cd to the repository and re-run it there." >&2
+  exit "$GC_TERMINAL_RC"
+fi
+
+# GC_KEY_PRE, defined locally: this script is deliberately standalone (it must
+# run with no JSON parser on PATH, which sourcing hooks/lib/git-cmd.sh would
+# forbid), so it repeats the constant rather than importing it. The definition
+# and the reason live in the header note on GC_KEY_PRE in hooks/lib/git-cmd.sh;
+# scripts/verify-template-consistency.sh asserts the two stay in step.
+GC_BOM=$(printf '\357\273\277')
+GC_KEY_PRE="^(${GC_BOM})?[-*[:space:]]*"
+
+# Read Gate command from PROJECT_CONTEXT.md. Tolerates: an optional leading
+# UTF-8 BOM, leading "- " / "* " list
+# markers, the "**Gate Command**:" label style (java/python variants), and
+# surrounding backticks — several variants write commands as `cmd`.
+# v3.0.3: anchored at GC_KEY_PRE like the other four field extractors — the
+# fifth site, found by enumeration after 3b; a greedy `.*` here let a
+# PR-editable Gate value truncate the command the gate runs.
+GATE_CMD=$(grep -E "${GC_KEY_PRE}\*\*Gate( Command)?\*\*:" "$REPO_TOP/PROJECT_CONTEXT.md" 2>/dev/null | sed -E "s/${GC_KEY_PRE}\\*\\*Gate( Command)?\\*\\*:[[:space:]]*//;s/[[:space:]]*\$//;s/^\`//;s/\`\$//" | head -1)
+
+# No-op: no PROJECT_CONTEXT.md or no Gate command configured
+if [ -z "$GATE_CMD" ]; then
+  echo "GATE SKIP (no Gate command configured in PROJECT_CONTEXT.md)"
+  exit 0
+fi
+
+# No-op: placeholder not yet filled in
+case "$GATE_CMD" in
+  *\{\{*\}\}*)
+    echo "GATE SKIP (Gate command is still a template placeholder)"
+    exit 0
+    ;;
+esac
+
+HEAD_SHA=$(git -C "$CWD" rev-parse HEAD 2>/dev/null)
+BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null)
+ARTIFACT_DIR="$REPO_TOP/.gate"
+ARTIFACT="$ARTIFACT_DIR/last-pass.json"
+
+echo "GATE: running: $GATE_CMD"
+# This `exit 1` DELIBERATELY STAYS 1 and is not a terminal 78 (v2.2.5 round 3):
+# a failing cd to a path git JUST resolved is an environment FAULT — a race, a
+# permissions change, an unmounted share — not a settled condition. Retrying can
+# legitimately succeed, so "re-run it" is the right advice here and this is not
+# an inconsistency to tidy up.
+cd "$REPO_TOP" || exit 1
+
+# v2.1.3 fix round 1 (Critical 2 / penumbra #2c): key the artifact on the
+# INDEX tree, not just HEAD's sha. At PreToolUse commit time (pre-commit-test.sh
+# invoking this script before the `git commit` runs) the index tree is the tree
+# the commit is about to get -- so gate-before-merge.sh can accept an artifact
+# whose tree matches HEAD^{tree} even though its sha is the PARENT commit's,
+# not the new one. Accepted miss: `git commit -a` or a commit with extra
+# `git add` after this ran stages more than the index snapshot we hashed here
+# -- that produces a tree mismatch too, and the merge gate falls back to
+# requiring a fresh run, exactly as before this fix.
+#
+# v2.1.5 (consumer feedback: Yutraffic PR #223 e59e6fd vs 567f0d1, panoscribe
+# PR #123): key the artifact on the WORKING TREE, not the index. The PreToolUse
+# hook fires before a chained `git add ... && git commit` stages anything, so
+# the v2.1.3 index tree was the PARENT tree and the v2.1.3-round-2 `git diff
+# --quiet` guard recorded no tree at all -- the artifact matched nothing and the
+# single-run merge path never fired for agents, who chain add+commit habitually.
+#
+# A temp index (a copy of the real one, so unchanged paths need no re-stat) is
+# refreshed with `add -u -- .` (v3.1 -- TRACKED FILES ONLY, see the doc note
+# above) and hashed. The REAL index is never touched.
+#
+# Consequently `git add -u -- . && git commit`, `git commit -a`, and separate
+# add/commit calls of already-tracked files all yield `HEAD^{tree} == tree`.
+# A PARTIAL-add commit mismatches by design: the committed tree is not what
+# was gated, so gate-before-merge.sh correctly demands a fresh run. An
+# UNTRACKED file present at gate time no longer enters the hash at all (v3.1)
+# -- committing it anyway (`git add -A` on an otherwise tracked-only commit)
+# now mismatches too, which is the point: an untracked file is no longer
+# something this gate can bless sight-unseen.
+#
+# CAVEAT -- the hash is taken BEFORE the gate command runs (deliberately: a
+# gate that fails must not have its own mutations blessed). So a gate that
+# MUTATES a TRACKED file makes the following commit mismatch anyway (a
+# formatter in the gate rewriting tracked files). Gate-generated output that
+# is untracked no longer perturbs the hash either way (v3.1) -- the prior
+# caveat about it leaking into the NEXT run's hash no longer applies, though
+# gitignoring it remains good practice regardless.
+#
+# `rev-parse --git-path index` (not a hardcoded .git/index) is what makes this
+# work in a LINKED WORKTREE, where the index lives at
+# .git/worktrees/<name>/index -- coder/tester run under `isolation: worktree`.
+TMPD=$(mktemp -d)
+trap 'rm -rf "$TMPD"' EXIT
+TMPIDX="$TMPD/index"   # must not pre-exist: git rejects a 0-byte index
+cp "$(git -C "$REPO_TOP" rev-parse --git-path index)" "$TMPIDX" 2>/dev/null || true
+GIT_INDEX_FILE="$TMPIDX" git -C "$REPO_TOP" add -u -- . >/dev/null 2>&1
+TREE_HASH=$(GIT_INDEX_FILE="$TMPIDX" git -C "$REPO_TOP" write-tree 2>/dev/null)
+
+RUN_GATE_ACTIVE=1
+export RUN_GATE_ACTIVE
+# The provenance channel for the recursion guard at the top of this file. It
+# lives inside TMPD, so the EXIT trap removes it; a nested run-gate.sh at ANY
+# depth inherits the variable and touches the file before exiting 78.
+#
+# THE MARKER IS A FILE, AND ON WINDOWS THAT IS LOAD-BEARING (v2.2.5 round 4).
+# Git Bash's MSYS layer REWRITES a POSIX-looking environment value when it
+# crosses into a native Windows process: the child receives `C:/Users/.../Temp/...`
+# where this script set `/tmp/...`. `mktemp -d` returns a real `/tmp/...` path on
+# this platform, so the translation DOES happen in the real script — it is not a
+# hypothetical. The mechanism survives it only because both spellings resolve to
+# the SAME FILE and the translation is consistent in both directions. If this
+# value were ever compared as a STRING — or used as a key rather than a path —
+# it would break silently on Windows and nowhere else.
+RUN_GATE_TERMINAL="$TMPD/terminal"
+export RUN_GATE_TERMINAL
+rm -f "$RUN_GATE_TERMINAL"
+bash -c "$GATE_CMD"
+GATE_RC=$?
+
+# THE CLAMP. NOT DEAD CODE — DELETING IT OPENS A COLLISION CHANNEL (v2.2.5
+# round 3). Until this release every nonzero from the gate command collapsed to
+# a hardcoded `exit 1`, because `$?` was never captured. That accidental clamp is
+# what kept the toolchain safe, and giving the guard a distinguishable code is
+# exactly the change that leads someone to refactor it into `exit $GATE_RC` —
+# at which point a consumer gate command exiting 78 for its own reason (78 is
+# EX_CONFIG; real programs emit it) inherits the terminal remedy text "edit your
+# **Gate** value", printed over a plain test failure. That is INVERTED advice,
+# strictly worse than the generic retry line it replaces. Measured downstream:
+# `uv run` propagates a child's code verbatim, so the channel is open one layer
+# up and closed only here.
+#
+# So a gate command's 78 is clamped to 1 — UNLESS a nested run-gate.sh left the
+# provenance marker, which is the one case where the 78 really is this script's
+# own terminal guard talking. Keyed on WHO decided, not on the number.
+#
+# THE HONEST LIMIT OF THE MARKER (v2.2.5 round 4). It proves that *a* nested
+# run-gate.sh exited terminally during THIS invocation. It does NOT prove that
+# *this* `$GATE_RC` came from that nested run. A gate of the form
+# `bash hooks/run-gate.sh; some-other-tool` sets the marker via the recursion
+# guard and then takes its final rc from the second command — so an unrelated 78
+# there inherits the terminal remedy, which is the very collision this clamp
+# closes, reopened one step along. It needs a self-referencing gate AND a second
+# command exiting 78, and closing it would mean reconstructing the causal chain
+# rather than a single fact, so it is recorded as a known edge rather than
+# fixed. Read this test as "a terminal guard fired in here", not as
+# "provenance settled".
+if [ "$GATE_RC" -eq "$GC_TERMINAL_RC" ] && [ ! -f "$RUN_GATE_TERMINAL" ]; then
+  GATE_RC=1
+fi
+
+# v2.4.0 (A6, observed live and unplanned during v2.3.0's release): THE
+# CHECKOUT CAN MOVE UNDER A RUNNING GATE. Two gate runs overlapped; the second
+# was still running when the checkout moved from detached c43f51f to `main`. It
+# finished green and wrote `sha: c43f51f` — a sha captured at one moment,
+# describing a run whose working tree changed midway through it. No harm came of
+# it only because the two trees happened to be byte-identical, which is luck,
+# not a property. (Both runs also recorded `"branch":"unknown"` because the
+# checkout was detached, so the `branch` field cannot be relied on either.)
+#
+# HEAD_SHA and TREE_HASH above were both captured BEFORE the gate command ran.
+# Re-read HEAD now: if it moved, the run described no single coherent state and
+# the artifact would be a receipt for something that never existed. Refuse to
+# write it, delete any older one, and say why. Exit 1 rather than the terminal
+# 78 — a concurrent checkout move is a race, not a settled condition, so
+# "re-run it" is the right advice.
+if [ "$GATE_RC" -eq 0 ]; then
+  HEAD_SHA_AFTER=$(git -C "$REPO_TOP" rev-parse HEAD 2>/dev/null)
+  if [ "$HEAD_SHA_AFTER" != "$HEAD_SHA" ]; then
+    rm -f "$ARTIFACT"
+    echo "GATE ERROR: the checkout moved while the gate was running (HEAD was ${HEAD_SHA:-unknown} at start, is ${HEAD_SHA_AFTER:-unknown} now)." >&2
+    echo "The run does not describe any single state, so no artifact was written. Settle the checkout and re-run 'bash hooks/run-gate.sh'." >&2
+    exit 1
   fi
-  label="$dir"
-  if [ "$dir" = "." ]; then
-    label="root"
-  fi
-  if [ ! -d "$dir/node_modules" ]; then
-    echo "FAIL: $label has never been installed (no node_modules). Run: (cd $dir && npm ci)"
-    errors=$((errors + 1))
-    continue
-  fi
-  ls_status=0
-  ls_output="$(cd "$dir" && npm ls --depth=0 2>&1)" || ls_status=$?
-  if [ "$ls_status" -eq 0 ]; then
-    echo "  OK: $label"
-  elif echo "$ls_output" | grep -q 'npm error code ELSPROBLEMS'; then
-    echo "FAIL: $label node_modules does not match package-lock.json. Run: (cd $dir && npm ci) -- not npm install, which can rewrite the lockfile."
-    errors=$((errors + 1))
-  else
-    echo "FAIL: $label -- npm ls could not be evaluated (unexpected output, npm missing, or similar). Investigate before trusting this gate run."
-    echo "$ls_output" | head -20
-    errors=$((errors + 1))
-  fi
-done
-if [ "$errors" -gt 0 ]; then
-  echo "node_modules drift check: FAILED"
+  mkdir -p "$ARTIFACT_DIR"
+  TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  printf '{"sha":"%s","tree":"%s","branch":"%s","ts":"%s","status":"pass"}\n' \
+    "$HEAD_SHA" "$TREE_HASH" "${BRANCH:-unknown}" "$TS" > "$ARTIFACT"
+  echo "GATE PASS $HEAD_SHA"
+  exit 0
+elif [ "$GATE_RC" -eq "$GC_TERMINAL_RC" ]; then
+  # TERMINAL: reachable only when the clamp above let the 78 through, i.e.
+  # something left the provenance marker. Two producers, one rule:
+  #   * a NESTED run-gate.sh hitting its own recursion guard (a self-invoking
+  #     **Gate**, directly or through a wrapper);
+  #   * since v2.3.0, THE **Gate** COMMAND ITSELF, following the public contract
+  #     in docs/verification.md (print remedy, touch $RUN_GATE_TERMINAL, exit
+  #     78). The marker never meant "run-gate.sh decided"; it means "whoever
+  #     exited took responsibility for the remedy", which is why the clamp is
+  #     keyed on it and not on the caller.
+  # DELIBERATELY SILENT. The generic "fix the failures and re-run" of the else
+  # arm is wrong here, and so is any replacement of it: only the guard knows the
+  # specific remedy, it has already printed it on this same stderr, and it must
+  # stay the LAST thing on screen. Printing a trailing summary would bury it
+  # again — which is the exact defect this branch exists to fix. The code is
+  # propagated so the caller (pre-commit-test.sh) can suppress ITS retry advice
+  # by the same structural test, without knowing which guard fired.
+  rm -f "$ARTIFACT"
+  exit "$GC_TERMINAL_RC"
+else
+  rm -f "$ARTIFACT"
+  echo "GATE FAILED: '$GATE_CMD' exited nonzero. Fix the failures and re-run 'bash hooks/run-gate.sh'." >&2
   exit 1
 fi
-echo "  All components' node_modules match their lockfiles."
-
-# ---------------------------------------------------------------------------
-# [2/6] Dollar-quote SQL lint -- issue #29
-#
-# Checks every migration .sql file for:
-#   - Unbalanced $$ (odd count -> mismatched function-body delimiters)
-#   - Stray single-$ function delimiters outside of SQL string literals.
-#
-# String-literal filter: sed "s/'[^']*'//g" strips single-quoted strings
-# BEFORE the $$-removal step so regex anchors like '^-+|-+$' are not flagged
-# as stray dollar quotes.
-#
-# The two sed steps are intentionally separate commands (piped) to avoid
-# double-quote BRE conflicts with the $$ literal match.
-#
-# NOTE: Assumes the $$-only convention used throughout this project's
-# migrations.  Tagged dollar-quoting (e.g. $func$...$func$) is not parsed
-# -- none of the existing migrations use it.
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [2/6] Dollar-quote SQL lint ==="
-for f in supabase/migrations/*.sql; do
-  file_errors=0
-
-  dq_count=$(grep -o '\$\$' "$f" 2>/dev/null | wc -l || true)
-  if [ "$((dq_count % 2))" -ne 0 ]; then
-    echo "FAIL: Unbalanced \$\$ in $f (count=$dq_count, expected even)"
-    file_errors=$((file_errors + 1))
-  fi
-
-  stray=$(sed "s/'[^']*'//g" "$f" | sed 's/\$\$//g' | grep -n '\$' 2>/dev/null || true)
-  if [ -n "$stray" ]; then
-    echo "FAIL: Stray single-\$ delimiter in $f"
-    echo "$stray" | head -20
-    file_errors=$((file_errors + 1))
-  fi
-
-  if [ "$file_errors" -eq 0 ]; then
-    echo "  OK: $f"
-  fi
-  errors=$((errors + file_errors))
-done
-if [ "$errors" -gt 0 ]; then
-  echo "Dollar-quote lint: FAILED ($errors file(s))"
-  exit 1
-fi
-echo "  All migration files pass dollar-quote lint."
-
-# ---------------------------------------------------------------------------
-# [3/6] TypeScript build (tsc --noEmit) -- per component
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [3/6] TypeScript build ==="
-for dir in cli mcp-server web; do
-  if [ -f "$dir/package.json" ] && grep -q '"typescript"' "$dir/package.json" 2>/dev/null; then
-    echo "  Building $dir..."
-    (cd "$dir" && npx tsc --noEmit) || { echo "FAIL: tsc --noEmit in $dir"; errors=$((errors + 1)); }
-  fi
-done
-if [ "$errors" -gt 0 ]; then
-  exit 1
-fi
-echo "  All components compiled successfully."
-
-# ---------------------------------------------------------------------------
-# [4/6] Unit tests (vitest) -- per component
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [4/6] Unit tests ==="
-for dir in cli mcp-server web; do
-  if [ -f "$dir/package.json" ] && grep -q '"vitest"' "$dir/package.json" 2>/dev/null; then
-    echo "  Testing $dir..."
-    (cd "$dir" && npx vitest run) || { echo "FAIL: vitest run in $dir"; errors=$((errors + 1)); }
-  fi
-done
-if [ "$errors" -gt 0 ]; then
-  exit 1
-fi
-echo "  All tests pass."
-
-# ---------------------------------------------------------------------------
-# [5/6] Prettier format check
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [5/6] Prettier format check ==="
-prettier_found=false
-for dir in . cli mcp-server web; do
-  if [ -f "$dir/package.json" ] && grep -q '"prettier"' "$dir/package.json" 2>/dev/null; then
-    echo "  Format-checking $dir..."
-    (cd "$dir" && npx prettier --check .) || { echo "FAIL: prettier --check in $dir"; errors=$((errors + 1)); }
-    prettier_found=true
-    break
-  fi
-done
-if [ "$prettier_found" = false ]; then
-  echo "  SKIP (no prettier found in any component)"
-fi
-if [ "$errors" -gt 0 ]; then
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# [6/6] ESLint
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== [6/6] ESLint ==="
-eslint_found=false
-for dir in cli mcp-server web; do
-  if [ -f "$dir/package.json" ] && grep -q '"eslint"' "$dir/package.json" 2>/dev/null; then
-    echo "  Linting $dir..."
-    (cd "$dir" && npx eslint .) || { echo "FAIL: eslint in $dir"; errors=$((errors + 1)); }
-    eslint_found=true
-  fi
-done
-if [ "$eslint_found" = false ]; then
-  echo "  SKIP (no eslint found in any component)"
-fi
-if [ "$errors" -gt 0 ]; then
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# All checks passed -- write gate artifact
-#
-# HEAD-moved-during-gate guard: if the checkout moved out from under this
-# run (a concurrent checkout, rebase, or overlapping gate run), the sha the
-# checks ran against and the sha HEAD now points at differ. Writing the
-# artifact at that point would record a state the run never tested. Exit 1
-# (not a terminal exit code) because this is a race: settling the checkout
-# and re-running the gate is genuinely correct advice, not a false promise.
-# ---------------------------------------------------------------------------
-end_sha="$(git rev-parse HEAD)"
-if [ "$end_sha" != "$START_SHA" ]; then
-  rm -f .gate/last-pass.json
-  echo "" >&2
-  echo "GATE ERROR: HEAD moved during gate run (started at $START_SHA, now at $end_sha)." >&2
-  echo "The checkout changed while checks were running; the results do not describe a single, stable commit. Settle the checkout and re-run the gate." >&2
-  exit 1
-fi
-
-cat > .gate/last-pass.json <<EOF
-{
-  "sha": "$START_SHA",
-  "passed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)"
-}
-EOF
-echo ""
-echo "GATE PASS $START_SHA"

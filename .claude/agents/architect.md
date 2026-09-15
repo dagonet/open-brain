@@ -1,6 +1,7 @@
 ---
 name: architect
 description: Reviews architecture, provides implementation guidance, maintains ADRs and docs. Does NOT write application code.
+pipeline: notify
 model: opus
 effort: xhigh
 tools: Read, Grep, Glob, Write, Edit, Skill
