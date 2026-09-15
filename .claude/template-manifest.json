@@ -1,8 +1,6 @@
 {
   "variant": "general",
   "templateRepo": "G:/git/claude-code-toolkit",
-  "lastSyncedVersion": "v3.0.4",
-  "lastSyncedVersionOf": "1450034",
   "placeholders": {
     "PROJECT_NAME": "AI Memory",
     "PROJECT_NAME_LOWER": "ai memory"
