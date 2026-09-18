@@ -5,6 +5,9 @@
 This file has no `paths:` key, so Claude Code loads it at EVERY session start,
 at the same priority as CLAUDE.md. Anything you write here is always on.
 
+A new or edited rules file is picked up at the NEXT session start, not the current
+one -- restart the session to test a change.
+
 To scope it to files instead, add a frontmatter block at the very top:
 
     ---
