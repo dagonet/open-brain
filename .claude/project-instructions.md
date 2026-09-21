@@ -1,0 +1,4 @@
+This file is imported at the end of `CLAUDE.md`; where the two conflict, this file wins. It is loaded at session start, always on — a new or edited version here is picked up at the NEXT session start, not the current one.
+
+What belongs here: project rules, plugin routing blocks (context-mode and similar), and the MCP servers this project relies on (name, purpose, main-thread only) — `CLAUDE.local.md` is no longer shipped, so list them here; the user-level `mcp-usage` skill covers the occasional procedures. Nothing here should duplicate a `paths:`-scoped rules file. Shared, committed project rules belong in `project-instructions.md`; machine-local ones belong in `CLAUDE.local.md` — the migration folds nothing from one into the other, and no precedence between them is claimed, because none exists to claim.
+
