@@ -48,7 +48,7 @@
 
 ## Paths
 
-- **Worktree base**: `.claude/worktrees` (repo-relative; this is where the harness actually creates `isolation: worktree` agents, as `.claude/worktrees/agent-<id>`)
+- **Worktree base**: `G:/git/.worktrees/open-brain` (outside the repo; create worktrees with `git worktree add G:/git/.worktrees/open-brain/<name>`. Exception: Claude Code's own `EnterWorktree` and `isolation: worktree` agents still create under `.claude/worktrees/` -- no setting moves them. This key is a record, not a control: no hook reads it)
 - **Architecture docs**: `docs/`
 - **Log location**: stdout
 
