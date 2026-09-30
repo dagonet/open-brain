@@ -16,5 +16,5 @@ To scope it to files instead, add a frontmatter block at the very top:
       - "pyproject.toml"
     ---
 
-Always-on project rules belong in CLAUDE.md's PROJECT-CUSTOM region, not here;
-a rule in both places exists twice and drifts.
+Always-on project rules belong in `.claude/project-instructions.md` (imported at
+the end of CLAUDE.md), not here; a rule in both places exists twice and drifts.
