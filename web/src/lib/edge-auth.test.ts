@@ -1,5 +1,7 @@
+// Lives in web/ so the gate's per-component vitest run executes it; the code under
+// test (supabase/functions/_shared/auth.ts) is dependency-free and shared with Deno.
 import { describe, it, expect } from 'vitest';
-import { isServiceRoleAuthorized } from './auth.ts';
+import { isServiceRoleAuthorized } from '../../../supabase/functions/_shared/auth';
 
 function jwt(payload: Record<string, unknown>): string {
   const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -42,6 +44,20 @@ describe('isServiceRoleAuthorized', () => {
 
   it('rejects a JWT without a role claim', () => {
     expect(isServiceRoleAuthorized(`Bearer ${jwt({ sub: 'u1' })}`, ENV_KEY)).toBe(false);
+  });
+
+  it('rejects a role claim nested under user_metadata', () => {
+    expect(
+      isServiceRoleAuthorized(
+        `Bearer ${jwt({ role: 'authenticated', user_metadata: { role: 'service_role' } })}`,
+        ENV_KEY,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a lowercase bearer scheme', () => {
+    expect(isServiceRoleAuthorized(`bearer ${jwt({ role: 'service_role' })}`, ENV_KEY)).toBe(false);
+    expect(isServiceRoleAuthorized(`bearer ${ENV_KEY}`, ENV_KEY)).toBe(false);
   });
 
   it('rejects a missing or empty header', () => {

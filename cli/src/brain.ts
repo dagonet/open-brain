@@ -37,38 +37,37 @@ interface ThoughtResponse {
   };
 }
 
-function loadConfig(): Config | null {
-  // BRAIN_SERVICE_KEY (env) takes precedence over the config file's service_key.
-  const envServiceKey = process.env.BRAIN_SERVICE_KEY || undefined;
+interface ConfigFile {
+  api_url?: string;
+  api_key?: string;
+  service_key?: string;
+}
 
-  // 1. Environment variables
-  const envUrl = process.env.BRAIN_API_URL;
-  const envKey = process.env.BRAIN_API_KEY;
-  if (envUrl && envKey) {
-    return { api_url: envUrl, api_key: envKey, service_key: envServiceKey };
-  }
-
-  // 2. Config file ~/.brain/config.json
+function readConfigFile(): ConfigFile {
   try {
     const configPath = join(homedir(), '.brain', 'config.json');
-    const raw = readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(raw) as {
-      api_url?: string;
-      api_key?: string;
-      service_key?: string;
-    };
-    if (parsed.api_url && parsed.api_key) {
-      return {
-        api_url: parsed.api_url,
-        api_key: parsed.api_key,
-        service_key: envServiceKey ?? (parsed.service_key || undefined),
-      };
-    }
+    return JSON.parse(readFileSync(configPath, 'utf-8')) as ConfigFile;
   } catch {
     // Config file not found or invalid
+    return {};
   }
+}
 
-  return null;
+export function loadConfig(): Config | null {
+  // 1. Environment variables, 2. config file ~/.brain/config.json
+  let apiUrl = process.env.BRAIN_API_URL;
+  let apiKey = process.env.BRAIN_API_KEY;
+  const file = readConfigFile();
+  if (!(apiUrl && apiKey)) {
+    apiUrl = file.api_url;
+    apiKey = file.api_key;
+  }
+  if (!apiUrl || !apiKey) return null;
+
+  // The service key is resolved on its own, however url/key were loaded:
+  // BRAIN_SERVICE_KEY wins, then the config file's service_key.
+  const service_key = process.env.BRAIN_SERVICE_KEY || file.service_key || undefined;
+  return { api_url: apiUrl, api_key: apiKey, service_key };
 }
 
 /**

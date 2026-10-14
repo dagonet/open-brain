@@ -7,8 +7,11 @@
 //      gateway (verify_jwt) validates the signature before our code runs, so
 //      only the already-verified claim is read here.
 //   2. A Bearer value exactly equal to this function's SUPABASE_SERVICE_ROLE_KEY
-//      env value. Needed because callers (e.g. the MCP tools) send the raw env
-//      value, which may be the new `sb_secret_...` format and is not a JWT.
+//      env value. In practice this only matches a key the gateway has already
+//      accepted, i.e. the injected key forwarded by run-nightly-jobs; a non-JWT
+//      `sb_secret_...` bearer is rejected by the gateway's verify_jwt check
+//      before this code runs. External callers must send the legacy
+//      `service_role` JWT. Never deploy with --no-verify-jwt.
 //
 // Never log the header or the key.
 

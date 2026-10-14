@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { auditCommand, wikiRefreshCommand, requireServiceKey } from '../brain.js';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { auditCommand, wikiRefreshCommand, requireServiceKey, loadConfig } from '../brain.js';
 
 const URL_BASE = 'https://proj.supabase.co/functions/v1';
 const ANON = 'anon-key-value';
@@ -20,8 +23,18 @@ describe('service-role commands', () => {
   const fetchMock = vi.fn();
   const origArgv = process.argv;
 
+  let home: string;
+
+  function writeConfigFile(cfg: Record<string, string>): void {
+    mkdirSync(join(home, '.brain'), { recursive: true });
+    writeFileSync(join(home, '.brain', 'config.json'), JSON.stringify(cfg));
+  }
+
   beforeEach(() => {
     vi.resetAllMocks();
+    home = mkdtempSync(join(tmpdir(), 'brain-cli-test-'));
+    vi.stubEnv('HOME', home);
+    vi.stubEnv('BRAIN_SERVICE_KEY', '');
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -82,5 +95,57 @@ describe('service-role commands', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('audit --resolve works without a service key (it uses the anon key via PostgREST)', async () => {
+    process.argv = ['node', 'brain', 'audit', '--resolve', 'c1', '--decision', 'resolved'];
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{ id: 'c1', status: 'resolved' }],
+    });
+
+    await auditCommand();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/rest/v1/contradictions?id=eq.c1');
+    expect(init.headers.Authorization).toBe(`Bearer ${ANON}`);
+    expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  describe('loadConfig service_key resolution', () => {
+    it('reads service_key from the config file', () => {
+      vi.stubEnv('BRAIN_API_URL', '');
+      vi.stubEnv('BRAIN_API_KEY', '');
+      writeConfigFile({
+        api_url: `${URL_BASE}/capture-thought`,
+        api_key: ANON,
+        service_key: SERVICE,
+      });
+
+      expect(loadConfig()).toEqual({
+        api_url: `${URL_BASE}/capture-thought`,
+        api_key: ANON,
+        service_key: SERVICE,
+      });
+    });
+
+    it('reads service_key from the file even when url/key come from env', () => {
+      writeConfigFile({ service_key: SERVICE });
+
+      expect(loadConfig()?.api_key).toBe(ANON);
+      expect(loadConfig()?.service_key).toBe(SERVICE);
+    });
+
+    it('BRAIN_SERVICE_KEY wins over the config file', () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', 'env-service-key');
+      writeConfigFile({ service_key: SERVICE });
+
+      expect(loadConfig()?.service_key).toBe('env-service-key');
+    });
+
+    it('leaves service_key undefined when neither source has it', () => {
+      expect(loadConfig()?.service_key).toBeUndefined();
+    });
   });
 });

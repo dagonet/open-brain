@@ -45,6 +45,10 @@ Create `~/.brain/config.json`:
 }
 ```
 
+### Service key (`brain audit`, `brain wiki refresh`)
+
+These two commands call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard → Settings → API), not an `sb_secret_...` key. Set `BRAIN_SERVICE_KEY` or add `"service_key": "<service-role-jwt>"` to `~/.brain/config.json` (the env var wins). It is resolved independently of how `api_url`/`api_key` were loaded. Other commands keep using `api_key`.
+
 ### Getting Your Credentials
 
 1. Go to your Supabase project dashboard

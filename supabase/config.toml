@@ -60,3 +60,14 @@ enabled = false
 port = 54327
 vector_port = 54328
 backend = "postgres"
+
+# The service-role guard in _shared/auth.ts trusts the gateway having verified the
+# JWT signature. NEVER deploy these with --no-verify-jwt.
+[functions.compile-wiki]
+verify_jwt = true
+
+[functions.detect-contradictions]
+verify_jwt = true
+
+[functions.run-nightly-jobs]
+verify_jwt = true
