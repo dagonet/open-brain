@@ -150,4 +150,4 @@ brain audit --resolve <id> --decision false_positive
 
 The decision flows into future wiki compilations — `open` contradictions exclude both source thoughts; resolved/ignored/false_positive let them flow back.
 
-> **Note:** the resolve path requires migration `006_contradictions_anon_update.sql` (granting anon UPDATE on `contradictions`). It's part of v0.3.0 and applies idempotently via `supabase db push`.
+> **Note:** the resolve path updates `contradictions` through PostgREST, so it needs the service key (`BRAIN_SERVICE_KEY`).

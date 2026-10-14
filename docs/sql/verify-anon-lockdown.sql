@@ -41,7 +41,7 @@ WHERE n.nspname = 'public'
     SELECT 1 FROM pg_depend d
     WHERE d.objid = p.oid AND d.deptype = 'e'
   )
-ORDER BY 1::text;
+ORDER BY p.oid::regprocedure::text;
 
 -- 5. Anything above that still lets anon in (expect: no rows).
 SELECT 'table' AS kind, c.relname::text AS name
@@ -56,3 +56,24 @@ JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
   AND has_function_privilege('anon', p.oid, 'EXECUTE');
+
+-- 6. Positive checks: the dashboard (authenticated) must still work
+--    (expect: authenticated_access = true on every row).
+SELECT t AS object_name,
+       has_table_privilege('authenticated', format('public.%I', t), 'SELECT') AS authenticated_access
+FROM unnest(ARRAY[
+  'thoughts', 'contradictions', 'wiki_pages', 'wiki_sources', 'entity_descriptions',
+  'entity_nodes', 'entity_edges', 'topic_counts', 'current_wiki_pages', 'wiki_page_staleness'
+]) AS t
+UNION ALL
+SELECT f, has_function_privilege('authenticated', format('public.%s', f)::regprocedure, 'EXECUTE')
+FROM unnest(ARRAY[
+  'get_distinct_topics()', 'get_distinct_people()', 'slugify(text)', 'is_code_path(text)'
+]) AS f;
+
+-- 7. Row level security on every public table (expect: rls_enabled = true on every row).
+SELECT c.relname AS table_name, c.relrowsecurity AS rls_enabled
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r'
+ORDER BY c.relname;

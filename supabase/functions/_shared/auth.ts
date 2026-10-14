@@ -1,5 +1,5 @@
-// Service-role auth guard shared by the edge functions that spend LLM tokens
-// (compile-wiki, detect-contradictions). Dependency-free so vitest can import
+// Service-role auth guard shared by the edge functions that write data or spend
+// LLM tokens (capture-thought, compile-wiki, detect-contradictions). Dependency-free so vitest can import
 // it as well as Deno.
 //
 // Two accepted credentials:

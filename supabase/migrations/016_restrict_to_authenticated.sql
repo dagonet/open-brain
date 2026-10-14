@@ -75,7 +75,8 @@ GRANT EXECUTE ON FUNCTION slugify(text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION is_code_path(text) TO authenticated, service_role;
 
 -- 4b. Server-side only (mcp-server, edge functions): service_role.
---     authenticated is revoked too: it was granted explicitly in 014.
+--     authenticated is revoked too: the entity functions were granted to it
+--     explicitly in 014; for the others this is a no-op.
 REVOKE EXECUTE ON FUNCTION thoughts_by_slug(text, int)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION match_thoughts(vector(1536), int, text, text[], text[], int)
@@ -122,6 +123,17 @@ REVOKE EXECUTE ON FUNCTION update_updated_at() FROM PUBLIC, anon;
 --     one); the implicit PUBLIC default is not removed by it, so new functions
 --     still need an explicit REVOKE ... FROM PUBLIC.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon;
+
+-- 4e. Same for future tables, views and sequences created by this role in
+--     public: no automatic anon grant. Like 4d this only removes explicit
+--     default entries (Supabase's anon one) for objects created by the role
+--     that runs this migration.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon;
+
+-- NOTE: a later CREATE OR REPLACE VIEW (or DROP + CREATE) does not carry over
+-- security_invoker. Any later view definition must state
+-- WITH (security_invoker = on) explicitly.
 
 -- ---------------------------------------------------------------------------
 -- Rollback

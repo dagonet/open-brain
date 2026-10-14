@@ -117,7 +117,7 @@ Every thought you capture is:
 | ------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cli/`                                      | Node.js 18+ | `brain` command — capture thoughts, import memories, refresh wiki pages, run contradiction audits. Zero runtime dependencies.                        |
 | `mcp-server/`                               | Node.js 18+ | MCP server with 22 tools (10 thoughts + 3 wiki + 3 contradictions + 4 tasks + 2 entities) for Claude Code integration                                              |
-| `web/`                                      | Next.js 15  | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Read-only via Supabase anon key; auto-deployed from `main` to Vercel. |
+| `web/`                                      | Next.js 15  | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Reads as the signed-in user; the anon key serves only login/auth; auto-deployed from `main` to Vercel. |
 | `supabase/functions/capture-thought/`       | Deno        | Edge function for thought processing and storage                                                                                                     |
 | `supabase/functions/compile-wiki/`          | Deno        | (v0.3.0) Compiles a topic-level wiki page from clustered thoughts with citation validation                                                           |
 | `supabase/functions/detect-contradictions/` | Deno        | (v0.3.0) Audits thought pairs for contradictions via embedding-similar neighbours + LLM judge                                                        |
@@ -308,7 +308,7 @@ npm run dev
 
 Open <http://localhost:3000>, sign in with the user you created, and browse `/`, `/wiki`, `/contradictions`.
 
-**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" button also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` requires the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
+**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" / "reject" / contradiction-note actions also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` and `capture-thought` require the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
 
 ### 8. Set Up Slack (Optional)
 

@@ -177,4 +177,19 @@ describe('capture-thought calls auth', () => {
     expect(url).toBe('https://proj.supabase.co/functions/v1/capture-thought');
     expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
   });
+
+  it('resolveContradiction surfaces a failed audit-note capture', async () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
+    fetchMock.mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized' });
+    mockSupabase.from.mockReturnValue({
+      update: () => ({ eq: async () => ({ error: null }) }),
+    });
+    const { resolveContradiction } = await import('./actions');
+    const form = new FormData();
+    form.set('id', 'c1');
+    form.set('decision', 'resolved');
+    form.set('note', 'B supersedes A');
+
+    await expect(resolveContradiction(form)).rejects.toThrow(/audit note failed: HTTP 401/);
+  });
 });

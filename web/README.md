@@ -59,8 +59,8 @@ All routes redirect to `/login` when not authenticated. Server actions also re-c
 
 ## Architecture notes
 
-- Reads use the **Supabase anon key** + RLS policies (anon SELECT enabled in migrations 003/004/005). No service role key in the browser.
-- Server actions (`refreshWikiPage`, `rejectWikiPage`, `resolveContradiction`) live in `src/app/wiki/actions.ts` and run on the Next.js server with the same anon key. Migration `006_contradictions_anon_update.sql` grants anon UPDATE on `contradictions` to make `resolveContradiction` actually flip status.
+- Reads use the signed-in user's session (the `authenticated` role) + RLS policies. The anon key only serves the login page and auth; it has no table, view or function access (migration 016). No service role key in the browser.
+- Server actions (`refreshWikiPage`, `rejectWikiPage`, `resolveContradiction`) live in `src/app/wiki/actions.ts` and run on the Next.js server. `resolveContradiction` updates `contradictions` as the signed-in user; calls to the `capture-thought` and `compile-wiki` edge functions use the server-only `SUPABASE_SERVICE_ROLE_KEY`.
 - The Sidebar (`src/components/Sidebar.tsx`) is a client component using `usePathname()` to highlight the active route. Counts come from `src/lib/dashboard-counts.ts` — a single Promise.all HEAD-count fetch per page.
 - Markdown content (`wiki_pages.content_md`) renders as plain text inside an `<article>` with `whitespace-pre-wrap`. Citations are emitted as `*Sources: [[#thought-id]]*` markdown italics; no HTML tags. A future improvement could pipe the content through `react-markdown` for richer rendering.
 
@@ -70,6 +70,6 @@ Connect the repo to a Vercel project; auto-deploys from `main`. Required env var
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; server-only, mark sensitive, never `NEXT_PUBLIC_`): the wiki refresh action sends it to `compile-wiki`, which accepts the service-role key only. If unset, the action falls back to the anon key with a console warning.
+- `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; server-only, mark sensitive, never `NEXT_PUBLIC_`): the wiki refresh and note-saving actions send it to `compile-wiki` / `capture-thought`, which accept the service-role key only. If unset, the actions fall back to the anon key with a console warning and will fail once those functions are redeployed.
 
 Vercel will pick up the same Next.js build script as `npm run build`. No special build flags needed.
