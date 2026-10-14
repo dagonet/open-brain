@@ -72,9 +72,10 @@ export function loadConfig(): Config | null {
 }
 
 /**
- * compile-wiki and detect-contradictions accept the service-role key only, so
- * `brain audit` and `brain wiki refresh` need a key separate from `api_key`.
- * Deliberately no fallback to the anon key: it would only produce a 401.
+ * compile-wiki and detect-contradictions accept the service-role key only, and
+ * the database tables are closed to the anon key, so every PostgREST read/write
+ * (sync-vault, audit, wiki get/list/refresh) needs a key separate from `api_key`.
+ * Deliberately no fallback to the anon key: it would only produce a 401 / empty result.
  */
 export function requireServiceKey(config: Pick<Config, 'service_key'>): string {
   if (!config.service_key) {
@@ -577,7 +578,7 @@ async function fetchAllThoughts(postgrestUrl: string, apiKey: string): Promise<T
   return allThoughts;
 }
 
-async function syncVault(): Promise<void> {
+export async function syncVault(): Promise<void> {
   const args = process.argv.slice(3);
 
   let vaultPath: string | undefined;
@@ -607,6 +608,8 @@ async function syncVault(): Promise<void> {
     process.exit(1);
   }
 
+  const serviceKey = serviceKeyOrExit(config);
+
   // Derive PostgREST URL
   let postgrestUrl: string;
   try {
@@ -633,7 +636,7 @@ async function syncVault(): Promise<void> {
   console.log('Fetching thoughts from Open Brain...');
   let thoughts: Thought[];
   try {
-    thoughts = await fetchAllThoughts(postgrestUrl, config.api_key);
+    thoughts = await fetchAllThoughts(postgrestUrl, serviceKey);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('\u2717 Failed to fetch thoughts: ' + message);
@@ -843,6 +846,7 @@ export async function auditCommand(): Promise<void> {
       console.error('Error: --resolve requires --decision=resolved|ignored|false_positive');
       process.exit(1);
     }
+    const resolveKey = serviceKeyOrExit(config);
     const patch: Record<string, unknown> = {
       status: decision,
       resolved_at: new Date().toISOString(),
@@ -856,8 +860,8 @@ export async function auditCommand(): Promise<void> {
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
-        apikey: config.api_key,
-        Authorization: 'Bearer ' + config.api_key,
+        apikey: resolveKey,
+        Authorization: 'Bearer ' + resolveKey,
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       },
@@ -874,8 +878,7 @@ export async function auditCommand(): Promise<void> {
     if (!Array.isArray(updated) || updated.length === 0) {
       console.error(
         `✗ Contradiction ${resolveId} not updated (0 rows returned). ` +
-          `Likely cause: anon UPDATE policy missing on contradictions. ` +
-          `Apply migration 006_contradictions_anon_update.sql.`,
+          `Check that the id exists and that BRAIN_SERVICE_KEY is the service-role key.`,
       );
       process.exit(1);
     }
@@ -958,7 +961,7 @@ export async function auditCommand(): Promise<void> {
     const since30 = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const result = await getFromPostgrest(
       config.api_url,
-      config.api_key,
+      serviceKey,
       `contradictions?detected_at=gte.${encodeURIComponent(
         since30,
       )}&order=detected_at.desc&limit=20`,
@@ -993,7 +996,7 @@ interface TopicCountRow {
   thought_count: number;
 }
 
-async function wikiGetCommand(args: string[]): Promise<void> {
+export async function wikiGetCommand(args: string[]): Promise<void> {
   const slug = args[0];
   if (!slug) {
     console.error('Error: brain wiki get <slug> requires a slug argument');
@@ -1006,7 +1009,7 @@ async function wikiGetCommand(args: string[]): Promise<void> {
   }
   const result = await getFromPostgrest(
     config.api_url,
-    config.api_key,
+    serviceKeyOrExit(config),
     `current_wiki_pages?slug=eq.${encodeURIComponent(
       slug.toLowerCase(),
     )}&select=id,slug,version,content_md,partial,source_thought_count,compiled_at`,
@@ -1030,7 +1033,7 @@ async function wikiGetCommand(args: string[]): Promise<void> {
   console.log(page.content_md);
 }
 
-async function wikiListCommand(args: string[]): Promise<void> {
+export async function wikiListCommand(args: string[]): Promise<void> {
   let limit = 50;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--limit' && i + 1 < args.length) {
@@ -1046,7 +1049,7 @@ async function wikiListCommand(args: string[]): Promise<void> {
   }
   const result = await getFromPostgrest(
     config.api_url,
-    config.api_key,
+    serviceKeyOrExit(config),
     `current_wiki_pages?order=compiled_at.desc&limit=${limit}&select=slug,version,source_thought_count,partial,compiled_at`,
   );
   if (!result.ok) {
@@ -1101,7 +1104,7 @@ export async function wikiRefreshCommand(args: string[]): Promise<void> {
   if (all) {
     const result = await getFromPostgrest(
       config.api_url,
-      config.api_key,
+      serviceKey,
       `topic_counts?order=thought_count.desc&limit=${topK}&select=slug,display_name,thought_count`,
     );
     if (!result.ok) {
