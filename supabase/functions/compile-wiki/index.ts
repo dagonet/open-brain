@@ -17,6 +17,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { chatCompletionsStructured } from '../_shared/openai.ts';
+import { isServiceRoleAuthorized } from '../_shared/auth.ts';
 
 interface CompileRequest {
   slug: string;
@@ -290,6 +291,17 @@ function renderMarkdown(page: CompiledPage): string {
 }
 
 serve(async (req: Request): Promise<Response> => {
+  // Auth guard: service-role callers only (these functions spend LLM tokens).
+  // Runs before anything else, including the method check.
+  if (
+    !isServiceRoleAuthorized(
+      req.headers.get('Authorization'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    )
+  ) {
+    return jsonResponse(401, { success: false, error: 'Unauthorized' });
+  }
+
   if (req.method !== 'POST') {
     return jsonResponse(405, { success: false, error: 'Method not allowed' });
   }

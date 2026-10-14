@@ -50,6 +50,7 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npx tsc --noEmit
+      - run: npx vitest run
 
   format-lint:
     name: Format & Lint
