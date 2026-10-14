@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { revalidatePath } from 'next/cache';
 
 const mockGetUser = vi.fn(async () => ({ data: { user: { id: 'u1' } } }));
 const mockSupabase = {
@@ -191,5 +192,7 @@ describe('capture-thought calls auth', () => {
     form.set('note', 'B supersedes A');
 
     await expect(resolveContradiction(form)).rejects.toThrow(/audit note failed: HTTP 401/);
+    expect(revalidatePath).toHaveBeenCalledWith('/contradictions');
+    expect(revalidatePath).toHaveBeenCalledWith('/contradictions/c1');
   });
 });

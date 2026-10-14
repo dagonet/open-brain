@@ -75,8 +75,9 @@ GRANT EXECUTE ON FUNCTION slugify(text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION is_code_path(text) TO authenticated, service_role;
 
 -- 4b. Server-side only (mcp-server, edge functions): service_role.
---     authenticated is revoked too: the entity functions were granted to it
---     explicitly in 014; for the others this is a no-op.
+--     authenticated is revoked too: it held EXECUTE on all of these, through
+--     Supabase's default privileges (see 4d) and, for the entity functions,
+--     an explicit grant in 014.
 REVOKE EXECUTE ON FUNCTION thoughts_by_slug(text, int)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION match_thoughts(vector(1536), int, text, text[], text[], int)

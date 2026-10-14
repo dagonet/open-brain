@@ -82,7 +82,7 @@ If the thought was already captured (duplicate idempotency key):
 
 - **No API config**: Prints setup instructions
 - **Network error**: "Could not reach the API. Check your connection and BRAIN_API_URL."
-- **401/403**: "Authentication failed. Check your BRAIN_API_KEY."
+- **401/403**: "Authentication failed. Check your BRAIN_SERVICE_KEY."
 - **500+**: "Server error. Please try again later."
 - **400**: Shows the specific validation error from the API
 

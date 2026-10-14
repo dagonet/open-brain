@@ -243,7 +243,7 @@ cat > ~/.brain/config.json << 'EOF'
 EOF
 ```
 
-Database access is closed to the anon key, so `brain sync-vault`, `brain wiki get/list/refresh`, `brain audit` and `brain audit --resolve` need the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `BRAIN_API_KEY` is still read from the config but no command sends it.
+Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `BRAIN_API_KEY` is still read from the config but no command sends it.
 
 ```bash
 export BRAIN_SERVICE_KEY=your-service-role-key

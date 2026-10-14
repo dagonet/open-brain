@@ -1,8 +1,9 @@
 -- docs/sql/verify-anon-lockdown.sql
 --
 -- Read-only check, run in the Supabase SQL editor after applying migration 016.
--- Every row of every result set must show that anon has no access.
--- Result sets 1-4 must show anon_access = false everywhere; set 5 must be empty.
+-- Result sets 1-5 must show that anon has no access: sets 2-4 expect
+-- anon_access = false on every row, sets 1 and 5 must return no rows.
+-- Result sets 6-7 are positive checks and expect true on every row.
 
 -- 1. Policies in public that apply to anon or PUBLIC (expect: no rows).
 SELECT tablename, policyname, cmd, roles
