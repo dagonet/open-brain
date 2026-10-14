@@ -19,6 +19,24 @@ const COMPILE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   : '';
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
+let warnedMissingServiceKey = false;
+
+// compile-wiki only accepts service-role callers. SUPABASE_SERVICE_ROLE_KEY is
+// server-only (never NEXT_PUBLIC_) so it cannot reach the browser bundle.
+// Transitional: until it is set in the deployment, fall back to the anon key
+// (which the currently deployed compile-wiki still accepts) and warn once.
+function compileAuthKey(): string {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) return serviceKey;
+  if (!warnedMissingServiceKey) {
+    warnedMissingServiceKey = true;
+    console.warn(
+      'SUPABASE_SERVICE_ROLE_KEY is not set; wiki refresh falls back to the anon key and will fail once compile-wiki requires the service-role key.',
+    );
+  }
+  return ANON_KEY;
+}
+
 export async function rejectWikiPage(formData: FormData): Promise<void> {
   const pageId = String(formData.get('page_id') ?? '');
   const slug = String(formData.get('slug') ?? '');
@@ -88,7 +106,7 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
   const refreshRes = await fetch(COMPILE_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${ANON_KEY}`,
+      Authorization: `Bearer ${compileAuthKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ slug }),

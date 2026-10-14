@@ -70,5 +70,6 @@ Connect the repo to a Vercel project; auto-deploys from `main`. Required env var
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only, mark sensitive, never `NEXT_PUBLIC_`): the wiki refresh action sends it to `compile-wiki`, which accepts the service-role key only. If unset, the action falls back to the anon key with a console warning.
 
 Vercel will pick up the same Next.js build script as `npm run build`. No special build flags needed.

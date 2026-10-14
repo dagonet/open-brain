@@ -188,6 +188,8 @@ supabase functions deploy detect-contradictions     # v0.3.0
 supabase functions deploy slack-webhook             # optional, only if using Slack
 ```
 
+> **Service-role only:** `compile-wiki` and `detect-contradictions` spend LLM tokens, so they reject every caller except one presenting the **service-role key** (a service-role JWT or the exact `SUPABASE_SERVICE_ROLE_KEY` value); the anon key, user JWTs and missing credentials get `401`. The MCP server (`SUPABASE_SERVICE_ROLE_KEY`), the web dashboard (see below) and the CLI (`BRAIN_SERVICE_KEY`) are configured accordingly.
+
 > **Windows note:** `supabase functions deploy` uses Docker by default to bundle TypeScript. If Docker volume mounts can't read your project drive (common when the repo lives on a non-`C:` drive like `G:\`), the bundler fails with `entrypoint path does not exist`. Pass `--use-api` to bundle server-side instead:
 >
 > ```bash
@@ -237,6 +239,12 @@ cat > ~/.brain/config.json << 'EOF'
   "apiKey": "your-supabase-anon-key"
 }
 EOF
+```
+
+`brain audit` and `brain wiki refresh` call `detect-contradictions` / `compile-wiki`, which require the service-role key. Provide it separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. All other commands keep using `BRAIN_API_KEY`.
+
+```bash
+export BRAIN_SERVICE_KEY=your-service-role-key
 ```
 
 ### 6. Set Up MCP Server (Claude Code)
@@ -298,7 +306,7 @@ npm run dev
 
 Open <http://localhost:3000>, sign in with the user you created, and browse `/`, `/wiki`, `/contradictions`.
 
-**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope).
+**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" button also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` requires the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
 
 ### 8. Set Up Slack (Optional)
 

@@ -15,6 +15,8 @@ import { randomUUID, createHash } from 'node:crypto';
 interface Config {
   api_url: string;
   api_key: string;
+  /** Service-role key; used ONLY for compile-wiki and detect-contradictions. */
+  service_key?: string;
 }
 
 interface ThoughtResponse {
@@ -36,26 +38,61 @@ interface ThoughtResponse {
 }
 
 function loadConfig(): Config | null {
+  // BRAIN_SERVICE_KEY (env) takes precedence over the config file's service_key.
+  const envServiceKey = process.env.BRAIN_SERVICE_KEY || undefined;
+
   // 1. Environment variables
   const envUrl = process.env.BRAIN_API_URL;
   const envKey = process.env.BRAIN_API_KEY;
   if (envUrl && envKey) {
-    return { api_url: envUrl, api_key: envKey };
+    return { api_url: envUrl, api_key: envKey, service_key: envServiceKey };
   }
 
   // 2. Config file ~/.brain/config.json
   try {
     const configPath = join(homedir(), '.brain', 'config.json');
     const raw = readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(raw) as { api_url?: string; api_key?: string };
+    const parsed = JSON.parse(raw) as {
+      api_url?: string;
+      api_key?: string;
+      service_key?: string;
+    };
     if (parsed.api_url && parsed.api_key) {
-      return { api_url: parsed.api_url, api_key: parsed.api_key };
+      return {
+        api_url: parsed.api_url,
+        api_key: parsed.api_key,
+        service_key: envServiceKey ?? (parsed.service_key || undefined),
+      };
     }
   } catch {
     // Config file not found or invalid
   }
 
   return null;
+}
+
+/**
+ * compile-wiki and detect-contradictions accept the service-role key only, so
+ * `brain audit` and `brain wiki refresh` need a key separate from `api_key`.
+ * Deliberately no fallback to the anon key: it would only produce a 401.
+ */
+export function requireServiceKey(config: Pick<Config, 'service_key'>): string {
+  if (!config.service_key) {
+    throw new Error(
+      'This command needs the service-role key. Set the BRAIN_SERVICE_KEY environment variable ' +
+        'or the "service_key" field in ~/.brain/config.json.',
+    );
+  }
+  return config.service_key;
+}
+
+function serviceKeyOrExit(config: Config): string {
+  try {
+    return requireServiceKey(config);
+  } catch (err) {
+    console.error('Error: ' + (err instanceof Error ? err.message : String(err)));
+    process.exit(1);
+  }
 }
 
 function printSetupInstructions(): void {
@@ -73,6 +110,9 @@ function printSetupInstructions(): void {
       '    "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",',
       '    "api_key": "<your-supabase-anon-key>"',
       '  }',
+      '',
+      '`brain audit` and `brain wiki refresh` additionally need the service-role key:',
+      '  export BRAIN_SERVICE_KEY="<your-service-role-key>"   (or "service_key" in config.json)',
       '',
     ].join('\n'),
   );
@@ -751,7 +791,7 @@ async function getFromPostgrest(
   return { ok: response.ok, status: response.status, data };
 }
 
-async function auditCommand(): Promise<void> {
+export async function auditCommand(): Promise<void> {
   const args = process.argv.slice(3);
   let since: string | undefined;
   let topic: string | undefined;
@@ -887,8 +927,9 @@ async function auditCommand(): Promise<void> {
     );
   }
 
+  const serviceKey = serviceKeyOrExit(config);
   console.log('Running contradiction audit...');
-  const { ok, status, data } = await postFunction(base, config.api_key, 'detect-contradictions', {
+  const { ok, status, data } = await postFunction(base, serviceKey, 'detect-contradictions', {
     since,
     candidate_limit: candidateLimit,
   });
@@ -1025,7 +1066,7 @@ async function wikiListCommand(args: string[]): Promise<void> {
   }
 }
 
-async function wikiRefreshCommand(args: string[]): Promise<void> {
+export async function wikiRefreshCommand(args: string[]): Promise<void> {
   let slug: string | undefined;
   let all = false;
   let dryRun = false;
@@ -1054,6 +1095,7 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
   const base = deriveFunctionsBase(config.api_url);
+  const serviceKey = serviceKeyOrExit(config);
 
   let slugs: string[];
   if (all) {
@@ -1085,7 +1127,7 @@ async function wikiRefreshCommand(args: string[]): Promise<void> {
   let errors = 0;
 
   for (const s of slugs) {
-    const { ok, data } = await postFunction(base, config.api_key, 'compile-wiki', {
+    const { ok, data } = await postFunction(base, serviceKey, 'compile-wiki', {
       slug: s,
       dry_run: dryRun,
     });
