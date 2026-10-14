@@ -125,3 +125,56 @@ describe('refreshWikiPage auth', () => {
     expect(msg).not.toContain(ANON);
   });
 });
+
+describe('capture-thought calls auth', () => {
+  const ANON = 'anon-key-value';
+  const SERVICE = 'service-key-value';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://proj.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', ANON);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('rejectWikiPage sends the server-only service-role key to capture-thought', async () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
+    const { rejectWikiPage } = await import('./actions');
+    const form = new FormData();
+    form.set('page_id', 'p1');
+    form.set('slug', 'topic-a');
+    form.set('reason', 'too long');
+
+    await rejectWikiPage(form);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://proj.supabase.co/functions/v1/capture-thought');
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('resolveContradiction sends the service-role key to capture-thought for the audit thought', async () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
+    mockSupabase.from.mockReturnValue({
+      update: () => ({ eq: async () => ({ error: null }) }),
+    });
+    const { resolveContradiction } = await import('./actions');
+    const form = new FormData();
+    form.set('id', 'c1');
+    form.set('decision', 'resolved');
+    form.set('note', 'B supersedes A');
+
+    await resolveContradiction(form);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://proj.supabase.co/functions/v1/capture-thought');
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+});

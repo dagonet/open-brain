@@ -72,9 +72,9 @@ export function loadConfig(): Config | null {
 }
 
 /**
- * compile-wiki and detect-contradictions accept the service-role key only, and
- * the database tables are closed to the anon key, so every PostgREST read/write
- * (sync-vault, audit, wiki get/list/refresh) needs a key separate from `api_key`.
+ * compile-wiki, detect-contradictions and capture-thought accept the service-role
+ * key only, and the database tables are closed to the anon key, so every command
+ * that captures or reads/writes PostgREST needs a key separate from `api_key`.
  * Deliberately no fallback to the anon key: it would only produce a 401 / empty result.
  */
 export function requireServiceKey(config: Pick<Config, 'service_key'>): string {
@@ -242,6 +242,8 @@ async function importMemories(): Promise<void> {
     printSetupInstructions();
     process.exit(1);
   }
+  // capture-thought only accepts the service-role key; a dry run sends nothing.
+  const captureKey = dryRun ? '' : serviceKeyOrExit(config!);
 
   // Read and parse file
   let content: string;
@@ -306,7 +308,7 @@ async function importMemories(): Promise<void> {
       const response = await fetch(config!.api_url, {
         method: 'POST',
         headers: {
-          Authorization: 'Bearer ' + config!.api_key,
+          Authorization: 'Bearer ' + captureKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text: line, source, idempotency_key, metadata, project }),
@@ -346,6 +348,7 @@ export async function captureSingleThought(text: string, projectArg?: string): P
     process.exit(1);
   }
 
+  const serviceKey = serviceKeyOrExit(config);
   const idempotency_key = randomUUID();
 
   try {
@@ -360,7 +363,7 @@ export async function captureSingleThought(text: string, projectArg?: string): P
     const response = await fetch(config.api_url, {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer ' + config.api_key,
+        Authorization: 'Bearer ' + serviceKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -368,7 +371,7 @@ export async function captureSingleThought(text: string, projectArg?: string): P
 
     if (response.status === 401 || response.status === 403) {
       console.error(
-        '\u2717 Failed to capture thought: Authentication failed. Check your BRAIN_API_KEY.',
+        '\u2717 Failed to capture thought: Authentication failed. Check your BRAIN_SERVICE_KEY.',
       );
       process.exit(1);
     }
@@ -903,7 +906,7 @@ export async function auditCommand(): Promise<void> {
       await fetch(config.api_url, {
         method: 'POST',
         headers: {
-          Authorization: 'Bearer ' + config.api_key,
+          Authorization: 'Bearer ' + resolveKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1176,12 +1179,13 @@ async function wikiRejectCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
+  const serviceKey = serviceKeyOrExit(config);
   const idempotency_key = randomUUID();
   const text = `Wiki page ${pageId} rejected: ${reason}`;
   const response = await fetch(config.api_url, {
     method: 'POST',
     headers: {
-      Authorization: 'Bearer ' + config.api_key,
+      Authorization: 'Bearer ' + serviceKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

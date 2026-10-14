@@ -12,6 +12,7 @@ describe('captureSingleThought', () => {
   beforeEach(() => {
     process.env.BRAIN_API_URL = FAKE_URL;
     process.env.BRAIN_API_KEY = FAKE_KEY;
+    process.env.BRAIN_SERVICE_KEY = 'test-service-key';
 
     consoleLogLines = [];
     consoleErrorLines = [];
@@ -30,6 +31,7 @@ describe('captureSingleThought', () => {
   afterEach(() => {
     delete process.env.BRAIN_API_URL;
     delete process.env.BRAIN_API_KEY;
+    delete process.env.BRAIN_SERVICE_KEY;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });

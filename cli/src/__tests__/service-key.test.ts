@@ -107,7 +107,7 @@ describe('service-role commands', () => {
     expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
   });
 
-  it('audit --resolve patches PostgREST with the service key, capture call keeps the anon key', async () => {
+  it('audit --resolve patches PostgREST and captures with the service key', async () => {
     vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
     process.argv = ['node', 'brain', 'audit', '--resolve', 'c1', '--decision', 'resolved'];
     fetchMock.mockResolvedValue({
@@ -124,7 +124,7 @@ describe('service-role commands', () => {
     expect(init.headers.apikey).toBe(SERVICE);
     const [captureUrl, captureInit] = fetchMock.mock.calls[1];
     expect(captureUrl).toBe(`${URL_BASE}/capture-thought`);
-    expect(captureInit.headers.Authorization).toBe(`Bearer ${ANON}`);
+    expect(captureInit.headers.Authorization).toBe(`Bearer ${SERVICE}`);
   });
 
   it('audit --resolve fails fast without a service key and makes no request', async () => {
@@ -192,7 +192,8 @@ describe('service-role commands', () => {
     expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
   });
 
-  it('capture keeps using the anon key (edge function, not PostgREST)', async () => {
+  it('capture sends the service key to capture-thought, not the anon key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -203,7 +204,14 @@ describe('service-role commands', () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`${URL_BASE}/capture-thought`);
-    expect(init.headers.Authorization).toBe(`Bearer ${ANON}`);
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('capture fails fast without a service key and makes no request', async () => {
+    await expect(captureSingleThought('hello')).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
   });
 
   describe('loadConfig service_key resolution', () => {

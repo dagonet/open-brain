@@ -1,5 +1,6 @@
 ﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { processThought } from '../_shared/process-thought.ts';
+import { isServiceRoleAuthorized } from '../_shared/auth.ts';
 import { ThoughtSource } from '../_shared/types.ts';
 const ALLOWED_SOURCES: ThoughtSource[] = [
   'slack',
@@ -10,6 +11,19 @@ const ALLOWED_SOURCES: ThoughtSource[] = [
   'import-chatgpt',
 ];
 serve(async (req: Request): Promise<Response> => {
+  // Auth guard: service-role callers only. Runs before anything else,
+  // including the method check.
+  if (
+    !isServiceRoleAuthorized(
+      req.headers.get('Authorization'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    )
+  ) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   // Only allow POST
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {

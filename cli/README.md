@@ -47,7 +47,7 @@ Create `~/.brain/config.json`:
 
 ### Service key (`brain sync-vault`, `brain wiki get/list/refresh`, `brain audit`)
 
-Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `audit` and `audit --resolve` all need the service key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard → Settings → API), not an `sb_secret_...` key. Set `BRAIN_SERVICE_KEY` or add `"service_key": "<service-role-jwt>"` to `~/.brain/config.json` (the env var wins). It is resolved independently of how `api_url`/`api_key` were loaded. Capture and `wiki reject` (edge function calls) keep using `api_key`.
+Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `audit` and `audit --resolve` all need the service key. `brain "<thought>"`, `import` and `wiki reject` call `capture-thought`, which is also service-role only. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard → Settings → API), not an `sb_secret_...` key. Set `BRAIN_SERVICE_KEY` or add `"service_key": "<service-role-jwt>"` to `~/.brain/config.json` (the env var wins). It is resolved independently of how `api_url`/`api_key` were loaded. `api_key` is still read from the config for backward compatibility, but no command sends it.
 
 ### Getting Your Credentials
 

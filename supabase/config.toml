@@ -63,6 +63,9 @@ backend = "postgres"
 
 # The service-role guard in _shared/auth.ts trusts the gateway having verified the
 # JWT signature. NEVER deploy these with --no-verify-jwt.
+[functions.capture-thought]
+verify_jwt = true
+
 [functions.compile-wiki]
 verify_jwt = true
 
