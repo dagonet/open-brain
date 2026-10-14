@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { auditCommand, wikiRefreshCommand, requireServiceKey, loadConfig } from '../brain.js';
@@ -52,6 +52,7 @@ describe('service-role commands', () => {
 
   afterEach(() => {
     process.argv = origArgv;
+    rmSync(home, { recursive: true, force: true });
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -142,6 +143,17 @@ describe('service-role commands', () => {
       writeConfigFile({ service_key: SERVICE });
 
       expect(loadConfig()?.service_key).toBe('env-service-key');
+    });
+
+    it('ignores a config.json containing null: env mode works, file mode is not configured', () => {
+      mkdirSync(join(home, '.brain'), { recursive: true });
+      writeFileSync(join(home, '.brain', 'config.json'), 'null');
+
+      expect(loadConfig()?.api_key).toBe(ANON);
+
+      vi.stubEnv('BRAIN_API_URL', '');
+      vi.stubEnv('BRAIN_API_KEY', '');
+      expect(loadConfig()).toBeNull();
     });
 
     it('leaves service_key undefined when neither source has it', () => {

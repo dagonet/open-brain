@@ -46,7 +46,8 @@ interface ConfigFile {
 function readConfigFile(): ConfigFile {
   try {
     const configPath = join(homedir(), '.brain', 'config.json');
-    return JSON.parse(readFileSync(configPath, 'utf-8')) as ConfigFile;
+    const parsed: unknown = JSON.parse(readFileSync(configPath, 'utf-8'));
+    return parsed !== null && typeof parsed === 'object' ? (parsed as ConfigFile) : {};
   } catch {
     // Config file not found or invalid
     return {};
