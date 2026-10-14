@@ -3,6 +3,8 @@
 CLAUDE.local.md
 .claude/.mcp.json
 .mcp.json
+# agent-budget-warn.sh runtime log (machine-local)
+.claude/liveness.log
 
 # Environment
 .env
