@@ -2,7 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { auditCommand, wikiRefreshCommand, requireServiceKey, loadConfig } from '../brain.js';
+import {
+  auditCommand,
+  captureSingleThought,
+  syncVault,
+  wikiGetCommand,
+  wikiListCommand,
+  wikiRefreshCommand,
+  requireServiceKey,
+  loadConfig,
+} from '../brain.js';
 
 const URL_BASE = 'https://proj.supabase.co/functions/v1';
 const ANON = 'anon-key-value';
@@ -98,7 +107,8 @@ describe('service-role commands', () => {
     expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
   });
 
-  it('audit --resolve works without a service key (it uses the anon key via PostgREST)', async () => {
+  it('audit --resolve patches PostgREST and captures with the service key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
     process.argv = ['node', 'brain', 'audit', '--resolve', 'c1', '--decision', 'resolved'];
     fetchMock.mockResolvedValue({
       ok: true,
@@ -110,8 +120,98 @@ describe('service-role commands', () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain('/rest/v1/contradictions?id=eq.c1');
-    expect(init.headers.Authorization).toBe(`Bearer ${ANON}`);
-    expect(process.exit).not.toHaveBeenCalled();
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+    expect(init.headers.apikey).toBe(SERVICE);
+    const [captureUrl, captureInit] = fetchMock.mock.calls[1];
+    expect(captureUrl).toBe(`${URL_BASE}/capture-thought`);
+    expect(captureInit.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('audit --resolve fails fast without a service key and makes no request', async () => {
+    process.argv = ['node', 'brain', 'audit', '--resolve', 'c1', '--decision', 'resolved'];
+
+    await expect(auditCommand()).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('wiki get and list read PostgREST with the service key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+
+    await wikiGetCommand(['some-slug']);
+    await wikiListCommand([]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, init] of fetchMock.mock.calls) {
+      expect(url).toContain('/rest/v1/current_wiki_pages');
+      expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+      expect(init.headers.apikey).toBe(SERVICE);
+    }
+  });
+
+  it('wiki get and list fail fast without a service key and make no request', async () => {
+    await expect(wikiGetCommand(['some-slug'])).rejects.toThrow('exit:1');
+    await expect(wikiListCommand([])).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('wiki refresh --all reads topic_counts with the service key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+
+    await wikiRefreshCommand(['--all']);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/rest/v1/topic_counts');
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('sync-vault reads thoughts with the service key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    process.argv = ['node', 'brain', 'sync-vault', join(home, 'vault'), '--dry-run'];
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+
+    await syncVault();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/rest/v1/thoughts');
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+    expect(init.headers.apikey).toBe(SERVICE);
+  });
+
+  it('sync-vault fails fast without a service key and makes no request', async () => {
+    process.argv = ['node', 'brain', 'sync-vault', join(home, 'vault'), '--dry-run'];
+
+    await expect(syncVault()).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('capture sends the service key to capture-thought, not the anon key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+    });
+
+    await captureSingleThought('hello');
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${URL_BASE}/capture-thought`);
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('capture fails fast without a service key and makes no request', async () => {
+    await expect(captureSingleThought('hello')).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
   });
 
   describe('loadConfig service_key resolution', () => {

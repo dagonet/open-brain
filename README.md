@@ -117,7 +117,7 @@ Every thought you capture is:
 | ------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cli/`                                      | Node.js 18+ | `brain` command — capture thoughts, import memories, refresh wiki pages, run contradiction audits. Zero runtime dependencies.                        |
 | `mcp-server/`                               | Node.js 18+ | MCP server with 22 tools (10 thoughts + 3 wiki + 3 contradictions + 4 tasks + 2 entities) for Claude Code integration                                              |
-| `web/`                                      | Next.js 15  | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Read-only via Supabase anon key; auto-deployed from `main` to Vercel. |
+| `web/`                                      | Next.js 15  | Authenticated dashboard with `/`, `/wiki`, `/contradictions`, `/graph` routes. Reads as the signed-in user; the anon key serves only login/auth; auto-deployed from `main` to Vercel. |
 | `supabase/functions/capture-thought/`       | Deno        | Edge function for thought processing and storage                                                                                                     |
 | `supabase/functions/compile-wiki/`          | Deno        | (v0.3.0) Compiles a topic-level wiki page from clustered thoughts with citation validation                                                           |
 | `supabase/functions/detect-contradictions/` | Deno        | (v0.3.0) Audits thought pairs for contradictions via embedding-similar neighbours + LLM judge                                                        |
@@ -188,7 +188,7 @@ supabase functions deploy detect-contradictions     # v0.3.0
 supabase functions deploy slack-webhook             # optional, only if using Slack
 ```
 
-> **Service-role only:** `compile-wiki` and `detect-contradictions` spend LLM tokens, so they reject every caller except one presenting the **service-role key** (the **legacy `service_role` JWT**, `eyJ...`; the gateway checks its signature and the function checks the `role` claim); the anon key, user JWTs and missing credentials get `401`. The web dashboard (`SUPABASE_SERVICE_ROLE_KEY`, see below) and the CLI (`BRAIN_SERVICE_KEY`) must be given the legacy `service_role` JWT, **not** the new `sb_secret_...` key: a non-JWT bearer is rejected with 401 by the gateway's `verify_jwt` check. The MCP server sends its `SUPABASE_SERVICE_ROLE_KEY` as-is, so use the legacy JWT there too.
+> **Service-role only:** `capture-thought` writes to the database and `compile-wiki` / `detect-contradictions` spend LLM tokens, so they reject every caller except one presenting the **service-role key** (the **legacy `service_role` JWT**, `eyJ...`; the gateway checks its signature and the function checks the `role` claim); the anon key, user JWTs and missing credentials get `401`. The web dashboard (`SUPABASE_SERVICE_ROLE_KEY`, see below) and the CLI (`BRAIN_SERVICE_KEY`) must be given the legacy `service_role` JWT, **not** the new `sb_secret_...` key: a non-JWT bearer is rejected with 401 by the gateway's `verify_jwt` check. The MCP server sends its `SUPABASE_SERVICE_ROLE_KEY` as-is, so use the legacy JWT there too.
 >
 > **Never deploy these functions with `--no-verify-jwt`.** The guard trusts the gateway's signature check; `supabase/config.toml` pins `verify_jwt = true` for them.
 
@@ -243,7 +243,7 @@ cat > ~/.brain/config.json << 'EOF'
 EOF
 ```
 
-`brain audit` and `brain wiki refresh` call `detect-contradictions` / `compile-wiki`, which require the service-role key. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. All other commands keep using `BRAIN_API_KEY`.
+Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `BRAIN_API_KEY` is still read from the config but no command sends it.
 
 ```bash
 export BRAIN_SERVICE_KEY=your-service-role-key
@@ -308,7 +308,7 @@ npm run dev
 
 Open <http://localhost:3000>, sign in with the user you created, and browse `/`, `/wiki`, `/contradictions`.
 
-**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" button also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` requires the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
+**5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" / "reject" / contradiction-note actions also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` and `capture-thought` require the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
 
 ### 8. Set Up Slack (Optional)
 

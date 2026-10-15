@@ -43,16 +43,17 @@ additional_redirect_urls = ["https://127.0.0.1:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
-enable_signup = true
+enable_signup = false
+enable_anonymous_sign_ins = false
 enable_manual_linking = false
 
 [auth.email]
-enable_signup = true
+enable_signup = false
 double_confirm_changes = true
 enable_confirmations = false
 
 [auth.sms]
-enable_signup = true
+enable_signup = false
 enable_confirmations = false
 
 [analytics]
@@ -63,6 +64,9 @@ backend = "postgres"
 
 # The service-role guard in _shared/auth.ts trusts the gateway having verified the
 # JWT signature. NEVER deploy these with --no-verify-jwt.
+[functions.capture-thought]
+verify_jwt = true
+
 [functions.compile-wiki]
 verify_jwt = true
 

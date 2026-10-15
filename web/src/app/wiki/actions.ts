@@ -21,17 +21,18 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 let warnedMissingServiceKey = false;
 
-// compile-wiki only accepts service-role callers. SUPABASE_SERVICE_ROLE_KEY is
-// server-only (never NEXT_PUBLIC_) so it cannot reach the browser bundle.
-// Transitional: until it is set in the deployment, fall back to the anon key
-// (which the currently deployed compile-wiki still accepts) and warn once.
-function compileAuthKey(): string {
+// compile-wiki and capture-thought only accept service-role callers.
+// SUPABASE_SERVICE_ROLE_KEY is server-only (never NEXT_PUBLIC_) so it cannot
+// reach the browser bundle. Transitional: until it is set in the deployment,
+// fall back to the anon key (which a not-yet-redeployed function still
+// accepts) and warn once.
+function functionAuthKey(): string {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (serviceKey) return serviceKey;
   if (!warnedMissingServiceKey) {
     warnedMissingServiceKey = true;
     console.warn(
-      'SUPABASE_SERVICE_ROLE_KEY is not set; wiki refresh falls back to the anon key and will fail once compile-wiki requires the service-role key.',
+      'SUPABASE_SERVICE_ROLE_KEY is not set; edge function calls fall back to the anon key and will fail once the functions require the service-role key.',
     );
   }
   return ANON_KEY;
@@ -67,7 +68,7 @@ export async function rejectWikiPage(formData: FormData): Promise<void> {
   const captureRes = await fetch(CAPTURE_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${ANON_KEY}`,
+      Authorization: `Bearer ${functionAuthKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -106,7 +107,7 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
   const refreshRes = await fetch(COMPILE_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${compileAuthKey()}`,
+      Authorization: `Bearer ${functionAuthKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ slug }),
@@ -163,7 +164,7 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
     const captureRes = await fetch(CAPTURE_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${ANON_KEY}`,
+        Authorization: `Bearer ${functionAuthKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -178,10 +179,12 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
       }),
     });
     if (!captureRes.ok) {
-      // Resolution succeeded; only the audit thought failed. Log but don't
-      // throw, so the user-visible action stays "resolved".
-      console.error(
-        `Failed to capture contradiction-resolution audit thought: HTTP ${captureRes.status}`,
+      // The status update already succeeded; revalidate before surfacing the
+      // failed audit note so the page shows the resolved state.
+      revalidatePath('/contradictions');
+      revalidatePath(`/contradictions/${id}`);
+      throw new Error(
+        `Contradiction resolved, but saving the audit note failed: HTTP ${captureRes.status}`,
       );
     }
   }
