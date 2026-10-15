@@ -13,7 +13,7 @@ The package is not published to npm. Build it from a clone of the repository:
 ```bash
 npm ci --prefix cli
 npm run build --prefix cli
-npm install -g ./cli       # from the repo root; links `brain` onto your PATH (PowerShell: npm install -g .\cli)
+npm install -g --install-links=false ./cli       # from the repo root; links `brain` onto your PATH (PowerShell: npm install -g --install-links=false .\cli)
 brain "your thought here"
 ```
 
