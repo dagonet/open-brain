@@ -222,10 +222,10 @@ supabase secrets set WIKI_TOPIC_DENYLIST=personal-health,client-acme
 ```bash
 npm ci --prefix cli
 npm run build --prefix cli
-npm link --prefix cli
+npm install -g ./cli    # from the repo root (PowerShell: npm install -g .\cli)
 ```
 
-The CLI is not published to npm. After every `git pull`, rebuild it (`npm run build --prefix cli`); `brain` runs the compiled `cli/dist/`, so it keeps the old code until you do.
+The CLI is not published to npm. After every `git pull`, rebuild it: `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`, so it keeps the old code until you do. Node.js 18+ runs the CLI; building and testing it needs 22.12+.
 
 Configure the CLI:
 
@@ -243,7 +243,7 @@ cat > ~/.brain/config.json << 'EOF'
 EOF
 ```
 
-Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `api_key` / `BRAIN_API_KEY` is optional and no command sends it.
+Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) (the anon key is not used), via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `api_key` / `BRAIN_API_KEY` is optional and no command sends it.
 
 ```bash
 export BRAIN_SERVICE_KEY=your-service-role-key

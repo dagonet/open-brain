@@ -4,7 +4,7 @@ Command-line tool for capturing thoughts to the Open Brain system.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 18+ to run; 22.12+ to build and test
 
 ## Installation
 
@@ -13,13 +13,15 @@ The package is not published to npm. Build it from a clone of the repository:
 ```bash
 npm ci --prefix cli
 npm run build --prefix cli
-npm link --prefix cli      # puts `brain` on your PATH
+npm install -g ./cli       # from the repo root; links `brain` onto your PATH (PowerShell: npm install -g .\cli)
 brain "your thought here"
 ```
 
-Without `npm link`, run `node cli/dist/brain.js "your thought here"` or point a launcher script at it.
+Without the global install, run `node cli/dist/brain.js "your thought here"` or point a launcher script at it.
 
-**After every `git pull`, rebuild** (`npm run build --prefix cli`). `brain` runs the compiled `cli/dist/`, so until you rebuild it keeps running the old code.
+**After every `git pull`, rebuild:** `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`, so until you rebuild it keeps running the old code.
+
+Node.js 18+ is enough to run the CLI; building and testing it (vitest 5) needs Node.js 22.12+.
 
 ## Configuration
 
@@ -80,9 +82,8 @@ If the thought was already captured (duplicate idempotency key):
 
 - **No API config**: Prints setup instructions
 - **Network error**: "Could not reach the API. Check your connection and BRAIN_API_URL."
-- **401/403**: "Authentication failed. Check your BRAIN_SERVICE_KEY."
-- **500+**: "Server error. Please try again later."
-- **400**: Shows the specific validation error from the API
+- **Any failed server call**: prints `HTTP <status>: <error from the response>` (for `wiki refresh`, per slug)
+- **401/403**: the same line plus a hint to check `BRAIN_SERVICE_KEY` / `service_key`
 
 ## Wiki & Contradictions (v0.3.0)
 

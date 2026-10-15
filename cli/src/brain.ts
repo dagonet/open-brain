@@ -16,7 +16,7 @@ interface Config {
   api_url: string;
   /** Anon key. No command sends it any more; kept optional for old configs. */
   api_key?: string;
-  /** Service-role key; used ONLY for compile-wiki and detect-contradictions. */
+  /** Service-role key; every command sends it (capture, import, sync-vault, wiki, audit). */
   service_key?: string;
 }
 
@@ -330,7 +330,7 @@ export async function importMemories(): Promise<void> {
         body: JSON.stringify({ text: line, source, idempotency_key, metadata, project }),
       });
 
-      const data = (await response.json()) as ThoughtResponse;
+      const data = (await response.json().catch(() => ({}))) as ThoughtResponse;
 
       if (!response.ok || !data.success) {
         console.log(`${prefix} \u2717 Failed: ${describeFailure(response.status, data)}`);
@@ -384,23 +384,10 @@ export async function captureSingleThought(text: string, projectArg?: string): P
       body: JSON.stringify(body),
     });
 
-    if (response.status === 401 || response.status === 403) {
-      console.error(
-        '\u2717 Failed to capture thought: Authentication failed. Check your BRAIN_SERVICE_KEY.',
-      );
-      process.exit(1);
-    }
-
-    if (response.status >= 500) {
-      console.error('\u2717 Failed to capture thought: Server error. Please try again later.');
-      process.exit(1);
-    }
-
-    const data = (await response.json()) as ThoughtResponse;
+    const data = (await response.json().catch(() => ({}))) as ThoughtResponse;
 
     if (!response.ok || !data.success) {
-      const msg = data.error || 'HTTP ' + response.status;
-      console.error('\u2717 Failed to capture thought: ' + msg);
+      console.error('\u2717 Failed to capture thought: ' + describeFailure(response.status, data));
       process.exit(1);
     }
 
@@ -578,7 +565,8 @@ async function fetchAllThoughts(postgrestUrl: string, apiKey: string): Promise<T
     }
 
     if (!response.ok) {
-      throw new Error(`PostgREST error: HTTP ${response.status} ${response.statusText}`);
+      const body = await response.json().catch(() => ({}));
+      throw new Error(`PostgREST error: ${describeFailure(response.status, body)}`);
     }
 
     const data = (await response.json()) as Thought[];
@@ -919,7 +907,7 @@ export async function auditCommand(): Promise<void> {
       .update(`resolve:${resolveId}:${decision}`)
       .digest('hex');
     try {
-      await fetch(config.api_url, {
+      const captureResponse = await fetch(config.api_url, {
         method: 'POST',
         headers: {
           Authorization: 'Bearer ' + resolveKey,
@@ -936,6 +924,12 @@ export async function auditCommand(): Promise<void> {
           },
         }),
       });
+      if (!captureResponse.ok) {
+        const body = await captureResponse.json().catch(() => ({}));
+        console.error(
+          `  (audit thought capture failed: ${describeFailure(captureResponse.status, body)})`,
+        );
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  (audit thought capture failed: ${msg})`);
@@ -992,6 +986,10 @@ export async function auditCommand(): Promise<void> {
         console.log(`    ${row.thought_a_id} <-> ${row.thought_b_id}`);
         console.log(`    ${row.reason}`);
       }
+    } else {
+      console.error(
+        `  (could not list new contradictions: ${describeFailure(result.status, result.data)})`,
+      );
     }
   }
 }
