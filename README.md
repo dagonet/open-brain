@@ -220,30 +220,30 @@ supabase secrets set WIKI_TOPIC_DENYLIST=personal-health,client-acme
 ### 5. Install CLI
 
 ```bash
-cd cli
-npm install
-npm run build
-npm link
+npm ci --prefix cli
+npm run build --prefix cli
+npm install -g --install-links=false ./cli    # from the repo root (PowerShell: npm install -g --install-links=false .\cli)
 ```
+
+The CLI is not published to npm. After every `git pull`, rebuild it: `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`, so it keeps the old code until you do. Node.js 18+ runs the CLI; building and testing it needs 22.12+.
 
 Configure the CLI:
 
 ```bash
 # Option A: environment variables
 export BRAIN_API_URL=https://your-project.supabase.co/functions/v1/capture-thought
-export BRAIN_API_KEY=your-supabase-anon-key
 
 # Option B: config file
 mkdir -p ~/.brain
 cat > ~/.brain/config.json << 'EOF'
 {
   "api_url": "https://your-project.supabase.co/functions/v1/capture-thought",
-  "api_key": "your-supabase-anon-key"
+  "service_key": "your-service-role-key"
 }
 EOF
 ```
 
-Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`) separately from the anon key, via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `BRAIN_API_KEY` is still read from the config but no command sends it.
+Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`; the anon key is not used) via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `api_key` / `BRAIN_API_KEY` is optional and no command sends it.
 
 ```bash
 export BRAIN_SERVICE_KEY=your-service-role-key

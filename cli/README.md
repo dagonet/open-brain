@@ -4,24 +4,24 @@ Command-line tool for capturing thoughts to the Open Brain system.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 18+ to run; 22.12+ to build and test
 
 ## Installation
 
-Install globally from npm:
+The package is not published to npm. Build it from a clone of the repository:
 
 ```bash
-npm install -g @open-brain/cli
+npm ci --prefix cli
+npm run build --prefix cli
+npm install -g --install-links=false ./cli       # from the repo root; links `brain` onto your PATH (PowerShell: npm install -g --install-links=false .\cli)
+brain "your thought here"
 ```
 
-Or build and run from the repository:
+Without the global install, run `node cli/dist/brain.js "your thought here"` or point a launcher script at it.
 
-```bash
-cd cli
-npm install
-npm run build
-node dist/brain.js "your thought here"
-```
+**After every `git pull`, rebuild:** `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`, so until you rebuild it keeps running the old code.
+
+Node.js 18+ is enough to run the CLI; building and testing it (vitest 5) needs Node.js 22.12+.
 
 ## Configuration
 
@@ -31,7 +31,7 @@ The CLI looks for configuration in this order:
 
 ```bash
 export BRAIN_API_URL="https://<project>.supabase.co/functions/v1/capture-thought"
-export BRAIN_API_KEY="<your-supabase-anon-key>"
+export BRAIN_SERVICE_KEY="<your-service-role-key>"
 ```
 
 ### 2. Config File
@@ -41,20 +41,20 @@ Create `~/.brain/config.json`:
 ```json
 {
   "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",
-  "api_key": "<your-supabase-anon-key>"
+  "service_key": "<your-service-role-key>"
 }
 ```
 
 ### Service key (`brain sync-vault`, `brain wiki get/list/refresh`, `brain audit`)
 
-Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `audit` and `audit --resolve` all need the service key. `brain "<thought>"`, `import` and `wiki reject` call `capture-thought`, which is also service-role only. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard → Settings → API), not an `sb_secret_...` key. Set `BRAIN_SERVICE_KEY` or add `"service_key": "<service-role-jwt>"` to `~/.brain/config.json` (the env var wins). It is resolved independently of how `api_url`/`api_key` were loaded. `api_key` is still read from the config for backward compatibility, but no command sends it.
+Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `audit` and `audit --resolve` all need the service key. `brain "<thought>"`, `import` and `wiki reject` call `capture-thought`, which is also service-role only. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard → Settings → API), not an `sb_secret_...` key. Set `BRAIN_SERVICE_KEY` or add `"service_key": "<service-role-jwt>"` to `~/.brain/config.json` (the env var wins). `api_url` is required; `api_key` / `BRAIN_API_KEY` is optional and no command sends it, so you can leave it out. When a server call fails, the CLI prints the HTTP status and the function's error message; on 401/403 it also points at `BRAIN_SERVICE_KEY` / `service_key`.
 
 ### Getting Your Credentials
 
 1. Go to your Supabase project dashboard
 2. Navigate to Settings > API
 3. Copy the **Project URL** and append `/functions/v1/capture-thought` for the API URL
-4. Copy the **anon public** key for the API key
+4. Copy the **service_role** key (legacy JWT) for `BRAIN_SERVICE_KEY` / `service_key`
 
 ## Usage
 
@@ -82,9 +82,8 @@ If the thought was already captured (duplicate idempotency key):
 
 - **No API config**: Prints setup instructions
 - **Network error**: "Could not reach the API. Check your connection and BRAIN_API_URL."
-- **401/403**: "Authentication failed. Check your BRAIN_SERVICE_KEY."
-- **500+**: "Server error. Please try again later."
-- **400**: Shows the specific validation error from the API
+- **Any failed server call**: prints `HTTP <status>: <error from the response>` (for `wiki refresh`, per slug)
+- **401/403**: the same line plus a hint to check `BRAIN_SERVICE_KEY` / `service_key`
 
 ## Wiki & Contradictions (v0.3.0)
 

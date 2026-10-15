@@ -4,6 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   auditCommand,
+  describeFailure,
+  importMemories,
+  wikiRejectCommand,
   captureSingleThought,
   syncVault,
   wikiGetCommand,
@@ -212,6 +215,304 @@ describe('service-role commands', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('import sends the service key to capture-thought, not the anon key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    const file = join(home, 'memories.txt');
+    writeFileSync(file, 'first memory\n');
+    process.argv = ['node', 'brain', 'import', file, '--delay', '0'];
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+    });
+
+    await importMemories();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${URL_BASE}/capture-thought`);
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('import fails fast without a service key and makes no request', async () => {
+    const file = join(home, 'memories.txt');
+    writeFileSync(file, 'first memory\n');
+    process.argv = ['node', 'brain', 'import', file];
+
+    await expect(importMemories()).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  it('wiki reject sends the service key to capture-thought, not the anon key', async () => {
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+
+    await wikiRejectCommand(['page-1', '--reason', 'wrong']);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${URL_BASE}/capture-thought`);
+    expect(init.headers.Authorization).toBe(`Bearer ${SERVICE}`);
+  });
+
+  it('wiki reject fails fast without a service key and makes no request', async () => {
+    await expect(wikiRejectCommand(['page-1', '--reason', 'wrong'])).rejects.toThrow('exit:1');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(String(vi.mocked(console.error).mock.calls[0][0])).toContain('BRAIN_SERVICE_KEY');
+  });
+
+  describe('failure reasons', () => {
+    const errorOutput = (): string =>
+      vi
+        .mocked(console.error)
+        .mock.calls.map((c) => String(c[0]))
+        .join('\n');
+
+    it('wiki refresh prints slug, status and error field for a failed slug', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'LLM exploded' }),
+      });
+
+      await wikiRefreshCommand(['some-slug']);
+
+      expect(errorOutput()).toContain('some-slug');
+      expect(errorOutput()).toContain('HTTP 500');
+      expect(errorOutput()).toContain('LLM exploded');
+      expect(errorOutput()).not.toContain('BRAIN_SERVICE_KEY');
+      expect(vi.mocked(console.log).mock.calls.at(-1)?.[0]).toContain('errors 1');
+    });
+
+    it('wiki refresh adds the service-key hint on 401', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Invalid JWT' }),
+      });
+
+      await wikiRefreshCommand(['some-slug']);
+
+      expect(errorOutput()).toContain('HTTP 401: Invalid JWT');
+      expect(errorOutput()).toContain('BRAIN_SERVICE_KEY');
+      expect(errorOutput()).toContain('service_key');
+      expect(errorOutput()).not.toContain(SERVICE);
+    });
+
+    it('audit prints status and error field, with the hint on 403', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      process.argv = ['node', 'brain', 'audit'];
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: 'Forbidden' }),
+      });
+
+      await expect(auditCommand()).rejects.toThrow('exit:1');
+
+      expect(errorOutput()).toContain('HTTP 403: Forbidden');
+      expect(errorOutput()).toContain('BRAIN_SERVICE_KEY');
+    });
+
+    it('wiki reject prints status and error field from a failed response', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Unauthorized' }),
+      });
+
+      await expect(wikiRejectCommand(['page-1', '--reason', 'wrong'])).rejects.toThrow('exit:1');
+
+      expect(errorOutput()).toContain('HTTP 401: Unauthorized');
+      expect(errorOutput()).toContain('BRAIN_SERVICE_KEY');
+    });
+
+    it('wiki list prints the PostgREST message for a failed read', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'relation does not exist' }),
+      });
+
+      await expect(wikiListCommand([])).rejects.toThrow('exit:1');
+
+      expect(errorOutput()).toContain('HTTP 404: relation does not exist');
+    });
+
+    it('capture prints status and error field, with the hint on 401', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Invalid JWT' }),
+      });
+
+      await expect(captureSingleThought('hello')).rejects.toThrow('exit:1');
+
+      expect(errorOutput()).toContain('HTTP 401: Invalid JWT');
+      expect(errorOutput()).toContain('BRAIN_SERVICE_KEY');
+    });
+
+    it('capture prints status and error field on a 500', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'embedding failed' }),
+      });
+
+      await expect(captureSingleThought('hello')).rejects.toThrow('exit:1');
+
+      expect(errorOutput()).toContain('HTTP 500: embedding failed');
+    });
+
+    it('import reports status and error, even for a non-JSON body', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      const file = join(home, 'memories.txt');
+      writeFileSync(file, 'first memory\nsecond memory\n');
+      process.argv = ['node', 'brain', 'import', file, '--delay', '0'];
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'Invalid JWT' }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          json: async () => {
+            throw new SyntaxError('Unexpected token <');
+          },
+        });
+
+      await importMemories();
+
+      const logged = vi
+        .mocked(console.log)
+        .mock.calls.map((c) => String(c[0]))
+        .join('\n');
+      expect(logged).toContain('HTTP 401: Invalid JWT');
+      expect(logged).toContain('BRAIN_SERVICE_KEY');
+      expect(logged).toContain('HTTP 502');
+      expect(logged).toContain('2 failed');
+    });
+
+    it('audit --resolve reports a failed follow-up capture', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      process.argv = ['node', 'brain', 'audit', '--resolve', 'c1', '--decision', 'resolved'];
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => [{ id: 'c1', status: 'resolved' }],
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'Invalid JWT' }),
+        });
+
+      await auditCommand();
+
+      expect(errorOutput()).toContain('audit thought capture failed');
+      expect(errorOutput()).toContain('HTTP 401: Invalid JWT');
+    });
+
+    it('audit --verbose reports a failed contradictions listing', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      process.argv = ['node', 'brain', 'audit', '--verbose'];
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ contradictions_inserted: 1 }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          json: async () => ({ message: 'permission denied' }),
+        });
+
+      await auditCommand();
+
+      expect(errorOutput()).toContain('HTTP 403: permission denied');
+    });
+
+    it('sync-vault reports the status and body of a failed read', async () => {
+      vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+      process.argv = ['node', 'brain', 'sync-vault', join(home, 'vault')];
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ message: 'Invalid API key' }),
+      });
+
+      await expect(syncVault()).rejects.toThrow();
+
+      const all = [...vi.mocked(console.error).mock.calls, ...vi.mocked(console.log).mock.calls]
+        .map((c) => String(c[0]))
+        .join('\n');
+      expect(all).toContain('HTTP 401: Invalid API key');
+    });
+
+    it('describeFailure copes with a non-object body', () => {
+      expect(describeFailure(502, null)).toBe('HTTP 502');
+      expect(describeFailure(502, 'oops')).toBe('HTTP 502');
+    });
+  });
+
+  describe('loadConfig without api_key', () => {
+    it('is configured by api_url alone (env)', () => {
+      vi.stubEnv('BRAIN_API_KEY', '');
+
+      expect(loadConfig()?.api_url).toBe(`${URL_BASE}/capture-thought`);
+      expect(loadConfig()?.api_key).toBeUndefined();
+    });
+
+    it('is configured by api_url alone (file)', () => {
+      vi.stubEnv('BRAIN_API_URL', '');
+      vi.stubEnv('BRAIN_API_KEY', '');
+      writeConfigFile({ api_url: `${URL_BASE}/capture-thought`, service_key: SERVICE });
+
+      expect(loadConfig()).toEqual({
+        api_url: `${URL_BASE}/capture-thought`,
+        api_key: undefined,
+        service_key: SERVICE,
+      });
+    });
+
+    it('resolves each field on its own: env api_url with file api_key', () => {
+      vi.stubEnv('BRAIN_API_KEY', '');
+      writeConfigFile({ api_url: 'https://file.supabase.co/x', api_key: 'file-anon' });
+
+      expect(loadConfig()).toMatchObject({
+        api_url: `${URL_BASE}/capture-thought`,
+        api_key: 'file-anon',
+      });
+    });
+
+    it('resolves each field on its own: file api_url with env api_key', () => {
+      vi.stubEnv('BRAIN_API_URL', '');
+      writeConfigFile({ api_url: 'https://file.supabase.co/x' });
+
+      expect(loadConfig()).toMatchObject({ api_url: 'https://file.supabase.co/x', api_key: ANON });
+    });
+
+    it('is not configured without api_url', () => {
+      vi.stubEnv('BRAIN_API_URL', '');
+      vi.stubEnv('BRAIN_API_KEY', '');
+      writeConfigFile({ service_key: SERVICE });
+
+      expect(loadConfig()).toBeNull();
+    });
   });
 
   describe('loadConfig service_key resolution', () => {
