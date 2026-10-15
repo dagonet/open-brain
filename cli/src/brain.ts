@@ -14,7 +14,8 @@ import { randomUUID, createHash } from 'node:crypto';
 
 interface Config {
   api_url: string;
-  api_key: string;
+  /** Anon key. No command sends it any more; kept optional for old configs. */
+  api_key?: string;
   /** Service-role key; used ONLY for compile-wiki and detect-contradictions. */
   service_key?: string;
 }
@@ -56,14 +57,10 @@ function readConfigFile(): ConfigFile {
 
 export function loadConfig(): Config | null {
   // 1. Environment variables, 2. config file ~/.brain/config.json
-  let apiUrl = process.env.BRAIN_API_URL;
-  let apiKey = process.env.BRAIN_API_KEY;
   const file = readConfigFile();
-  if (!(apiUrl && apiKey)) {
-    apiUrl = file.api_url;
-    apiKey = file.api_key;
-  }
-  if (!apiUrl || !apiKey) return null;
+  const apiUrl = process.env.BRAIN_API_URL || file.api_url;
+  if (!apiUrl) return null;
+  const apiKey = process.env.BRAIN_API_KEY || file.api_key || undefined;
 
   // The service key is resolved on its own, however url/key were loaded:
   // BRAIN_SERVICE_KEY wins, then the config file's service_key.
@@ -96,6 +93,25 @@ function serviceKeyOrExit(config: Config): string {
   }
 }
 
+/**
+ * One-line reason for a failed server call: HTTP status, the response's `error`
+ * (or PostgREST `message`) field, and a key hint on 401/403.
+ */
+export function describeFailure(status: number, data: unknown): string {
+  const body = data !== null && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+  const detail =
+    typeof body.error === 'string'
+      ? body.error
+      : typeof body.message === 'string'
+        ? body.message
+        : '';
+  let reason = `HTTP ${status}` + (detail ? `: ${detail}` : '');
+  if (status === 401 || status === 403) {
+    reason += ' (check BRAIN_SERVICE_KEY / "service_key" in ~/.brain/config.json)';
+  }
+  return reason;
+}
+
 function printSetupInstructions(): void {
   console.error(
     [
@@ -104,16 +120,15 @@ function printSetupInstructions(): void {
       '',
       'Configure via environment variables:',
       '  export BRAIN_API_URL="https://<project>.supabase.co/functions/v1/capture-thought"',
-      '  export BRAIN_API_KEY="<your-supabase-anon-key>"',
       '',
       'Or create ~/.brain/config.json:',
       '  {',
       '    "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",',
-      '    "api_key": "<your-supabase-anon-key>"',
+      '    "service_key": "<your-service-role-key>"',
       '  }',
       '',
       'Every command needs the service-role key (the legacy service_role JWT, eyJ...);',
-      'the anon key alone is no longer accepted by capture, import, sync-vault, audit or wiki:',
+      'the anon key is no longer accepted (or needed) by capture, import, sync-vault, audit or wiki:',
       '  export BRAIN_SERVICE_KEY="<your-service-role-key>"   (or "service_key" in config.json)',
       '',
     ].join('\n'),
@@ -200,7 +215,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function importMemories(): Promise<void> {
+export async function importMemories(): Promise<void> {
   const args = process.argv.slice(3);
 
   // Parse arguments
@@ -318,8 +333,7 @@ async function importMemories(): Promise<void> {
       const data = (await response.json()) as ThoughtResponse;
 
       if (!response.ok || !data.success) {
-        const msg = data.error || 'HTTP ' + response.status;
-        console.log(`${prefix} \u2717 Failed: ${msg}`);
+        console.log(`${prefix} \u2717 Failed: ${describeFailure(response.status, data)}`);
         failed++;
       } else if (data.is_duplicate) {
         console.log(`${prefix} \u223C Skipped (duplicate): "${preview}"`);
@@ -872,7 +886,8 @@ export async function auditCommand(): Promise<void> {
       body: JSON.stringify(patch),
     });
     if (!response.ok) {
-      console.error(`✗ Failed to resolve contradiction: HTTP ${response.status}`);
+      const body = await response.json().catch(() => ({}));
+      console.error(`✗ Failed to resolve contradiction: ${describeFailure(response.status, body)}`);
       process.exit(1);
     }
     // Prefer: return=representation makes PostgREST echo updated rows.
@@ -941,8 +956,7 @@ export async function auditCommand(): Promise<void> {
     candidate_limit: candidateLimit,
   });
   if (!ok) {
-    const err = (data as { error?: string }).error || `HTTP ${status}`;
-    console.error('✗ Audit failed: ' + err);
+    console.error('✗ Audit failed: ' + describeFailure(status, data));
     process.exit(1);
   }
 
@@ -1019,7 +1033,7 @@ export async function wikiGetCommand(args: string[]): Promise<void> {
     )}&select=id,slug,version,content_md,partial,source_thought_count,compiled_at`,
   );
   if (!result.ok) {
-    console.error(`✗ Failed: HTTP ${result.status}`);
+    console.error(`✗ Failed: ${describeFailure(result.status, result.data)}`);
     process.exit(1);
   }
   const rows = result.data as CurrentWikiPageRow[];
@@ -1057,7 +1071,7 @@ export async function wikiListCommand(args: string[]): Promise<void> {
     `current_wiki_pages?order=compiled_at.desc&limit=${limit}&select=slug,version,source_thought_count,partial,compiled_at`,
   );
   if (!result.ok) {
-    console.error(`✗ Failed: HTTP ${result.status}`);
+    console.error(`✗ Failed: ${describeFailure(result.status, result.data)}`);
     process.exit(1);
   }
   const rows = result.data as CurrentWikiPageRow[];
@@ -1112,7 +1126,9 @@ export async function wikiRefreshCommand(args: string[]): Promise<void> {
       `topic_counts?order=thought_count.desc&limit=${topK}&select=slug,display_name,thought_count`,
     );
     if (!result.ok) {
-      console.error(`✗ Failed to read topic_counts: HTTP ${result.status}`);
+      console.error(
+        `✗ Failed to read topic_counts: ${describeFailure(result.status, result.data)}`,
+      );
       process.exit(1);
     }
     const rows = result.data as TopicCountRow[];
@@ -1134,11 +1150,16 @@ export async function wikiRefreshCommand(args: string[]): Promise<void> {
   let errors = 0;
 
   for (const s of slugs) {
-    const { ok, data } = await postFunction(base, serviceKey, 'compile-wiki', {
+    const {
+      ok,
+      status: httpStatus,
+      data,
+    } = await postFunction(base, serviceKey, 'compile-wiki', {
       slug: s,
       dry_run: dryRun,
     });
     if (!ok) {
+      console.error(`✗ ${s}: ${describeFailure(httpStatus, data)}`);
       errors += 1;
       continue;
     }
@@ -1155,7 +1176,7 @@ export async function wikiRefreshCommand(args: string[]): Promise<void> {
   console.log(`Done: compiled ${compiled}, refused ${refused}, raced ${raced}, errors ${errors}`);
 }
 
-async function wikiRejectCommand(args: string[]): Promise<void> {
+export async function wikiRejectCommand(args: string[]): Promise<void> {
   const pageId = args[0];
   if (!pageId) {
     console.error('Error: brain wiki reject <page_id> requires a page id');
@@ -1201,7 +1222,8 @@ async function wikiRejectCommand(args: string[]): Promise<void> {
     }),
   });
   if (!response.ok) {
-    console.error(`✗ Failed to record rejection: HTTP ${response.status}`);
+    const body = await response.json().catch(() => ({}));
+    console.error(`✗ Failed to record rejection: ${describeFailure(response.status, body)}`);
     process.exit(1);
   }
   console.log(`✓ Recorded rejection for ${pageId}`);
