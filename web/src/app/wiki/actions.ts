@@ -153,9 +153,10 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
 
   const supabase = await requireOwner();
 
-  // RLS on `contradictions` is intentionally open for authenticated users
-  // (single-user deployment per migration 005). If multi-user support is
-  // added later, also filter by an ownership column here.
+  // RLS on `contradictions` lets only accounts listed in public.owners update
+  // (migration 017); requireOwner() above checks OWNER_USER_IDS. Keep both
+  // lists the same. If multi-user support is added later, also filter by an
+  // ownership column here.
   const { error: updateErr } = await supabase
     .from('contradictions')
     .update({

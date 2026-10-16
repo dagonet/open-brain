@@ -4,6 +4,8 @@
 -- Result sets 1-5 must show that anon has no access: sets 2-4 expect
 -- anon_access = false on every row, sets 1 and 5 must return no rows.
 -- Result sets 6-7 are positive checks and expect true on every row.
+-- For the authenticated side (only the owner may read or write, migration 017)
+-- see verify-owner-scope.sql.
 
 -- 1. Policies in public that apply to anon or PUBLIC (expect: no rows).
 SELECT tablename, policyname, cmd, roles
