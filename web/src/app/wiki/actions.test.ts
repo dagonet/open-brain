@@ -26,6 +26,13 @@ vi.mock('next/navigation', () => ({
 
 const fetchMock = vi.fn();
 
+// The chain resolveContradiction runs: from().update().eq().select(), which
+// resolves with the rows the update touched.
+type UpdateResult = { data: { id: string }[] | null; error: { message: string } | null };
+function updateChain(result: UpdateResult) {
+  return { update: () => ({ eq: () => ({ select: async () => result }) }) };
+}
+
 describe('wiki actions input validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -168,9 +175,7 @@ describe('capture-thought calls auth', () => {
 
   it('resolveContradiction sends the service-role key to capture-thought for the audit thought', async () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
-    mockSupabase.from.mockReturnValue({
-      update: () => ({ eq: async () => ({ error: null }) }),
-    });
+    mockSupabase.from.mockReturnValue(updateChain({ data: [{ id: 'c1' }], error: null }));
     const { resolveContradiction } = await import('./actions');
     const form = new FormData();
     form.set('id', 'c1');
@@ -187,9 +192,7 @@ describe('capture-thought calls auth', () => {
   it('resolveContradiction surfaces a failed audit-note capture', async () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
     fetchMock.mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized' });
-    mockSupabase.from.mockReturnValue({
-      update: () => ({ eq: async () => ({ error: null }) }),
-    });
+    mockSupabase.from.mockReturnValue(updateChain({ data: [{ id: 'c1' }], error: null }));
     const { resolveContradiction } = await import('./actions');
     const form = new FormData();
     form.set('id', 'c1');
@@ -200,10 +203,42 @@ describe('capture-thought calls auth', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/contradictions');
     expect(revalidatePath).toHaveBeenCalledWith('/contradictions/c1');
   });
+
+  it('resolveContradiction throws before writing the audit note when no row was updated', async () => {
+    // RLS hides the row from an account that is not in public.owners: the update
+    // matches zero rows and PostgREST reports no error.
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
+    mockSupabase.from.mockReturnValue(updateChain({ data: [], error: null }));
+    const { resolveContradiction } = await import('./actions');
+    const form = new FormData();
+    form.set('id', 'c1');
+    form.set('decision', 'resolved');
+    form.set('note', 'B supersedes A');
+
+    await expect(resolveContradiction(form)).rejects.toThrow(/no row was updated/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('resolveContradiction surfaces a database error from the update', async () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SERVICE);
+    mockSupabase.from.mockReturnValue(updateChain({ data: null, error: { message: 'boom' } }));
+    const { resolveContradiction } = await import('./actions');
+    const form = new FormData();
+    form.set('id', 'c1');
+    form.set('decision', 'resolved');
+    form.set('note', 'B supersedes A');
+
+    await expect(resolveContradiction(form)).rejects.toThrow(
+      /Failed to resolve contradiction: boom/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('owner-only guard', () => {
-  const updateMock = vi.fn(async () => ({ error: null }));
+  // Terminal call of the update chain (.select()); counts resolve updates.
+  const updateMock = vi.fn(async () => ({ data: [{ id: 'c1' }], error: null }));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -215,7 +250,7 @@ describe('owner-only guard', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key-value');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key-value');
     mockSupabase.from.mockReturnValue({
-      update: () => ({ eq: updateMock }),
+      update: () => ({ eq: () => ({ select: updateMock }) }),
     });
   });
 

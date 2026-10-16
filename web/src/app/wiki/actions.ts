@@ -157,15 +157,24 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
   // (migration 017); requireOwner() above checks OWNER_USER_IDS. Keep both
   // lists the same. If multi-user support is added later, also filter by an
   // ownership column here.
-  const { error: updateErr } = await supabase
+  const { data: updated, error: updateErr } = await supabase
     .from('contradictions')
     .update({
       status: decision,
       resolved_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (updateErr) {
     throw new Error(`Failed to resolve contradiction: ${updateErr.message}`);
+  }
+  // RLS filters rows out silently: an account that is in OWNER_USER_IDS but not
+  // in public.owners matches zero rows without an error. Stop before the audit
+  // note is written for a resolution that did not happen.
+  if (!updated || updated.length === 0) {
+    throw new Error(
+      'Failed to resolve contradiction: no row was updated. It may not exist, or your account is not listed in public.owners.',
+    );
   }
 
   // Capture an audit thought so the resolution is itself a memory.

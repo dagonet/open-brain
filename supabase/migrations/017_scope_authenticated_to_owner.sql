@@ -12,11 +12,15 @@
 --   1. public.owners          the owner list (no policies, no API access)
 --   2. public.is_owner()      SECURITY DEFINER helper used by the policies
 --   3. bootstrap              seeds the owner list when auth.users has exactly one row
---   4. policies               every authenticated policy now also requires is_owner()
+--   4. policies               every authenticated policy now also requires is_owner(),
+--                             and one RESTRICTIVE policy per data table keeps it so
 --   5. get_distinct_*()       switched to SECURITY INVOKER so RLS applies to them
+--   6. privileges             TRUNCATE, REFERENCES and TRIGGER revoked from
+--                             authenticated on the data tables
 --
--- The dashboard needs no code change: it reads and writes through the signed-in
--- session, and the owner session keeps exactly the access it had before.
+-- The owner session keeps exactly the access it had before: the dashboard reads
+-- and writes through the signed-in session. The one web change is that the
+-- contradiction resolve action now reports an update that matched no row.
 --
 -- Idempotent: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP POLICY IF EXISTS
 -- / REVOKE / GRANT / ALTER FUNCTION can be re-run.
@@ -74,24 +78,27 @@ GRANT EXECUTE ON FUNCTION public.is_owner() TO authenticated, service_role;
 -- nothing is seeded: the operator has to add the owner (see section 1), and the
 -- dashboard shows no data until then. A non-empty list is never touched, so a
 -- re-run does not add users.
+--
+-- The count and the insert are one statement, so they see the same snapshot of
+-- auth.users; the notice is chosen from the number of rows it inserted.
 -- ---------------------------------------------------------------------------
 
 DO $$
 DECLARE
+  seeded     bigint;
   user_count bigint;
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.owners) THEN
-    RETURN;
-  END IF;
+  INSERT INTO public.owners (user_id)
+  SELECT id FROM auth.users
+  WHERE (SELECT count(*) FROM auth.users) = 1
+    AND NOT EXISTS (SELECT 1 FROM public.owners)
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS seeded = ROW_COUNT;
 
-  SELECT count(*) INTO user_count FROM auth.users;
-
-  IF user_count = 1 THEN
-    INSERT INTO public.owners (user_id)
-    SELECT id FROM auth.users
-    ON CONFLICT DO NOTHING;
+  IF seeded = 1 THEN
     RAISE NOTICE 'public.owners: seeded the only user in auth.users as owner.';
-  ELSE
+  ELSIF NOT EXISTS (SELECT 1 FROM public.owners) THEN
+    SELECT count(*) INTO user_count FROM auth.users;
     RAISE NOTICE 'public.owners is empty and auth.users has % rows, so no owner was seeded. The dashboard shows no data until you run: INSERT INTO public.owners (user_id) VALUES (''<your-user-id>'');', user_count;
   END IF;
 END
@@ -100,10 +107,15 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 4. Policies for `authenticated`
 --
--- Same names, commands and row filters as before; each one now also requires
--- is_owner(). SELECT policies take USING only; the UPDATE policy gets both
--- USING and WITH CHECK. Policies that already exist are dropped and recreated.
--- tasks has no authenticated policy (the web does not read it) and gets none.
+-- 4a. The permissive policies. Same names, commands and row filters as before;
+--     each one now also requires is_owner(). SELECT policies take USING only; the
+--     UPDATE policy gets both USING and WITH CHECK. Policies that already exist
+--     are dropped and recreated. tasks has no authenticated policy (the web does
+--     not read it) and gets no permissive one.
+--
+-- 4b. One RESTRICTIVE policy per data table (end of this section). Permissive
+--     policies are OR-ed together, restrictive ones are AND-ed on top, so a
+--     permissive policy added later cannot give a non-owner access again.
 -- ---------------------------------------------------------------------------
 
 -- thoughts (004). Keeps the soft-delete filter.
@@ -142,6 +154,23 @@ CREATE POLICY "allow_authenticated_select_entity_descriptions" ON public.entity_
   FOR SELECT TO authenticated
   USING ((SELECT public.is_owner()));
 
+-- 4b. The restrictive policy, on every data table (public.owners is closed at
+--     the privilege level and has no authenticated access to restrict).
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['thoughts', 'contradictions', 'wiki_pages', 'wiki_sources',
+                           'entity_descriptions', 'tasks']
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "authenticated_owner_only" ON public.%I', t);
+    EXECUTE format(
+      'CREATE POLICY "authenticated_owner_only" ON public.%I AS RESTRICTIVE FOR ALL TO authenticated USING ((SELECT public.is_owner())) WITH CHECK ((SELECT public.is_owner()))',
+      t);
+  END LOOP;
+END
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 5. SECURITY DEFINER functions that authenticated can still execute
 --
@@ -160,16 +189,35 @@ CREATE POLICY "allow_authenticated_select_entity_descriptions" ON public.entity_
 ALTER FUNCTION public.get_distinct_topics() SECURITY INVOKER;
 ALTER FUNCTION public.get_distinct_people() SECURITY INVOKER;
 
+-- ---------------------------------------------------------------------------
+-- 6. Table privileges
+--
+-- RLS does not apply to TRUNCATE, and REFERENCES / TRIGGER are not needed by any
+-- signed-in caller. INSERT, UPDATE and DELETE stay granted: they are gated by
+-- the policies above (the owner session only updates contradictions; a narrower
+-- follow-up could revoke the rest).
+-- ---------------------------------------------------------------------------
+
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE
+  public.thoughts, public.contradictions, public.wiki_pages, public.wiki_sources,
+  public.entity_descriptions, public.tasks
+  FROM authenticated;
+
 -- NOTE: a view created later must state WITH (security_invoker = on) so that
--- table RLS applies to it (see the note at the end of migration 016), and a
--- later table needs an authenticated policy that includes is_owner().
+-- table RLS applies to it (see the note at the end of migration 016). A table
+-- created later needs an authenticated policy that includes is_owner(), its own
+-- "authenticated_owner_only" restrictive policy (section 4b), and the revoke
+-- above.
 
 -- ---------------------------------------------------------------------------
 -- Rollback
 --
 -- Restoring the migration 016 state (any signed-in account is the owner):
---   * recreate the five policies above with USING (true) / (deleted_at IS NULL)
---     and, for the contradictions UPDATE policy, no WITH CHECK
+--   * DROP POLICY "authenticated_owner_only" on each of the six data tables
+--   * recreate the six permissive policies above with USING (true) (thoughts:
+--     USING (deleted_at IS NULL)) and, for the contradictions UPDATE policy, no
+--     WITH CHECK
+--   * GRANT TRUNCATE, REFERENCES, TRIGGER on the six data tables to authenticated
 --   * ALTER FUNCTION public.get_distinct_topics() SECURITY DEFINER;
 --     ALTER FUNCTION public.get_distinct_people() SECURITY DEFINER;
 --   * DROP FUNCTION public.is_owner(); DROP TABLE public.owners;

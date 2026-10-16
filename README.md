@@ -284,7 +284,11 @@ The web dashboard is a Next.js app that lets you browse thoughts, wiki pages, an
 
 **1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/providers` → toggle **Email** to ON. For local development, also toggle **Confirm email** to OFF (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings (after you have created your user in step 2): `supabase/config.toml` only covers local dev and `supabase config push`, so this dashboard setting is a required step, otherwise anyone could register and log in.
 
-**2. Create at least one user.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/users` → **Add user → Create new user** → enter email + password → toggle **Auto Confirm User** ON → Create.
+**2. Create at least one user.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/users` → **Add user → Create new user** → enter email + password → toggle **Auto Confirm User** ON → Create. On a new install the migrations (step 3) ran before this user existed, so `public.owners` is still empty and the dashboard shows no data: right after creating the user, add it as the owner in the SQL editor (the user id is shown in the Users list):
+
+```sql
+insert into public.owners (user_id) values ('<your-user-id>');
+```
 
 **3. Configure `web/.env.local`.** Copy from the example:
 
@@ -334,7 +338,7 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
   Find the id under **Authentication → Users**. To remove one: `delete from public.owners where user_id = '<user-id>';`. Users deleted from Supabase Auth leave the list automatically. The table has no API access; only the SQL editor and `service_role` can change it.
 
-- **Keep the two lists the same.** `OWNER_USER_IDS` (web, step 6) and `public.owners` should name the same account(s). An id only in `OWNER_USER_IDS` passes the web check but the database returns no rows (and a contradiction resolve changes nothing); an id only in `public.owners` can browse the dashboard but the refresh / reject / resolve buttons are refused.
+- **Keep the two lists the same.** `OWNER_USER_IDS` (web, step 6) and `public.owners` should name the same account(s). An id only in `OWNER_USER_IDS` passes the web check but the database returns no rows, and resolving a contradiction fails with a "no row was updated" error before any audit note is saved; an id only in `public.owners` can browse the dashboard but the refresh / reject / resolve buttons are refused.
 - **Verify.** After applying the migration, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side.
 
 ### 8. Set Up Slack (Optional)

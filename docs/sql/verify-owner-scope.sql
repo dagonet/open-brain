@@ -21,10 +21,12 @@
 --   3. Repeats as the owner. Expects the sample rows visible (a soft-deleted
 --      thought stays hidden), the same refused writes, except that the
 --      contradictions UPDATE the dashboard uses now succeeds.
---   4. Catalog checks: every authenticated policy uses is_owner(); is_owner() is
---      the only SECURITY DEFINER function authenticated can execute; every view
---      runs with the caller's rights; RLS is on for every table; anon has no
---      access to public.owners or is_owner().
+--   4. Catalog checks: every data table has the restrictive owner-only policy for
+--      authenticated; public.owners has no policy; authenticated holds no
+--      TRUNCATE, REFERENCES or TRIGGER; is_owner() is the only SECURITY DEFINER
+--      function authenticated can execute; every view runs with the caller's
+--      rights; RLS is on for every table; anon has no access to public.owners
+--      or is_owner().
 --
 -- Not covered: service_role (it bypasses RLS by design) and anon row access (see
 -- verify-anon-lockdown.sql).
@@ -276,19 +278,44 @@ DO $$
 DECLARE
   v_bad text;
 BEGIN
-  -- Every policy that applies to authenticated (or PUBLIC) must use is_owner().
-  SELECT string_agg(tablename || '.' || policyname, ', ') INTO v_bad
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND roles::text[] && ARRAY['authenticated', 'public']
-    AND (   (qual IS NOT NULL AND qual NOT LIKE '%is_owner()%')
-         OR (with_check IS NOT NULL AND with_check NOT LIKE '%is_owner()%')
-         OR (qual IS NULL AND with_check IS NULL));
+  -- Every data table (every public table except the owner list) has the
+  -- RESTRICTIVE policy for authenticated that requires is_owner() for all
+  -- commands. Restrictive policies are AND-ed with whatever permissive policies
+  -- exist, so it keeps non-owners out even if a permissive policy is added later.
+  SELECT string_agg(c.relname, ', ') INTO v_bad
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'owners'
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_policies p
+      WHERE p.schemaname = 'public' AND p.tablename = c.relname
+        AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'ALL'
+        AND p.roles::text[] = ARRAY['authenticated']
+        AND p.qual LIKE '%is_owner()%' AND p.with_check LIKE '%is_owner()%');
   IF v_bad IS NOT NULL THEN
-    RAISE EXCEPTION 'owner-scope: policies for authenticated without is_owner(): %', v_bad;
+    RAISE EXCEPTION 'owner-scope: tables without the restrictive owner-only policy for authenticated: %', v_bad;
   END IF;
   INSERT INTO owner_scope_results (result)
-  VALUES ('catalog   every authenticated policy requires is_owner()');
+  VALUES ('catalog   every data table has the restrictive owner-only policy for authenticated');
+
+  -- The owner list itself has no policy at all.
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'owners') THEN
+    RAISE EXCEPTION 'owner-scope: public.owners has a policy; it should have none';
+  END IF;
+  INSERT INTO owner_scope_results (result)
+  VALUES ('catalog   public.owners has no policies');
+
+  -- RLS does not cover TRUNCATE, and REFERENCES / TRIGGER are not needed.
+  SELECT string_agg(c.relname, ', ') INTO v_bad
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r'
+    AND has_table_privilege('authenticated', c.oid, 'TRUNCATE, REFERENCES, TRIGGER');
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'owner-scope: authenticated holds TRUNCATE, REFERENCES or TRIGGER on: %', v_bad;
+  END IF;
+  INSERT INTO owner_scope_results (result)
+  VALUES ('catalog   authenticated has no TRUNCATE, REFERENCES or TRIGGER on any table');
 
   -- SECURITY DEFINER functions bypass RLS: authenticated may only run is_owner().
   SELECT string_agg(p.oid::regprocedure::text, ', ') INTO v_bad
