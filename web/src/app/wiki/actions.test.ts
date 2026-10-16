@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { revalidatePath } from 'next/cache';
 
-const mockGetUser = vi.fn(async () => ({ data: { user: { id: 'u1' } } }));
+const OWNER = '00000000-0000-0000-0000-000000000001';
+const OTHER = '00000000-0000-0000-0000-000000000002';
+
+const mockGetUser = vi.fn(async () => ({ data: { user: { id: OWNER } } }));
 const mockSupabase = {
   auth: { getUser: mockGetUser },
   from: vi.fn(),
@@ -26,7 +29,7 @@ const fetchMock = vi.fn();
 describe('wiki actions input validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: OWNER } } });
     vi.stubGlobal('fetch', fetchMock);
   });
 
@@ -80,11 +83,12 @@ describe('refreshWikiPage auth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: OWNER } } });
     fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' });
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://proj.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', ANON);
+    vi.stubEnv('OWNER_USER_IDS', OWNER);
   });
 
   afterEach(() => {
@@ -134,11 +138,12 @@ describe('capture-thought calls auth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: OWNER } } });
     fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' });
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://proj.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', ANON);
+    vi.stubEnv('OWNER_USER_IDS', OWNER);
   });
 
   afterEach(() => {
@@ -194,5 +199,157 @@ describe('capture-thought calls auth', () => {
     await expect(resolveContradiction(form)).rejects.toThrow(/audit note failed: HTTP 401/);
     expect(revalidatePath).toHaveBeenCalledWith('/contradictions');
     expect(revalidatePath).toHaveBeenCalledWith('/contradictions/c1');
+  });
+});
+
+describe('owner-only guard', () => {
+  const updateMock = vi.fn(async () => ({ error: null }));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    mockGetUser.mockResolvedValue({ data: { user: { id: OWNER } } });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://proj.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key-value');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key-value');
+    mockSupabase.from.mockReturnValue({
+      update: () => ({ eq: updateMock }),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  function rejectForm(): FormData {
+    const form = new FormData();
+    form.set('page_id', 'p1');
+    form.set('slug', 'topic-a');
+    form.set('reason', 'too long');
+    return form;
+  }
+  function refreshForm(): FormData {
+    const form = new FormData();
+    form.set('slug', 'topic-a');
+    return form;
+  }
+  function resolveForm(): FormData {
+    const form = new FormData();
+    form.set('id', 'c1');
+    form.set('decision', 'resolved');
+    form.set('note', 'B supersedes A');
+    return form;
+  }
+
+  const actions = [
+    ['rejectWikiPage', rejectForm],
+    ['refreshWikiPage', refreshForm],
+    ['resolveContradiction', resolveForm],
+  ] as const;
+
+  function expectNothingCalled() {
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  }
+
+  describe.each(actions)('%s', (name, makeForm) => {
+    async function run(): Promise<void> {
+      const mod = (await import('./actions')) as unknown as Record<
+        string,
+        (f: FormData) => Promise<void>
+      >;
+      return mod[name](makeForm());
+    }
+
+    it('allows a listed owner', async () => {
+      vi.stubEnv('OWNER_USER_IDS', OWNER);
+      await expect(run()).resolves.toBeUndefined();
+      if (name === 'resolveContradiction') {
+        expect(updateMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(1); // audit note
+      } else {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(updateMock).not.toHaveBeenCalled();
+      }
+    });
+
+    it('denies a logged-in user who is not listed', async () => {
+      vi.stubEnv('OWNER_USER_IDS', OWNER);
+      mockGetUser.mockResolvedValue({ data: { user: { id: OTHER } } });
+      await expect(run()).rejects.toThrow(/not allowed/);
+      expectNothingCalled();
+    });
+
+    it('denies when OWNER_USER_IDS is unset', async () => {
+      vi.stubEnv('OWNER_USER_IDS', undefined);
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await expect(run()).rejects.toThrow(/OWNER_USER_IDS is not configured/);
+      expectNothingCalled();
+    });
+
+    it('denies when OWNER_USER_IDS is empty or only separators', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      for (const value of ['', '  ', ' , ,']) {
+        vi.stubEnv('OWNER_USER_IDS', value);
+        await expect(run()).rejects.toThrow(/OWNER_USER_IDS is not configured/);
+      }
+      expectNothingCalled();
+    });
+
+    it('redirects to /login with no user, before any call', async () => {
+      vi.stubEnv('OWNER_USER_IDS', OWNER);
+      mockGetUser.mockResolvedValue({ data: { user: null } } as never);
+      await expect(run()).rejects.toThrow('NEXT_REDIRECT');
+      expectNothingCalled();
+    });
+  });
+
+  describe('list parsing', () => {
+    it('accepts any of several ids', async () => {
+      vi.stubEnv('OWNER_USER_IDS', `${OTHER},${OWNER}`);
+      const { refreshWikiPage } = await import('./actions');
+      await refreshWikiPage(refreshForm());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('tolerates spaces around commas and empty entries', async () => {
+      vi.stubEnv('OWNER_USER_IDS', ` ,  ${OTHER} ,  ${OWNER}  ,, `);
+      const { refreshWikiPage } = await import('./actions');
+      await refreshWikiPage(refreshForm());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ['strict prefix', OWNER.slice(0, -1)],
+      ['strict inner substring', OWNER.slice(1, -1)],
+      ['strict suffix', OWNER.slice(1)],
+    ])('denies when the listed entry is a %s of the user id', async (_label, listed) => {
+      vi.stubEnv('OWNER_USER_IDS', listed);
+      const { refreshWikiPage } = await import('./actions');
+      await expect(refreshWikiPage(refreshForm())).rejects.toThrow(/not allowed/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('does not match on a substring of a listed id', async () => {
+      vi.stubEnv('OWNER_USER_IDS', `${OWNER}-extra`);
+      const { refreshWikiPage } = await import('./actions');
+      await expect(refreshWikiPage(refreshForm())).rejects.toThrow(/not allowed/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it('warns once when unset, without logging user ids', async () => {
+    vi.stubEnv('OWNER_USER_IDS', undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { refreshWikiPage } = await import('./actions');
+    await expect(refreshWikiPage(refreshForm())).rejects.toThrow();
+    await expect(refreshWikiPage(refreshForm())).rejects.toThrow();
+    const ownerWarns = warn.mock.calls.filter((c) => String(c[0]).includes('OWNER_USER_IDS'));
+    expect(ownerWarns).toHaveLength(1);
+    expect(String(ownerWarns[0][0])).not.toContain(OWNER);
   });
 });

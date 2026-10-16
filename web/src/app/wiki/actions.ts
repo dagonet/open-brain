@@ -38,6 +38,39 @@ function functionAuthKey(): string {
   return ANON_KEY;
 }
 
+let warnedMissingOwnerIds = false;
+
+// These actions call edge functions with the service-role key, so being logged
+// in is not enough: the user id must be listed in the server-only
+// OWNER_USER_IDS (comma-separated Supabase auth user ids). Fails closed when
+// the variable is unset or empty. Not exported: a 'use server' file may only
+// export async server actions.
+async function requireOwner() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const owners = (process.env.OWNER_USER_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (owners.length === 0) {
+    if (!warnedMissingOwnerIds) {
+      warnedMissingOwnerIds = true;
+      console.warn('OWNER_USER_IDS is not set; wiki dashboard actions are denied.');
+    }
+    throw new Error('OWNER_USER_IDS is not configured');
+  }
+  if (!owners.includes(user.id)) {
+    throw new Error('User not allowed');
+  }
+  return supabase;
+}
+
 export async function rejectWikiPage(formData: FormData): Promise<void> {
   const pageId = String(formData.get('page_id') ?? '');
   const slug = String(formData.get('slug') ?? '');
@@ -47,13 +80,7 @@ export async function rejectWikiPage(formData: FormData): Promise<void> {
     return;
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
+  await requireOwner();
 
   // Idempotency key: page id + first 80 chars of reason — same reason on the
   // same page is a no-op.
@@ -96,13 +123,7 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
   const slug = String(formData.get('slug') ?? '');
   if (!slug) return;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
+  await requireOwner();
 
   const refreshRes = await fetch(COMPILE_URL, {
     method: 'POST',
@@ -130,13 +151,7 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
     return;
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
+  const supabase = await requireOwner();
 
   // RLS on `contradictions` is intentionally open for authenticated users
   // (single-user deployment per migration 005). If multi-user support is
