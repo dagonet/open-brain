@@ -24,13 +24,13 @@ Claude operates as **Product Owner (PO)** — plans sprints, spawns agents, sequ
 | T3 Standard | Multi-file, < 200 lines | coder + reviewer + tester |
 | T4 Complex | Architectural, > 200 lines | architect + coder(s) + reviewer + tester |
 
-Table is a **maximum**; question turns get at most one agent; never re-spawn `Explore` on a named file; too big for one pass → `use a workflow`.
+Table is a **maximum**; question turns get at most one agent; never re-spawn `cct:Explore` on a named file; too big for one pass → `use a workflow`.
 
-**PO never does hands-on work.** Write surface: `docs/plans/`, `PROJECT_STATE.md`, `PROJECT_CONTEXT.md`, `.claude/`, `AGENT_TEAM.md`. Non-code → `ops`. Exploration → `Explore`.
+**PO never does hands-on work.** Write surface: `docs/plans/`, `PROJECT_STATE.md`, `PROJECT_CONTEXT.md`, `.claude/`, `AGENT_TEAM.md`. Non-code → `cct:ops`. Exploration → `cct:Explore`.
 
 | Task Domain | subagent_type | When |
 |---|---|---|
-| **All tasks** | `coder` | Default for all development work |
+| **All tasks** | `cct:coder` | Default for all development work |
 
 **Every spawn carries the task brief** (goal, constraints, files in scope, definition of done) — `AGENT_TEAM.md` → *Task Brief Upfront*.
 
@@ -63,7 +63,7 @@ Developer-agent preferences: each coder's `## Working rules`.
 ## Quick Start
 
 ```bash
-bash hooks/run-gate.sh   # build, test, format, lint
+cct-gate   # build, test, format, lint
 ```
 
 See `PROJECT_CONTEXT.md` for build/test/format/lint commands. Conventions live in `.claude/rules/*.md` (paths-scoped).
@@ -86,7 +86,7 @@ Mandatory rules live in `VERIFICATION_PLAYBOOK.md`. Four rules are always-on:
 3. **Verify sub-agent claims** — check against source before building on them.
 4. **Baseline-move check** — after changing a behavioral contract, grep tests for old-baseline assertions.
 
-**Gate rule:** run `bash hooks/run-gate.sh` — never re-derive build/test/format/lint from memory. Evidence before claims.
+**Gate rule:** run `cct-gate` — never re-derive build/test/format/lint from memory. Evidence before claims.
 
 ---
 
