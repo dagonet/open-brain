@@ -58,6 +58,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_TELEMETRY_DISABLED: 1
 
   format-lint:
     name: Format & Lint

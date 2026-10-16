@@ -22,7 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const openai = new OpenAI({ apiKey: openaiKey });
 
 const deps: Deps = { supabase, openai };
-const server = createServer(deps);
+const server = createServer(deps, process.env.OPEN_BRAIN_TOOLS_DISABLED);
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -11,17 +11,16 @@ const require = createRequire(import.meta.url);
 export const SERVER_VERSION: string = (require('../package.json') as { version: string }).version;
 
 /**
- * Builds the MCP server with all enabled tools registered. Has no side effects:
- * it neither reads clients from the environment nor connects a transport, so
- * tests can drive it over an in-memory transport with stubbed dependencies.
+ * Builds the MCP server with all enabled tools registered. It reads no environment
+ * variables, creates no clients and connects no transport, so tests can drive it
+ * over an in-memory transport with stubbed dependencies. (The only I/O is the
+ * one-time read of package.json for the version when this module is loaded.)
  *
  * @param deps Supabase and OpenAI clients handed to every tool handler.
- * @param toolsDisabledEnv Value of OPEN_BRAIN_TOOLS_DISABLED (comma-separated families).
+ * @param toolsDisabledEnv Value of OPEN_BRAIN_TOOLS_DISABLED (comma-separated families),
+ *   or undefined to enable every family.
  */
-export function createServer(
-  deps: Deps,
-  toolsDisabledEnv: string | undefined = process.env.OPEN_BRAIN_TOOLS_DISABLED,
-): McpServer {
+export function createServer(deps: Deps, toolsDisabledEnv: string | undefined): McpServer {
   const disabled = disabledFamilies(toolsDisabledEnv);
 
   const server = new McpServer(
