@@ -310,6 +310,11 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
 **5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" / "reject" / contradiction-note actions also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` and `capture-thought` require the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
 
+**6. Lock the dashboard to the owner (required for a hosted project).**
+
+- In the Supabase dashboard → **Authentication** → sign-in/provider settings, turn **off** "Allow new users to sign up" and anonymous sign-ins. `supabase/config.toml` only covers local dev and `supabase config push`; for a hosted project this dashboard setting is a required step, otherwise anyone could register and log in.
+- Set the **server-only** `OWNER_USER_IDS` env var (never `NEXT_PUBLIC_`) to your Supabase auth user id (Supabase dashboard → **Authentication → Users**); use a comma-separated list for more than one owner. The wiki "refresh" / "reject" and contradiction-resolve actions spend LLM tokens and write with the service-role key, so they run only for listed users. If `OWNER_USER_IDS` is unset or empty these buttons are refused (fail closed). Set it in Vercel for both **Production** and **Preview**, alongside `SUPABASE_SERVICE_ROLE_KEY` (also server-only).
+
 ### 8. Set Up Slack (Optional)
 
 See [docs/slack-setup.md](docs/slack-setup.md) for the full Slack app setup guide.
