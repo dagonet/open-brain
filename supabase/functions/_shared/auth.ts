@@ -1,6 +1,9 @@
 // Service-role auth guard shared by the edge functions that write data or spend
-// LLM tokens (capture-thought, compile-wiki, detect-contradictions). Dependency-free so vitest can import
-// it as well as Deno.
+// LLM tokens (capture-thought, compile-wiki, detect-contradictions,
+// run-nightly-jobs). Dependency-free so vitest can import it as well as Deno.
+//
+// run-nightly-jobs passes a null serviceRoleKey, which disables credential 2
+// below: it accepts the role-claim JWT only.
 //
 // Two accepted credentials:
 //   1. A Bearer JWT whose payload has role === 'service_role'. The Supabase

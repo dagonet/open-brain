@@ -77,14 +77,26 @@ for (const [name, handle] of handlers) {
   for (const [label, header] of rejected) {
     Deno.test(`${name}: 401 and no work for ${label}`, async () => {
       const calls = await withStubs(async () => {
-        const res = await handle(post(header));
+        const req = post(header);
+        const res = await handle(req);
         assertEquals(res.status, 401, 'status');
         const body = await res.json();
         assertEquals(body.error, 'Unauthorized', 'error');
+        // The guard answers before the body is parsed.
+        assertEquals(req.bodyUsed, false, 'request body consumed');
       });
       assertEquals(calls, 0, 'fetch calls');
     });
   }
+
+  // The guard runs before the method check: an unauthenticated GET is 401, not 405.
+  Deno.test(`${name}: 401 (not 405) for an unauthenticated GET`, async () => {
+    const calls = await withStubs(async () => {
+      const res = await handle(new Request('http://localhost/fn', { method: 'GET' }));
+      assertEquals(res.status, 401, 'status');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  });
 
   // Control cases: an authorized request gets past the guard. The 405 answer
   // proves the guard let it through while still doing no work.

@@ -77,4 +77,21 @@ describe('isServiceRoleAuthorized', () => {
     const notJson = Buffer.from('not json').toString('base64url');
     expect(isServiceRoleAuthorized(`Bearer a.${notJson}.c`, ENV_KEY)).toBe(false);
   });
+
+  // run-nightly-jobs calls the guard with a null key: JWT role claim only.
+  describe('with a null key (run-nightly-jobs)', () => {
+    it('accepts a service-role JWT', () => {
+      expect(isServiceRoleAuthorized(`Bearer ${jwt({ role: 'service_role' })}`, null)).toBe(true);
+    });
+
+    it('does not accept a bearer through the key-equality path', () => {
+      expect(isServiceRoleAuthorized(`Bearer ${ENV_KEY}`, null)).toBe(false);
+      expect(isServiceRoleAuthorized('Bearer null', null)).toBe(false);
+      expect(isServiceRoleAuthorized('Bearer ', null)).toBe(false);
+    });
+
+    it('still rejects an anon JWT', () => {
+      expect(isServiceRoleAuthorized(`Bearer ${jwt({ role: 'anon' })}`, null)).toBe(false);
+    });
+  });
 });
