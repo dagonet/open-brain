@@ -52,6 +52,18 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx vitest run
 
+  edge-functions:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.6
+      # --node-modules-dir=none: the repo-root package.json would otherwise make Deno
+      # resolve npm types from a node_modules dir the edge functions do not use.
+      - run: deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts
+
   format-lint:
     name: Format & Lint
     runs-on: ubuntu-latest

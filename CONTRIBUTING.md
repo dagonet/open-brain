@@ -34,6 +34,12 @@ cd web && npm install
 cd mcp-server && npx vitest run
 ```
 
+Edge function tests run under [Deno](https://deno.com/) (not part of `cct-gate`; CI runs them):
+
+```bash
+deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts
+```
+
 ## Making Changes
 
 1. Create a feature branch from `main`

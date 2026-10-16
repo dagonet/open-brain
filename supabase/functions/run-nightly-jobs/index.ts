@@ -14,6 +14,7 @@
 //   https://www.youtube.com/watch?v=dxq7WtWxi44
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { isServiceRoleAuthorized } from '../_shared/auth.ts';
 
 // Types
 
@@ -61,21 +62,8 @@ function json(status: number, body: unknown): Response {
 // equality: this project runs the new dual key system, so the injected env
 // value matches neither the legacy service_role JWT nor the new sb_secret key
 // that a caller (e.g. pg_cron via Vault) can present, which made the old guard
-// unsatisfiable and 401'd every run.
-function isServiceRoleJwt(authHeader: string): boolean {
-  if (!authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.slice(7);
-  const parts = token.split('.');
-  if (parts.length !== 3) return false;
-  try {
-    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4 !== 0) b64 += '=';
-    const payload = JSON.parse(atob(b64)) as { role?: string };
-    return payload.role === 'service_role';
-  } catch {
-    return false;
-  }
-}
+// unsatisfiable and 401'd every run. Passing a null key to the shared guard
+// keeps exactly that behaviour (JWT role claim only, no key-equality path).
 
 // Handler
 
@@ -83,8 +71,7 @@ serve(async (req: Request): Promise<Response> => {
   // Auth guard — require a valid service-role JWT (role claim === service_role).
   // The gateway already verified the signature; blocks anon-JWT callers from
   // triggering expensive LLM sweeps.
-  const auth = req.headers.get('Authorization') ?? '';
-  if (!isServiceRoleJwt(auth)) {
+  if (!isServiceRoleAuthorized(req.headers.get('Authorization'), null)) {
     return json(401, { error: 'Unauthorized' });
   }
 
