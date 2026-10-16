@@ -1,12 +1,9 @@
 #!/usr/bin/env node
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
-import { allTools } from './tools/index.js';
 import type { Deps } from './tools/registry.js';
-import { buildInstructions } from './instructions.js';
-import { disabledFamilies, familyForToolName } from './config.js';
+import { createServer } from './server.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,34 +21,8 @@ if (!openaiKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 const openai = new OpenAI({ apiKey: openaiKey });
 
-const disabled = disabledFamilies(process.env.OPEN_BRAIN_TOOLS_DISABLED);
-const wikiEnabled = !disabled.has('wiki');
-const entitiesEnabled = !disabled.has('entities');
-
-const server = new McpServer(
-  {
-    name: 'open-brain',
-    version: '0.7.0',
-  },
-  {
-    instructions: buildInstructions({ wikiEnabled, entitiesEnabled }),
-  },
-);
-
 const deps: Deps = { supabase, openai };
-
-const enabledTools = allTools.filter((tool) => {
-  const family = familyForToolName(tool.name);
-  if (family === null) return true;
-  return !disabled.has(family);
-});
-
-for (const tool of enabledTools) {
-  server.tool(tool.name, tool.description, tool.schema, async (params) => {
-    const result = await tool.handler(deps, params as Record<string, unknown>);
-    return { content: [{ type: 'text' as const, text: result }] };
-  });
-}
+const server = createServer(deps);
 
 async function main() {
   const transport = new StdioServerTransport();
