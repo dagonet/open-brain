@@ -80,7 +80,7 @@ export async function rejectWikiPage(formData: FormData): Promise<void> {
     return;
   }
 
-  const supabase = await requireOwner();
+  await requireOwner();
 
   // Idempotency key: page id + first 80 chars of reason — same reason on the
   // same page is a no-op.
@@ -123,7 +123,7 @@ export async function refreshWikiPage(formData: FormData): Promise<void> {
   const slug = String(formData.get('slug') ?? '');
   if (!slug) return;
 
-  const supabase = await requireOwner();
+  await requireOwner();
 
   const refreshRes = await fetch(COMPILE_URL, {
     method: 'POST',

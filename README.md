@@ -280,7 +280,7 @@ Add to your Claude Code MCP configuration (`.claude/.mcp.json` or global setting
 
 The web dashboard is a Next.js app that lets you browse thoughts, wiki pages, and contradictions in a browser.
 
-**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/providers` → toggle **Email** to ON. For local development, also toggle **Confirm email** to OFF (skips the verification email).
+**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/providers` → toggle **Email** to ON. For local development, also toggle **Confirm email** to OFF (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings (after you have created your user in step 2): `supabase/config.toml` only covers local dev and `supabase config push`, so this dashboard setting is a required step, otherwise anyone could register and log in.
 
 **2. Create at least one user.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/users` → **Add user → Create new user** → enter email + password → toggle **Auto Confirm User** ON → Create.
 
@@ -296,7 +296,12 @@ Then edit `.env.local` and fill in:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Server-only (never prefix with NEXT_PUBLIC_):
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OWNER_USER_IDS=your-supabase-auth-user-id
 ```
+
+`OWNER_USER_IDS` is required for local runs too: without it the wiki refresh / reject and contradiction-resolve buttons are refused. See step 6.
 
 **4. Run locally.**
 
@@ -310,10 +315,11 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
 **5. Deploy to Vercel (optional).** Connect the repo to a Vercel project; auto-deploys from `main`. Set the same two `NEXT_PUBLIC_*` env vars in **Project Settings → Environment Variables** (Production scope). For the wiki "refresh" / "reject" / contradiction-note actions also set the **server-only** `SUPABASE_SERVICE_ROLE_KEY` (the legacy `service_role` JWT `eyJ...`, not `sb_secret_...`; mark it sensitive; never prefix it with `NEXT_PUBLIC_`) — `compile-wiki` and `capture-thought` require the service-role key. Until it is set the dashboard falls back to the anon key and logs a warning.
 
-**6. Lock the dashboard to the owner (required for a hosted project).**
+**6. Restrict the service-role actions to the owner.** The wiki "refresh" / "reject" and contradiction-resolve actions call edge functions with the service-role key (refresh and reject spend LLM tokens; resolve updates `contradictions` through your session and sends its audit note with the service-role key), so being logged in is not enough.
 
-- In the Supabase dashboard → **Authentication** → sign-in/provider settings, turn **off** "Allow new users to sign up" and anonymous sign-ins. `supabase/config.toml` only covers local dev and `supabase config push`; for a hosted project this dashboard setting is a required step, otherwise anyone could register and log in.
-- Set the **server-only** `OWNER_USER_IDS` env var (never `NEXT_PUBLIC_`) to your Supabase auth user id (Supabase dashboard → **Authentication → Users**); use a comma-separated list for more than one owner. The wiki "refresh" / "reject" and contradiction-resolve actions spend LLM tokens and write with the service-role key, so they run only for listed users. If `OWNER_USER_IDS` is unset or empty these buttons are refused (fail closed). Set it in Vercel for both **Production** and **Preview**, alongside `SUPABASE_SERVICE_ROLE_KEY` (also server-only).
+- Set the **server-only** `OWNER_USER_IDS` env var (never `NEXT_PUBLIC_`) to your Supabase auth user id (Supabase dashboard → **Authentication → Users**); use a comma-separated list for more than one owner. If it is unset or empty these buttons are refused (fail closed).
+- Set it in `web/.env.local` for local runs and in Vercel for both **Production** and **Preview**, alongside `SUPABASE_SERVICE_ROLE_KEY` (also server-only).
+- Turning off sign-ups for a hosted project (step 1) is the other half of this lock.
 
 ### 8. Set Up Slack (Optional)
 

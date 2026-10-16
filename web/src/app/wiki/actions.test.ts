@@ -268,7 +268,13 @@ describe('owner-only guard', () => {
     it('allows a listed owner', async () => {
       vi.stubEnv('OWNER_USER_IDS', OWNER);
       await expect(run()).resolves.toBeUndefined();
-      expect(fetchMock.mock.calls.length + updateMock.mock.calls.length).toBeGreaterThan(0);
+      if (name === 'resolveContradiction') {
+        expect(updateMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(1); // audit note
+      } else {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(updateMock).not.toHaveBeenCalled();
+      }
     });
 
     it('denies a logged-in user who is not listed', async () => {
@@ -315,6 +321,17 @@ describe('owner-only guard', () => {
       const { refreshWikiPage } = await import('./actions');
       await refreshWikiPage(refreshForm());
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ['strict prefix', OWNER.slice(0, -1)],
+      ['strict inner substring', OWNER.slice(1, -1)],
+      ['strict suffix', OWNER.slice(1)],
+    ])('denies when the listed entry is a %s of the user id', async (_label, listed) => {
+      vi.stubEnv('OWNER_USER_IDS', listed);
+      const { refreshWikiPage } = await import('./actions');
+      await expect(refreshWikiPage(refreshForm())).rejects.toThrow(/not allowed/);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('does not match on a substring of a listed id', async () => {
