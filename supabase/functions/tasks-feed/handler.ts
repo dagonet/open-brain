@@ -121,7 +121,7 @@ export async function handler(req: Request): Promise<Response> {
     // The body stays a plain array. The total goes into headers so a consumer can tell
     // a cut list (PostgREST max_rows is below MAX_ROWS) from a complete one.
     const headers: Record<string, string> = {};
-    if (count !== null && count !== undefined) {
+    if (typeof count === 'number' && Number.isFinite(count)) {
       headers['X-Total-Count'] = String(count);
       headers['X-Truncated'] = String(count > rows.length);
     }

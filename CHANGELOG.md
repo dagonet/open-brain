@@ -8,12 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`tasks-feed` order and truncation headers.** Tasks come back newest first
+  (`updated_at` desc, then `id`), so the cut at the PostgREST row cap keeps the most
+  recent ones. `X-Total-Count` and `X-Truncated` response headers report the exact
+  match count and whether the list was cut; the body is unchanged.
+- **`slack-webhook` is pinned to `verify_jwt = false`** in `supabase/config.toml` (Slack
+  cannot send a Supabase JWT). The request signature is now checked first, before the
+  body is parsed and before the `url_verification` echo; unsigned callers get 405 or 401.
+  Input validation for the request timestamp: only plain digits are accepted (a
+  non-numeric value used to bypass the 5-minute window). Event processing is handed to
+  `EdgeRuntime.waitUntil` when available, and the 500 response no longer echoes the error.
 - **MCP server reports its real version.** `serverInfo.version` was hardcoded to `0.7.0`
   while `mcp-server/package.json` said `0.8.0`; it is now read from `package.json`.
   Server construction moved into a side-effect-free `createServer()` in
   `mcp-server/src/server.ts`; the stdio entrypoint behaves as before.
 - **`zod` is now a declared dependency of `mcp-server`** (`^3.25.76`, the copy the MCP SDK
   already resolves; the lockfile still holds a single deduped copy).
+
+### Fixed
+
+- **Near-duplicate hint restored.** `processThought()` returned `duplicateCandidate`
+  instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
+  `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.
+- README step 8 no longer links to the nonexistent `docs/slack-setup.md`.
 
 ### Added
 

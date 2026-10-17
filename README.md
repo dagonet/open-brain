@@ -346,7 +346,7 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
 The `slack-webhook` edge function receives Slack Events API requests and captures channel messages as thoughts.
 
-1. Create a Slack app with a bot user and the scopes to read messages in the channels you use and to post replies (`chat:write`). Install it to your workspace and invite the bot to those channels.
+1. Create a Slack app with a bot user and the bot scopes `channels:history` (read messages in public channels) and `chat:write` (post replies). Add `groups:history` for private channels and `im:history` for direct messages if you want those captured. Install it to your workspace and invite the bot to those channels.
 2. Store the app's signing secret and bot token as function secrets (names as in `.env.example`): `supabase secrets set SLACK_SIGNING_SECRET=<secret> SLACK_BOT_TOKEN=<xoxb-token>`.
 3. Deploy, naming the function: `supabase functions deploy slack-webhook`.
 4. In the Slack app, enable Event Subscriptions, set the request URL to `https://<project-ref>.supabase.co/functions/v1/slack-webhook` (Slack's URL challenge is answered by the function) and subscribe to the `message.channels` bot event (add the matching `message.*` events for private channels or DMs).

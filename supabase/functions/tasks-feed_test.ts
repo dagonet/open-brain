@@ -380,6 +380,31 @@ Deno.test('tasks-feed: X-Truncated is true when more rows match than were return
   );
 });
 
+Deno.test('tasks-feed: a Content-Range with an unknown total leaves both headers out', async () => {
+  const rows = [{ id: 'a' }];
+  await withStubs(
+    { token: FEED_TOKEN, respond: () => postgrestWithRange(rows, '0-0/*') },
+    async () => {
+      const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+      assertEquals(res.status, 200, 'status');
+      assertEquals(res.headers.get('X-Total-Count'), null, 'X-Total-Count');
+      assertEquals(res.headers.get('X-Truncated'), null, 'X-Truncated');
+      assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+    },
+  );
+});
+
+Deno.test('tasks-feed: no Content-Range at all leaves both headers out', async () => {
+  const rows = [{ id: 'a' }];
+  await withStubs({ token: FEED_TOKEN, respond: () => postgrestOk(rows) }, async () => {
+    const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+    assertEquals(res.status, 200, 'status');
+    assertEquals(res.headers.get('X-Total-Count'), null, 'X-Total-Count');
+    assertEquals(res.headers.get('X-Truncated'), null, 'X-Truncated');
+    assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+  });
+});
+
 Deno.test('tasks-feed: X-Truncated is false when every matching row was returned', async () => {
   const rows = [{ id: 'a' }, { id: 'b' }];
   await withStubs(

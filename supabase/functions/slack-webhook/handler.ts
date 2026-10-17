@@ -149,40 +149,52 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     const rawBody = await req.text();
+
+    // Verify the signature over the raw body BEFORE parsing it. Slack signs every
+    // request, the url_verification handshake included, so unsigned callers only ever
+    // get 405 or 401.
+    const isValid = await verifySlackSignature(req.headers, rawBody);
+    if (!isValid) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
     const body = JSON.parse(rawBody);
 
-    // Handle Slack URL verification challenge (no signature check needed)
+    // Handle Slack URL verification challenge
     if (body.type === 'url_verification') {
       return new Response(JSON.stringify({ challenge: body.challenge }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Verify Slack signature
-    const isValid = await verifySlackSignature(req.headers, rawBody);
-    if (!isValid) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
-    // Process message events asynchronously
-    const event = body.event as SlackEvent | undefined;
-    if (event && event.type === 'message') {
-      processSlackEvent(event).catch((err) => {
-        console.error(
-          JSON.stringify({
-            error: 'slack_processing_failed',
-            message: err.message,
-          }),
-        );
-      });
-    }
+    dispatch(body);
 
     return new Response('ok', { status: 200 });
   } catch (err) {
+    // Log the error object only (never the request body); answer generically.
     console.error('Slack webhook error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error', message: String(err) }), {
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
+}
+
+// Process message events after the response. EdgeRuntime.waitUntil keeps the worker
+// alive until the work finishes; without it (local runs, tests) the promise just runs on.
+function dispatch(body: { event?: SlackEvent }): void {
+  const event = body.event;
+  if (!event || event.type !== 'message') return;
+  const work = processSlackEvent(event).catch((err) => {
+    console.error(
+      JSON.stringify({
+        error: 'slack_processing_failed',
+        message: err.message,
+      }),
+    );
+  });
+  const runtime = (
+    globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }
+  ).EdgeRuntime;
+  runtime?.waitUntil?.(work);
 }
