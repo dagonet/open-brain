@@ -3,12 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-  thoughtToFilename,
-  slugify,
-  computeTitle,
-  thoughtToMarkdown,
-} from '../brain.js';
+import { thoughtToFilename, slugify, computeTitle, thoughtToMarkdown } from '../brain.js';
 
 function makeThought(overrides: Record<string, unknown> = {}) {
   return {
