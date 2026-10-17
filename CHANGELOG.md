@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CLI: `api_url` / `BRAIN_API_URL` is now the API base URL** (#99). REST is derived as
+  `<base>/rest/v1` and functions as `<base>/functions/v1/<name>`, so `brain wiki`,
+  `brain audit` and `brain sync-vault` work against a local Supabase stack
+  (`http://127.0.0.1:54321`), not only `https://<ref>.supabase.co`. Trailing slashes are
+  ignored. The legacy capture URL form (`<base>/functions/v1/capture-thought`) is still
+  supported. Any other path in the URL is now treated as a base prefix (for a reverse proxy).
+  **Plain `http` to a non-loopback host is now refused**: only `localhost`, `127.0.0.1` and
+  `[::1]` may use `http`, everything else must use `https`. An invalid or refused URL exits
+  with an error before a request is sent; the message names the source (`BRAIN_API_URL` or
+  `api_url` in `~/.brain/config.json`) and never prints the configured value, only
+  `protocol//host` when refusing `http`. `brain import --dry-run` sends nothing and is not
+  blocked by it.
+- **CLI requests never follow redirects** (`redirect: 'error'`), so a redirect cannot
+  forward the service key to another host.
 - **Narrower database access for the dashboard role (migration 018).** `authenticated`
   loses INSERT, UPDATE and DELETE on the data tables and views and all access to `tasks`;
   it keeps SELECT where the dashboard reads, plus UPDATE of `contradictions.status` and

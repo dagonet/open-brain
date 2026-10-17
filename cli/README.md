@@ -30,7 +30,7 @@ The CLI looks for configuration in this order:
 ### 1. Environment Variables
 
 ```bash
-export BRAIN_API_URL="https://<project>.supabase.co/functions/v1/capture-thought"
+export BRAIN_API_URL="https://<project>.supabase.co"
 export BRAIN_SERVICE_KEY="<your-service-role-key>"
 ```
 
@@ -40,10 +40,12 @@ Create `~/.brain/config.json`:
 
 ```json
 {
-  "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",
+  "api_url": "https://<project>.supabase.co",
   "service_key": "<your-service-role-key>"
 }
 ```
+
+`api_url` is the API base URL. The CLI uses `<base>/rest/v1` for REST and `<base>/functions/v1/<name>` for functions, so a local Supabase stack works with `"api_url": "http://127.0.0.1:54321"`. A trailing slash is ignored, and any other path is treated as a base prefix (for a reverse proxy). Plain `http` to a non-loopback host is refused: only `localhost`, `127.0.0.1` and `[::1]` may use `http`, any other host must use `https`. The CLI then exits with an error before sending anything; the message names the source (`BRAIN_API_URL` or `api_url` in `~/.brain/config.json`) and does not print the value. `import --dry-run` sends nothing and is not affected. The legacy capture function URL form (`https://<project>.supabase.co/functions/v1/capture-thought`) is still supported. The CLI does not follow redirects, so the service key is never forwarded to another host.
 
 ### Service key (`brain sync-vault`, `brain wiki get/list/refresh`, `brain audit`)
 

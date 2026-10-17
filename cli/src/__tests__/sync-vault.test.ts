@@ -39,16 +39,8 @@ describe('derivePostgrestUrl', () => {
     expect(derivePostgrestUrl(url)).toBe('https://my-cool-project.supabase.co/rest/v1/thoughts');
   });
 
-  it('throws for non-Supabase URLs', () => {
-    expect(() => derivePostgrestUrl('https://example.com/api/thoughts')).toThrow(
-      'Cannot derive PostgREST URL from BRAIN_API_URL',
-    );
-  });
-
   it('throws for malformed URLs', () => {
-    expect(() => derivePostgrestUrl('not-a-url')).toThrow(
-      'Cannot derive PostgREST URL from BRAIN_API_URL',
-    );
+    expect(() => derivePostgrestUrl('not-a-url')).toThrow('Invalid API URL');
   });
 });
 
