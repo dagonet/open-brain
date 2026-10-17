@@ -633,9 +633,7 @@ export function thoughtToMarkdown(thought: Thought): string {
   let body = '\n' + thought.raw_text + '\n';
 
   if (people.length > 0) {
-    const wikilinks = people
-      .map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`)
-      .join(', ');
+    const wikilinks = people.map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`).join(', ');
     body += `\n**People:** ${wikilinks}\n`;
   }
 
