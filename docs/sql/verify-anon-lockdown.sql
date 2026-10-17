@@ -33,6 +33,11 @@
 --   7. Row level security is on for every public table.
 --   8. The schema private exists, anon has no USAGE or CREATE on it and cannot
 --      EXECUTE anything in it, and private.is_owner() exists.
+--   9. Neither anon nor authenticated holds CREATE on the schema public (directly or
+--      through PUBLIC). The SECURITY DEFINER functions resolve names through public
+--      (migration 018 section 3), so a role that could create objects there could
+--      plant look-alikes. Fix a failure with
+--      REVOKE CREATE ON SCHEMA public FROM PUBLIC, anon, authenticated;
 
 WITH
 -- Policies in public that apply to anon or PUBLIC.
@@ -86,6 +91,14 @@ priv_fn AS (
   WHERE n.nspname = 'private'
     AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
 ),
+-- The schema public and whether the two API roles can create objects in it.
+pub_schema AS (
+  SELECT n.oid,
+         has_schema_privilege('anon', n.oid, 'CREATE') AS anon_create,
+         has_schema_privilege('authenticated', n.oid, 'CREATE') AS authenticated_create
+  FROM pg_namespace n
+  WHERE n.nspname = 'public'
+),
 -- What the dashboard (authenticated) needs; a missing object counts as no access.
 dashboard AS (
   SELECT t AS name,
@@ -120,7 +133,8 @@ checks(n, check_name, expected) AS (
     (5, '5. anything still open to anon (combined)', 'no table, view or function open to anon'),
     (6, '6. authenticated can use the dashboard',    'SELECT on every dashboard table/view, EXECUTE on every dashboard function, UPDATE of contradictions.status and resolved_at, USAGE on schema private'),
     (7, '7. row level security on public tables',    'RLS enabled on every table'),
-    (8, '8. schema private closed to anon',          'schema exists, no anon USAGE/CREATE on it, no function in it executable by anon, private.is_owner() present')
+    (8, '8. schema private closed to anon',          'schema exists, no anon USAGE/CREATE on it, no function in it executable by anon, private.is_owner() present'),
+    (9, '9. CREATE on schema public',                'neither anon nor authenticated can create objects in public')
 ),
 -- How many objects each check looked at (0 makes the check fail).
 scope(n, total) AS (
@@ -132,6 +146,7 @@ scope(n, total) AS (
   UNION ALL SELECT 6, count(*) FROM dashboard
   UNION ALL SELECT 7, count(*) FROM tbl
   UNION ALL SELECT 8, (SELECT count(*) FROM priv_schema) + (SELECT count(*) FROM priv_fn)
+  UNION ALL SELECT 9, count(*) FROM pub_schema
 ),
 -- One row per violation.
 issues(n, item) AS (
@@ -149,6 +164,8 @@ issues(n, item) AS (
   UNION ALL SELECT 8, 'schema private (anon has USAGE or CREATE)' FROM priv_schema WHERE anon_access
   UNION ALL SELECT 8, 'function ' || name || ' (anon can EXECUTE)' FROM priv_fn WHERE anon_access
   UNION ALL SELECT 8, 'private.is_owner() is missing' WHERE to_regprocedure('private.is_owner()') IS NULL
+  UNION ALL SELECT 9, 'anon has CREATE on public' FROM pub_schema WHERE anon_create
+  UNION ALL SELECT 9, 'authenticated has CREATE on public' FROM pub_schema WHERE authenticated_create
 )
 SELECT c.check_name AS "check",
        c.expected,

@@ -27,7 +27,8 @@
 --   4. Catalog checks: every data table has the restrictive owner-only policy for
 --      authenticated and every policy for authenticated calls private.is_owner();
 --      public.owners has no policy; authenticated holds no TRUNCATE, REFERENCES or
---      TRIGGER, no INSERT or DELETE anywhere, no table-level UPDATE, and column
+--      TRIGGER (and, on PostgreSQL 17 or later, no MAINTAIN; skipped on older
+--      servers), no INSERT or DELETE anywhere, no table-level UPDATE, and column
 --      UPDATE only on contradictions (status, resolved_at), nothing on tasks;
 --      public.is_owner() is gone; authenticated can use but not create in the
 --      schema private; private.is_owner() is the only SECURITY DEFINER function
@@ -223,9 +224,11 @@ BEGIN
   END LOOP;
   RETURN NEXT format('%-9s public.owners: select/insert/update/delete refused', p_who);
 
-  -- Writes. Inserts are refused by RLS (no INSERT policy exists). Updates and
-  -- deletes touch zero rows (RLS filters the sample row out), except the
-  -- contradictions UPDATE the dashboard uses, which only the owner may do.
+  -- Writes. authenticated holds no INSERT, DELETE or table-level UPDATE (migration
+  -- 018), so those are refused for lack of privilege ("permission denied for table
+  -- ..."), before row-level security is consulted. The one granted write, the
+  -- contradictions UPDATE of status and resolved_at that the dashboard uses, is
+  -- decided by RLS: it changes one row for the owner and none for a non-owner.
   FOR r IN
     SELECT * FROM (VALUES
       ('thoughts',
@@ -414,6 +417,27 @@ BEGIN
   END IF;
   INSERT INTO owner_scope_results (result)
   VALUES ('catalog   authenticated has no TRUNCATE, REFERENCES or TRIGGER on any table');
+
+  -- PostgreSQL 17 added the table privilege MAINTAIN (VACUUM, ANALYZE, REINDEX, ...),
+  -- which Supabase's default privileges grant to new tables. Older servers do not
+  -- know the name and has_table_privilege() would raise an error, so the check only
+  -- runs on 17 or later (migration 018 resets the grants with REVOKE ALL, which
+  -- covers it).
+  IF current_setting('server_version_num')::int >= 170000 THEN
+    SELECT string_agg(c.relname, ', ') INTO v_bad
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v', 'm')
+      AND has_table_privilege('authenticated', c.oid, 'MAINTAIN');
+    IF v_bad IS NOT NULL THEN
+      RAISE EXCEPTION 'owner-scope: authenticated holds MAINTAIN on: %', v_bad;
+    END IF;
+    INSERT INTO owner_scope_results (result)
+    VALUES ('catalog   authenticated has no MAINTAIN on any table or view');
+  ELSE
+    INSERT INTO owner_scope_results (result)
+    VALUES ('catalog   MAINTAIN check skipped: the privilege exists from PostgreSQL 17 (this server is ' || current_setting('server_version') || ')');
+  END IF;
 
   -- authenticated never writes except the one contradictions UPDATE (migration 018).
   -- has_table_privilege only sees table-level grants and has_any_column_privilege

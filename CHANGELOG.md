@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `resolved_at` (the resolve button). `is_owner()` moves to `private.is_owner()`, a schema
   the REST API does not expose, and `public.is_owner()` is dropped. The ten remaining
   SECURITY DEFINER functions pin `search_path = public, extensions, pg_temp`.
-  `docs/sql/verify-owner-scope.sql` and `verify-anon-lockdown.sql` cover all of it.
+  `docs/sql/verify-owner-scope.sql` and `verify-anon-lockdown.sql` cover all of it,
+  including a check that neither `anon` nor `authenticated` can CREATE in `public`.
+  The grants are reset with `REVOKE ALL` before `GRANT SELECT`, so a privilege a later
+  PostgreSQL adds (17 added MAINTAIN) cannot linger.
   Re-runnable; rollback steps are in the migration header.
 - **MCP server reports its real version.** `serverInfo.version` was hardcoded to `0.7.0`
   while `mcp-server/package.json` said `0.8.0`; it is now read from `package.json`.

@@ -24,8 +24,9 @@
 --
 -- Idempotent: REVOKE / GRANT / CREATE ... IF NOT EXISTS / CREATE OR REPLACE /
 -- DROP ... IF EXISTS / ALTER FUNCTION can be re-run. The order inside section 1
--- matters (revoke first, then the column grant): a table-level REVOKE also removes
--- column-level grants, so the reverse order would leave no UPDATE at all.
+-- matters (REVOKE ALL, then GRANT SELECT, then the column grant): a table-level
+-- REVOKE also removes column-level grants, so the reverse order would leave no
+-- UPDATE at all.
 -- Verify afterwards with docs/sql/verify-owner-scope.sql and
 -- docs/sql/verify-anon-lockdown.sql.
 --
@@ -51,8 +52,8 @@
 --   rpc     get_distinct_topics(), get_distinct_people()
 -- The views run with the caller's rights (migration 016), so the caller also needs
 -- SELECT on what they read: wiki_pages, entity_descriptions, thoughts,
--- contradictions and wiki_sources. All of that stays granted; SELECT is not
--- touched below except on tasks.
+-- contradictions and wiki_sources. All of that is granted again below; tasks is
+-- the only table that ends up without SELECT.
 --
 -- The one write is resolveContradiction() in web/src/app/wiki/actions.ts: it
 -- updates status and resolved_at of one contradictions row and selects its id back.
@@ -65,22 +66,31 @@
 -- policy stays so a future grant cannot open it to non-owners.
 -- ---------------------------------------------------------------------------
 
-REVOKE INSERT, UPDATE, DELETE ON TABLE
+-- Reset-then-grant, in this order, for every table and view: REVOKE ALL, then GRANT
+-- SELECT, then the column-level UPDATE. REVOKE ALL removes every table privilege
+-- the role holds today and any a later Postgres adds to ALL (PostgreSQL 17 added
+-- MAINTAIN, which Supabase's default privileges would grant to a new table), plus
+-- all column-level grants; listing privileges one by one would not. The project
+-- declares PostgreSQL 15 (supabase/config.toml [db] major_version), where this is
+-- equivalent to listing them.
+REVOKE ALL ON TABLE
   public.thoughts, public.contradictions, public.wiki_pages, public.wiki_sources,
-  public.entity_descriptions, public.tasks
-  FROM authenticated;
-
-REVOKE ALL ON TABLE public.tasks FROM authenticated;
-
--- Column-level UPDATE: a future column on contradictions is not writable by default.
-GRANT UPDATE (status, resolved_at) ON TABLE public.contradictions TO authenticated;
-
--- The views are not updatable, but Supabase's default privileges granted them the
--- full set when they were created. Reduce them to SELECT like the tables.
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE
+  public.entity_descriptions, public.tasks,
   public.entity_nodes, public.entity_edges, public.topic_counts,
   public.current_wiki_pages, public.wiki_page_staleness
   FROM authenticated;
+
+-- SELECT where the dashboard reads. tasks gets none. The views are not updatable,
+-- but Supabase's default privileges had granted them the full set.
+GRANT SELECT ON TABLE
+  public.thoughts, public.contradictions, public.wiki_pages, public.wiki_sources,
+  public.entity_descriptions,
+  public.entity_nodes, public.entity_edges, public.topic_counts,
+  public.current_wiki_pages, public.wiki_page_staleness
+  TO authenticated;
+
+-- Column-level UPDATE: a future column on contradictions is not writable by default.
+GRANT UPDATE (status, resolved_at) ON TABLE public.contradictions TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. is_owner() in the schema `private`
@@ -217,8 +227,14 @@ ALTER FUNCTION public.increment_retrieval(uuid[])
   SET search_path = public, extensions, pg_temp;
 
 -- NOTE for later migrations:
---   * a table created later gets INSERT, UPDATE and DELETE for authenticated from
---     Supabase's default privileges; revoke what the dashboard does not need, as in
---     section 1, besides the policies and the restrictive owner-only policy
+--   * a table or view created later is granted in full to authenticated by Supabase's
+--     default privileges; REVOKE ALL ... FROM authenticated, then GRANT only what the
+--     dashboard needs, as in section 1, besides the policies and the restrictive
+--     owner-only policy
 --   * a policy must call (SELECT private.is_owner()); a new SECURITY DEFINER function
 --     must set its search_path (verify-owner-scope.sql checks both)
+--   * CREATE OR REPLACE FUNCTION replaces the whole definition: a pinned SET search_path
+--     and SECURITY DEFINER are lost unless the new statement states them again
+--   * a new function in the schema private gets EXECUTE for PUBLIC by default (no
+--     default privileges are set for that schema); REVOKE EXECUTE ... FROM PUBLIC, anon
+--     explicitly, then GRANT only to the roles that need it
