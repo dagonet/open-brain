@@ -32,15 +32,18 @@ describe('entry point via a bin symlink', () => {
 
   // File symlinks need Developer Mode on Windows (EPERM otherwise). Windows starts the CLI through
   // npm's .cmd shim, and the realpath logic under test is unaffected there.
-  it.skipIf(process.platform === 'win32')('runs main() when started through a symlink without a .js suffix', () => {
-    mkdirSync(join(tmp, 'bin'));
-    const link = join(tmp, 'bin', 'brain');
-    symlinkSync(join(buildDir, 'brain.js'), link);
+  it.skipIf(process.platform === 'win32')(
+    'runs main() when started through a symlink without a .js suffix',
+    () => {
+      mkdirSync(join(tmp, 'bin'));
+      const link = join(tmp, 'bin', 'brain');
+      symlinkSync(join(buildDir, 'brain.js'), link);
 
-    // Isolated env: temp HOME, no BRAIN_* variables, so nothing can reach a live server.
-    const env: Record<string, string> = { PATH: process.env.PATH ?? '', HOME: tmp };
-    const out = execFileSync(process.execPath, [link, '--version'], { env, encoding: 'utf-8' });
+      // Isolated env: temp HOME, no BRAIN_* variables, so nothing can reach a live server.
+      const env: Record<string, string> = { PATH: process.env.PATH ?? '', HOME: tmp };
+      const out = execFileSync(process.execPath, [link, '--version'], { env, encoding: 'utf-8' });
 
-    expect(out.trim()).toBe('1.3.0');
-  });
+      expect(out.trim()).toBe('1.3.0');
+    },
+  );
 });
