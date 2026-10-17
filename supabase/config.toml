@@ -75,3 +75,11 @@ verify_jwt = true
 
 [functions.run-nightly-jobs]
 verify_jwt = true
+
+# tasks-feed is the one exception: its caller (a local, read-only consumer) has no
+# Supabase JWT, so the gateway cannot verify one. The function authenticates itself
+# with the TASKS_FEED_TOKEN secret (constant-time check in tasks-feed/handler.ts) and
+# does not use the service-role guard above. `supabase functions deploy tasks-feed`
+# picks this setting up from here; --no-verify-jwt is not needed.
+[functions.tasks-feed]
+verify_jwt = false

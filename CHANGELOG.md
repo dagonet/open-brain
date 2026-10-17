@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tasks-feed` edge function.** Read-only task list (JSON) for local tools that lost
+  anon access to `tasks` with migration 016. Authenticated by the `TASKS_FEED_TOKEN`
+  function secret (constant-time compare, fail closed when unset or shorter than 32
+  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See README step 10.
 - MCP server smoke test that lists the tools and calls one over the SDK's in-memory
   transport with stubbed Supabase/OpenAI clients (no network, no keys).
 - CI: the web job now runs `next build` with placeholder public Supabase variables.
