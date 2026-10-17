@@ -340,7 +340,7 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
   Find the id under **Authentication → Users**. To remove one: `delete from public.owners where user_id = '<user-id>';`. Users deleted from Supabase Auth leave the list automatically. The table has no API access; only the SQL editor and `service_role` can change it.
 
 - **Keep the two lists the same.** `OWNER_USER_IDS` (web, step 6) and `public.owners` should name the same account(s). An id only in `OWNER_USER_IDS` passes the web check but the database returns no rows, and resolving a contradiction fails with a "no row was updated" error before any audit note is saved; an id only in `public.owners` can browse the dashboard but the refresh / reject / resolve buttons are refused.
-- **Verify.** After applying the migration, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side.
+- **Verify.** After applying the migration, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side: it is one read-only SELECT with a row per check, failing rows first, and every row must say `pass = true`.
 
 ### 8. Set Up Slack (Optional)
 
