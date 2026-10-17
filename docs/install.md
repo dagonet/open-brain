@@ -11,7 +11,7 @@ Want to try it first without a hosted project? [Try it on a local stack](#try-it
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 22 recommended. The CLI builds with 22.12+ (vitest 5); the dashboard (`web/`, Next.js 16) needs 20.9+; Node 18 only runs an already built CLI or MCP server.
+- [Node.js](https://nodejs.org/) 22 recommended. The CLI and the MCP server run on Node 18+. Building the CLI also works there, but `npm ci` warns below 22.12 and the CLI test suite (vitest 5) needs 22.12+. The dashboard (`web/`, Next.js 16) needs 20.9+ (Node 18 refuses to build it).
 - A [Supabase account](https://supabase.com/) (the free tier works).
 - The [Supabase CLI](https://github.com/supabase/cli/releases), see the install note below. Docker, if you deploy functions without `--use-api`.
 - An [OpenAI API key](https://platform.openai.com/api-keys).
@@ -144,7 +144,7 @@ Restart Claude Code. It then lists 22 tools. Details and per-repo options: [`mcp
 
 The dashboard is a Next.js app in `web/`. Reference: [`dashboard.md`](dashboard.md).
 
-**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/providers` and toggle **Email** on. For local development, also toggle **Confirm email** off (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings, once you have created your user in step 2: `supabase/config.toml` only covers local development and `supabase config push`, so this dashboard setting is required. Otherwise anyone could register and log in.
+**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/providers` and toggle **Email** on. For local development, also toggle **Confirm email** off (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings, once you have created your user in step 2: `supabase/config.toml` only covers the local stack, so this dashboard setting is required. Otherwise anyone could register and log in. **Do not run `supabase config push`**: the shipped config switches the email provider off (`[auth.email] enable_signup = false`), and pushing it to a hosted project would lock you out of the dashboard login.
 
 **2. Create at least one user.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/users`, choose **Add user > Create new user**, enter email and password, toggle **Auto Confirm User** on, and create it. On a new install the migrations (step 3) ran before this user existed, so `public.owners` is still empty and the dashboard shows no data. Right after creating the user, add it as the owner in the SQL editor (the user id is shown in the Users list):
 
@@ -241,7 +241,7 @@ supabase db reset --yes             # applies migrations 001-018 locally; stands
 set -a; eval "$(supabase status -o env)"; set +a
 ```
 
-`supabase/config.toml` has sign-ups disabled, as on a hosted project. To create your user locally either use Studio (<http://127.0.0.1:54323>, Authentication > Users > Add user) or the admin API:
+`supabase/config.toml` has public sign-ups off (`[auth] enable_signup = false`), as on a hosted project. It also switches the email provider off (`[auth.email] enable_signup = false`), and then nobody can sign in with a password, the dashboard login included. To use the dashboard locally, set `[auth.email] enable_signup = true` in your local copy of the file (leave `[auth] enable_signup = false`: sign-up stays closed) and run `supabase stop`, then `supabase start`. Create your user with Studio (http://127.0.0.1:54323, Authentication > Users > Add user) or the admin API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:54321/auth/v1/admin/users \
@@ -253,7 +253,7 @@ curl -s -X POST http://127.0.0.1:54321/auth/v1/admin/users \
 Migration 017 seeded no owner (there was no user yet), so add one and run the checks. `psql` is not needed: run them inside the database container (`supabase_db_<project_id>`; the id is `project_id` in `supabase/config.toml`):
 
 ```bash
-DB=supabase_db_open-brain
+DB=supabase_db_$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' supabase/config.toml)
 docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 \
   -c "insert into public.owners (user_id) select id from auth.users"
 docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql

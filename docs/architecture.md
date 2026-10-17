@@ -78,7 +78,7 @@ Every thought you capture is:
 1. **Embedded** as a 1536-dimensional vector for semantic search
 2. **Classified** into a type: decision, insight, meeting, action, reference, question, or note
 3. **Annotated** with extracted people, topics, and action items
-4. **Deduplicated** via content-based SHA-256 idempotency keys
+4. **Deduplicated** on import, in the MCP tool and for Slack events through idempotency keys (a one-off `brain "<thought>"` gets a fresh key each run)
 
 ## Components
 
@@ -107,7 +107,7 @@ The functions are documented in [`edge-functions.md`](edge-functions.md); who ma
 
 **Classification.** GPT-4o-mini with JSON mode extracts `thought_type`, `people`, `topics`, `action_items` and salience from raw text. Temperature 0 for deterministic results.
 
-**Idempotency.** Content-based SHA-256 hashes prevent duplicate captures. The CLI uses `source:normalized_text` as the hash input; the MCP tool uses `mcp:normalized_text`.
+**Idempotency.** `brain import` hashes `source:normalized_text` (SHA-256), the MCP tool `mcp:normalized_text`, Slack uses `<channel>:<ts>`. Plain `brain "<thought>"` uses a random key per run, so repeating the same text stores it twice.
 
 **Entity graph.** The `entity_descriptions` table records entity mentions (people, projects, technologies) on every save. Migration 014 adds `entity_nodes` (canonical entities by `lower(trim(name))`) and `entity_edges` (co-occurrence pairs, weight = shared-thought count): pure SQL views over the existing data, zero LLM cost, self-maintaining. Three RPCs expose the graph: `entity_search` for full-text entity lookup, `entity_neighbors` for 1-hop traversal, and `related_thoughts_via_entities` for hub-suppressed thought expansion (degree cap and inverse-frequency scoring). Migration 015 filters file-path and generic-token noise out of the views without touching the stored data. The MCP server exposes the graph as `entities_search`, `entities_graph` and `thoughts_search_expanded`; opt out with `OPEN_BRAIN_TOOLS_DISABLED=entities`. Edges are co-occurrence-based and untyped; relation-typed edges are not implemented.
 

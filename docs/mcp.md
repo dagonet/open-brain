@@ -15,9 +15,8 @@ A local [Model Context Protocol](https://modelcontextprotocol.io) server that gi
 ## Install
 
 ```bash
-cd mcp-server
-npm install
-npm run build
+npm ci --prefix mcp-server
+npm run build --prefix mcp-server
 ```
 
 Rebuild after every `git pull`; Claude Code runs the compiled `dist/`. Then restart Claude Code.

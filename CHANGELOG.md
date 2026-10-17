@@ -146,6 +146,8 @@ All three are re-runnable.
 
 ### Fixed
 
+- The CLI now starts when installed globally through npm's bin link on Linux/macOS (the entry-point check compared the file name and missed the `brain` symlink, so `brain` printed nothing).
+- `brain sync-vault` no longer crashes on thoughts whose `topics`, `people` or `action_items` are NULL.
 - **Near-duplicate hint restored.** `processThought()` returned `duplicateCandidate`
   instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
   `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.

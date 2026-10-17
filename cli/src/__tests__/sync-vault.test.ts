@@ -135,6 +135,15 @@ describe('thoughtToMarkdown', () => {
     expect(md).toContain('created: "2026-03-04T14:30:00Z"');
   });
 
+  it('treats NULL people, topics and action_items as empty lists', () => {
+    const thought = makeThought({ people: null, topics: null, action_items: null });
+    const md = thoughtToMarkdown(thought as unknown as Parameters<typeof thoughtToMarkdown>[0]);
+    expect(md).toContain('people: []');
+    expect(md).toContain('topics: []');
+    expect(md).not.toContain('action_items');
+    expect(md).not.toContain('**People:**');
+  });
+
   it('includes people as wikilinks in body', () => {
     const thought = makeThought();
     const md = thoughtToMarkdown(thought);

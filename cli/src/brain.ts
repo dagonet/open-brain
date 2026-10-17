@@ -7,7 +7,9 @@ import {
   statSync,
   readdirSync,
   unlinkSync,
+  realpathSync,
 } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
@@ -585,7 +587,11 @@ export function thoughtToMarkdown(thought: Thought): string {
   if (thought.thought_type) {
     tags.push(`open-brain/${thought.thought_type}`);
   }
-  for (const topic of thought.topics) {
+  // The database columns can be NULL; treat that as an empty list.
+  const people = thought.people ?? [];
+  const topics = thought.topics ?? [];
+  const actionItems = thought.action_items ?? [];
+  for (const topic of topics) {
     tags.push(topic);
   }
 
@@ -593,14 +599,14 @@ export function thoughtToMarkdown(thought: Thought): string {
     id: thought.id,
     title,
     type: thought.thought_type || 'note',
-    people: thought.people,
-    topics: thought.topics,
+    people,
+    topics,
     source: thought.source,
     created: thought.created_at,
     updated: thought.updated_at,
   };
-  if (thought.action_items.length > 0) {
-    frontmatter.action_items = thought.action_items;
+  if (actionItems.length > 0) {
+    frontmatter.action_items = actionItems;
     frontmatter.action_items_resolved = thought.action_items_resolved;
   }
   frontmatter.tags = tags;
@@ -626,8 +632,8 @@ export function thoughtToMarkdown(thought: Thought): string {
 
   let body = '\n' + thought.raw_text + '\n';
 
-  if (thought.people.length > 0) {
-    const wikilinks = thought.people
+  if (people.length > 0) {
+    const wikilinks = people
       .map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`)
       .join(', ');
     body += `\n**People:** ${wikilinks}\n`;
@@ -1426,12 +1432,20 @@ export async function main(): Promise<void> {
   await captureSingleThought(text, projectArg);
 }
 
-const isMainModule =
-  process.argv[1] &&
-  (process.argv[1].endsWith('/brain.js') ||
-    process.argv[1].endsWith('\\brain.js') ||
-    process.argv[1].endsWith('/brain.ts') ||
-    process.argv[1].endsWith('\\brain.ts'));
+/**
+ * True when this file is the process entry point. Compares real paths so npm's bin
+ * link (`.../bin/brain` -> `.../dist/brain.js`) counts; the Windows .cmd shim passes
+ * the real path already.
+ */
+function isEntryPoint(): boolean {
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = isEntryPoint();
 
 if (isMainModule) {
   main().catch((err: unknown) => {

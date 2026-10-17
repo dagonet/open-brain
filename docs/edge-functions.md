@@ -56,7 +56,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 | ----- | -------- | ------- |
 | `text` | yes | The thought. |
 | `source` | yes | One of `slack`, `cli`, `mcp`, `import`, `import-claude`, `import-chatgpt`. |
-| `idempotency_key` | no | Same key, same thought: a repeat is reported as a duplicate. The CLI uses a SHA-256 of `source:normalized_text`, the MCP tool `mcp:normalized_text`. |
+| `idempotency_key` | no | Same key, same thought: a repeat is reported as a duplicate. `brain import` uses a SHA-256 of `source:normalized_text`, the MCP tool `thoughts_capture` one of `mcp:normalized_text`, Slack `<channel>:<ts>`. `brain "<thought>"` sends a fresh random key on every run, so identical text is stored again; it is deduplicated only when a request is retried. |
 | `project` | no | Project scope. |
 | `metadata` | no | Free-form JSON stored with the thought. |
 

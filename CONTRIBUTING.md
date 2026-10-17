@@ -4,7 +4,7 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 22.12+ (the CLI build and tests need it; the dashboard needs 20.9+)
+- [Node.js](https://nodejs.org/) 22 recommended (the CLI and MCP server run on 18+, but `npm ci` warns below 22.12 and the CLI tests need 22.12+; the dashboard needs 20.9+)
 - [Supabase account](https://supabase.com/) (free tier works), or Docker and the Supabase CLI for a [local stack](#testing-against-a-local-stack)
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 - [OpenAI API key](https://platform.openai.com/api-keys)
@@ -52,12 +52,13 @@ deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_te
 You can run the whole database and the edge functions on your machine with Docker and the Supabase CLI. [`docs/install.md`](docs/install.md#try-it-on-a-local-stack) has the walk-through; these are the rules for doing it safely and repeatably.
 
 - **Local only.** Use the `supabase` CLI for `start`, `db reset`, `functions serve`, `status` and `stop`. Never `login`, `link`, `db push` or `functions deploy` from a test run: those touch a hosted project.
-- **Sign-ups are disabled** in `supabase/config.toml` (as they should be on a hosted project). If a test needs sign-up, enable it in a scratch copy of the config, never in the repository. To create a user without it, use Studio or the admin API (`/auth/v1/admin/users` with the service key).
+- **Sign-ups are off** in `supabase/config.toml` (`[auth] enable_signup = false`, as on a hosted project). The file also switches the email provider off (`[auth.email] enable_signup = false`), and then nobody can sign in with a password, the dashboard login included (`422 email_provider_disabled`). To use the dashboard locally, set `[auth.email] enable_signup = true` in your scratch copy of the config (never in the repository; leave `[auth] enable_signup = false`) and run `supabase stop`, then `supabase start`. Create the user with Studio or the admin API (`/auth/v1/admin/users` with the service key).
 - **Keep `kong`.** Do not exclude it from `supabase start`: the edge functions and REST API are reached through it.
 - **Run SQL inside the database container**, so no local `psql` is needed and errors stop the run:
 
   ```bash
-  docker exec -i supabase_db_<project_id> psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql
+  DB=supabase_db_$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' supabase/config.toml)
+  docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql
   ```
 
   `<project_id>` is `project_id` in `supabase/config.toml`.
@@ -138,7 +139,7 @@ documented surface always matches the code.
 
 | Component | Path | Runtime |
 |-----------|------|---------|
-| CLI | `cli/` | Node.js 18+ (build: 22.12+) |
+| CLI | `cli/` | Node.js 18+ (tests: 22.12+) |
 | MCP Server | `mcp-server/` | Node.js 18+ |
 | Edge Functions | `supabase/functions/` | Deno |
 | Web Dashboard | `web/` | Next.js 16 |

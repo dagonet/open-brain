@@ -19,7 +19,7 @@ Without the global install, run `node cli/dist/brain.js "your thought here"` or 
 
 **After every `git pull`, rebuild:** `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`, so until you rebuild it keeps running the old code.
 
-Node.js 18+ runs the CLI; building and testing it (vitest 5) needs 22.12+.
+Node.js 18+ runs the CLI and builds it, but `npm ci` warns below 22.12 and the CLI test suite (vitest 5) needs 22.12+.
 
 ## Configuration
 
@@ -69,7 +69,7 @@ On success it prints what was extracted:
   Action: Follow up with Sarah about consulting timeline
 ```
 
-If the thought was already captured (same idempotency key):
+If a retried request reuses the idempotency key (a fresh `brain "<thought>"` run never does):
 
 ```
 ∼ Duplicate thought (already captured)

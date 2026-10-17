@@ -9,7 +9,7 @@ Symptoms, causes and fixes. Each entry names the document with the details.
 - [The dashboard shows no data, or refuses a button](#the-dashboard-shows-no-data-or-refuses-a-button)
 - [A direct REST read with the anon key returns 401 or 42501](#a-direct-rest-read-with-the-anon-key-returns-401-or-42501)
 - [`brain` runs old code after a pull](#brain-runs-old-code-after-a-pull)
-- [The CLI build needs Node 22.12 or newer](#the-cli-build-needs-node-2212-or-newer)
+- [The CLI tests need Node 22.12 or newer](#the-cli-tests-need-node-2212-or-newer)
 - [`entrypoint path does not exist` on Windows](#entrypoint-path-does-not-exist-on-windows)
 - [The near-duplicate hint never appears](#the-near-duplicate-hint-never-appears)
 - [The `private` schema is exposed](#the-private-schema-is-exposed)
@@ -46,6 +46,7 @@ Contract and checks: [`edge-functions.md`](edge-functions.md#tasks-feed).
 - **Refresh, reject or resolve buttons are refused.** `OWNER_USER_IDS` (the dashboard's server-only variable) is unset, empty, or does not include your id. It fails closed. Set it in `web/.env.local` and in Vercel for Production and Preview, then redeploy.
 - **"no row was updated" when resolving a contradiction.** Your id is in `OWNER_USER_IDS` but not in `public.owners`: the web check passes, the database refuses the write. Add the id to `public.owners`.
 - **Refresh or note saving fails with 401.** The dashboard's `SUPABASE_SERVICE_ROLE_KEY` is missing or is an `sb_secret_...` key. See the first entry above.
+- **Login fails with "Email logins are disabled" (`422 email_provider_disabled`).** The email provider is off. On a local stack the shipped `supabase/config.toml` sets `[auth.email] enable_signup = false`: set it to `true` in your local copy (leave `[auth] enable_signup = false`), then `supabase stop` and `supabase start`. On a hosted project, switch **Email** back on under Authentication > Providers; this happens if `supabase config push` was run with the shipped config, so do not run it.
 
 Keep the two owner lists equal: [`security.md`](security.md#the-owner-list). Setup: [`dashboard.md`](dashboard.md).
 
@@ -65,9 +66,9 @@ npm ci --prefix cli && npm run build --prefix cli
 
 The same applies to the MCP server (`npm run build` in `mcp-server/`, then restart Claude Code). Check the CLI version with `brain --version`.
 
-## The CLI build needs Node 22.12 or newer
+## The CLI tests need Node 22.12 or newer
 
-Running `brain` works on Node 18 and later; building and testing the CLI (vitest 5) needs Node 22.12 or newer. If `npm run build --prefix cli` or the tests fail on an older Node, upgrade Node (the dashboard needs 20.9 or newer, so 22 covers everything). See [`cli.md`](cli.md#install-and-rebuild).
+The CLI runs and builds on Node 18 and later, but `npm ci` warns below 22.12 and the test suite (vitest 5) needs Node 22.12 or newer. If `npm test --prefix cli` fails on an older Node, upgrade Node (the dashboard needs 20.9 or newer, so 22 covers everything). See [`cli.md`](cli.md#install-and-rebuild).
 
 ## `entrypoint path does not exist` on Windows
 
