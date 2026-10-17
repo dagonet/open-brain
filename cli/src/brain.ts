@@ -11,6 +11,12 @@ import {
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+
+// Same approach as mcp-server/src/server.ts: ../package.json is cli/package.json
+// from both src/ (tests) and dist/ (installed).
+const require = createRequire(import.meta.url);
+export const CLI_VERSION: string = (require('../package.json') as { version: string }).version;
 
 interface Config {
   api_url: string;
@@ -135,15 +141,18 @@ function printSetupInstructions(): void {
   );
 }
 
-function printUsage(): void {
-  console.error(
+function printUsage(print: (message: string) => void = console.error): void {
+  print(
     [
       'Usage:',
       '  brain "<your thought>" [options]     Capture a single thought',
+      '  brain -- "<your thought>" [options]  Capture text that starts with a dash',
       '  brain import <file> [options]        Import memories from a file',
       '  brain sync-vault <path> [options]    Export thoughts as Obsidian markdown',
       '  brain audit [options]                Audit recent thoughts for contradictions',
       '  brain wiki <subcommand> [options]    Manage wiki pages (get|list|refresh|reject)',
+      '  brain help | --help | -h             Show this help',
+      '  brain --version | -V                 Show the CLI version',
       '',
       'Example:',
       '  brain "Met with Sarah today, she\'s considering consulting"',
@@ -1250,7 +1259,7 @@ async function wikiCommand(): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const command = process.argv[2];
 
   if (command === 'import') {
@@ -1273,15 +1282,42 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Existing single-thought capture (command is the text)
-  const text = command;
+  if (command === '--version' || command === '-V') {
+    console.log(CLI_VERSION);
+    return;
+  }
+
+  // The bare word `help` is reserved only when it is the sole argument;
+  // `brain "help me remember X"` is one argument and is captured.
+  // `brain -- help` captures the word itself.
+  if (
+    command === '--help' ||
+    command === '-h' ||
+    (command === 'help' && process.argv.length === 3)
+  ) {
+    printUsage(console.log);
+    return;
+  }
+
+  // Single-thought capture. `--` ends flag parsing so the text may start with a dash;
+  // any other leading dash is an unknown option and must never be captured as text.
+  let textIndex = 2;
+  if (command === '--') {
+    textIndex = 3;
+  } else if (command?.startsWith('-')) {
+    console.error('Error: unknown option: ' + command);
+    printUsage();
+    process.exit(1);
+  }
+
+  const text = process.argv[textIndex];
   if (!text) {
     printUsage();
     process.exit(1);
   }
 
   // Parse options after the text (e.g. --project)
-  const remaining = process.argv.slice(3);
+  const remaining = process.argv.slice(textIndex + 1);
   let projectArg: string | undefined;
   for (let i = 0; i < remaining.length; i++) {
     if (remaining[i] === '--project' && i + 1 < remaining.length) {

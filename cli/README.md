@@ -78,6 +78,18 @@ If the thought was already captured (duplicate idempotency key):
 ∼ Duplicate thought (already captured)
 ```
 
+### Flags, help and version
+
+```bash
+brain --version              # also: brain -V; prints the CLI version
+brain help                   # also: brain --help, brain -h; prints usage
+brain -- "-x is a flag"      # capture text that starts with a dash
+```
+
+- Any other argument that starts with `-` and is not known (for example `brain --bogus`) is an error: a message on stderr, exit code 1, nothing is captured. Put `--` first to capture such text.
+- The bare word `help` is reserved only when it is the **only** argument. `brain "help me remember X"` is one argument and is captured as a thought; to capture the single word, use `brain -- help`.
+- The same goes for text beginning with a dash inside quotes, such as `brain "--version"`: it is the flag, not a thought. Use `brain -- "--version"`.
+
 ## Error Handling
 
 - **No API config**: Prints setup instructions

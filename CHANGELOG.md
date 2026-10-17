@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#96).
+  `brain --version` / `-V` print the version from `cli/package.json`; `brain help` (sole
+  argument), `--help` and `-h` print usage on stdout and exit 0. Any other unknown argument
+  starting with `-` is an error (stderr, exit 1, nothing captured); text that starts with a
+  dash is captured after `--`, e.g. `brain -- "-x is a flag"`. Rebuild the CLI
+  (`npm run build --prefix cli`) to pick this up.
+
 ### Changed
 
 - **`tasks-feed` order and truncation headers.** Tasks come back newest first
