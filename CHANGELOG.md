@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Edge functions pin `@supabase/supabase-js` to 2.49.4 everywhere; `capture-thought` and `slack-webhook` used an unpinned `@2` import (#92).
+
 ### Fixed
 
 - `detect-contradictions` answers 400 for a body that is invalid JSON or not a JSON object, instead of running a default audit (#102).
