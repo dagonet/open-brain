@@ -175,6 +175,43 @@ Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', a
   }
 });
 
+// ---- compile-wiki request body (#105) ----------------------------------------
+
+Deno.test('compile-wiki: 400 and no work for a non-object JSON body', async () => {
+  for (const raw of ['null', '42', '"text"', 'true', '[]']) {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, `status for ${raw}`);
+      const body = await res.json();
+      assertEquals(body.success, false, `success for ${raw}`);
+      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
+    });
+    assertEquals(calls, 0, `fetch calls for ${raw}`);
+  }
+});
+
+Deno.test('compile-wiki: a JSON object body with a slug passes body validation', async () => {
+  let status = 0;
+  const calls = await withStubs(async () => {
+    const res = await compileWiki(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{"slug":"example"}',
+      }),
+    );
+    status = res.status;
+  });
+  if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
+  if (status === 400) throw new Error('expected a valid body not to answer 400');
+});
+
 // The authorized PUT is rejected by the method check before the body is read.
 Deno.test(
   'detect-contradictions: 405 and no work for a PUT with an invalid JSON body',

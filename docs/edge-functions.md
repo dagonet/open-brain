@@ -70,7 +70,7 @@ What it does for every thought, in parallel: embeds it (`text-embedding-3-small`
 
 Compiles one topic into a wiki page: clusters the topic's thoughts, drops those in an open contradiction, ranks them with recency decay (`WIKI_DECAY_DAYS`, default 90), and asks the model for structured output. A citation validator checks every paragraph against real source thoughts; it retries once and falls back to a `partial` page that omits unverifiable paragraphs. Pages are append-only versions; the `current_wiki_pages` view shows the latest. A topic needs at least 3 thoughts.
 
-Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON or a missing `slug`; `200` with status `refused` (reason `cluster_too_small`) for an unknown slug. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
+Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON, a body that is not a JSON object, or a missing `slug`; `200` with status `refused` (reason `cluster_too_small`) for an unknown slug. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
 
 ## detect-contradictions
 

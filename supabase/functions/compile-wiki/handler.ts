@@ -305,15 +305,19 @@ export async function handler(req: Request): Promise<Response> {
     return jsonResponse(405, { success: false, error: 'Method not allowed' });
   }
 
-  let body: CompileRequest;
+  let parsed: unknown;
   try {
-    body = (await req.json()) as CompileRequest;
+    parsed = await req.json();
   } catch {
     return jsonResponse(400, {
       success: false,
       error: 'JSON body required with { slug }',
     });
   }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return jsonResponse(400, { success: false, error: 'Request body must be a JSON object' });
+  }
+  const body = parsed as CompileRequest;
   if (!body.slug || typeof body.slug !== 'string') {
     return jsonResponse(400, { success: false, error: 'slug is required' });
   }
