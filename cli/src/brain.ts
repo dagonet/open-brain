@@ -24,6 +24,8 @@ interface Config {
   api_key?: string;
   /** Service-role key; every command sends it (capture, import, sync-vault, wiki, audit). */
   service_key?: string;
+  /** REST, functions and capture URLs, resolved once from `api_url` by loadConfig. */
+  endpoints: ApiEndpoints;
 }
 
 interface ThoughtResponse {
@@ -70,33 +72,35 @@ export interface ApiEndpoints {
   restBase: string;
 }
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
  * Resolve the REST and function URLs from the configured API URL.
  *
  * Accepts a bare base (`https://<ref>.supabase.co`, `http://127.0.0.1:54321`, optional
  * trailing slash) or, for older configs, the capture-thought function URL
- * (`<base>/functions/v1/capture-thought`). Plain http is only accepted for localhost and
- * 127.0.0.1, so a typo cannot send the service key unencrypted to a remote host.
+ * (`<base>/functions/v1/capture-thought`). Plain http is only accepted for loopback
+ * (localhost, 127.0.0.1, [::1]), so a typo cannot send the service key unencrypted to a
+ * remote host. `source` names where the value came from; error messages never contain the
+ * value itself, since it may be a pasted secret or carry credentials.
  */
-export function resolveApiEndpoints(apiUrl: string): ApiEndpoints {
+export function resolveApiEndpoints(apiUrl: string, source = 'API URL'): ApiEndpoints {
   let url: URL;
   try {
-    url = new URL(apiUrl.trim());
+    url = new URL(String(apiUrl).trim());
   } catch {
     throw new Error(
-      `Invalid BRAIN_API_URL "${apiUrl}". Expected a base URL such as https://<ref>.supabase.co or http://127.0.0.1:54321`,
+      `Invalid API URL in ${source}. Expected a base URL such as https://<ref>.supabase.co or http://127.0.0.1:54321.`,
     );
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new Error(
-      `Invalid BRAIN_API_URL "${apiUrl}": the scheme must be https (or http for localhost).`,
+      `Invalid API URL in ${source}: the scheme must be https (or http for loopback).`,
     );
   }
   if (url.protocol === 'http:' && !LOCAL_HOSTS.has(url.hostname)) {
     throw new Error(
-      `Refusing BRAIN_API_URL "${apiUrl}": plain http is only allowed for localhost or 127.0.0.1. Use https.`,
+      `Refusing API URL in ${source}: plain http to ${url.protocol}//${url.host} is not allowed (http only for localhost, 127.0.0.1 or [::1]). Use https.`,
     );
   }
   const path = url.pathname.replace(/\/+$/, '');
@@ -116,12 +120,14 @@ export function loadConfig(): Config | null {
   const file = readConfigFile();
   const apiUrl = process.env.BRAIN_API_URL || file.api_url;
   if (!apiUrl) return null;
+  const source = process.env.BRAIN_API_URL ? 'BRAIN_API_URL' : 'api_url in ~/.brain/config.json';
+  const endpoints = resolveApiEndpoints(apiUrl, source);
   const apiKey = process.env.BRAIN_API_KEY || file.api_key || undefined;
 
   // The service key is resolved on its own, however url/key were loaded:
   // BRAIN_SERVICE_KEY wins, then the config file's service_key.
   const service_key = process.env.BRAIN_SERVICE_KEY || file.service_key || undefined;
-  return { api_url: resolveApiEndpoints(apiUrl).captureUrl, api_key: apiKey, service_key };
+  return { api_url: endpoints.captureUrl, api_key: apiKey, service_key, endpoints };
 }
 
 /**
@@ -334,7 +340,13 @@ export async function importMemories(): Promise<void> {
     process.exit(1);
   }
 
-  const config = loadConfig();
+  // A dry run sends nothing, so an invalid or refused api_url must not stop it.
+  let config: Config | null = null;
+  try {
+    config = loadConfig();
+  } catch (err) {
+    if (!dryRun) throw err;
+  }
   if (!config && !dryRun) {
     printSetupInstructions();
     process.exit(1);
@@ -402,7 +414,8 @@ export async function importMemories(): Promise<void> {
     }
 
     try {
-      const response = await fetch(config!.api_url, {
+      const response = await fetch(config!.endpoints.captureUrl, {
+        redirect: 'error',
         method: 'POST',
         headers: {
           Authorization: 'Bearer ' + captureKey,
@@ -456,7 +469,8 @@ export async function captureSingleThought(text: string, projectArg?: string): P
     if (projectArg) {
       body.project = projectArg;
     }
-    const response = await fetch(config.api_url, {
+    const response = await fetch(config.endpoints.captureUrl, {
+      redirect: 'error',
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + serviceKey,
@@ -627,6 +641,7 @@ async function fetchAllThoughts(postgrestUrl: string, apiKey: string): Promise<T
       '?deleted_at=is.null&order=created_at.asc&select=id,raw_text,thought_type,people,topics,action_items,action_items_resolved,source,metadata,created_at,updated_at';
 
     const response = await fetch(url, {
+      redirect: 'error',
       headers: {
         apikey: apiKey,
         Authorization: 'Bearer ' + apiKey,
@@ -696,15 +711,7 @@ export async function syncVault(): Promise<void> {
 
   const serviceKey = serviceKeyOrExit(config);
 
-  // Derive PostgREST URL
-  let postgrestUrl: string;
-  try {
-    postgrestUrl = derivePostgrestUrl(config.api_url);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(message);
-    process.exit(1);
-  }
+  const postgrestUrl = config.endpoints.restBase + '/thoughts';
 
   // Validate vault path
   if (existsSync(vaultPath)) {
@@ -849,6 +856,7 @@ async function postFunction(
   body: Record<string, unknown>,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const response = await fetch(`${base}/${functionName}`, {
+    redirect: 'error',
     method: 'POST',
     headers: {
       Authorization: 'Bearer ' + apiKey,
@@ -861,12 +869,13 @@ async function postFunction(
 }
 
 async function getFromPostgrest(
-  apiUrl: string,
+  restBase: string,
   apiKey: string,
   pathAndQuery: string,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const url = resolveApiEndpoints(apiUrl).restBase + '/' + pathAndQuery;
+  const url = restBase + '/' + pathAndQuery;
   const response = await fetch(url, {
+    redirect: 'error',
     headers: {
       apikey: apiKey,
       Authorization: 'Bearer ' + apiKey,
@@ -925,7 +934,7 @@ export async function auditCommand(): Promise<void> {
     process.exit(1);
   }
 
-  const base = deriveFunctionsBase(config.api_url);
+  const base = config.endpoints.functionsBase;
 
   if (resolveId) {
     if (!decision || !['resolved', 'ignored', 'false_positive'].includes(decision)) {
@@ -938,10 +947,9 @@ export async function auditCommand(): Promise<void> {
       resolved_at: new Date().toISOString(),
     };
     const url =
-      resolveApiEndpoints(config.api_url).restBase +
-      '/contradictions?id=eq.' +
-      encodeURIComponent(resolveId);
+      config.endpoints.restBase + '/contradictions?id=eq.' + encodeURIComponent(resolveId);
     const response = await fetch(url, {
+      redirect: 'error',
       method: 'PATCH',
       headers: {
         apikey: resolveKey,
@@ -985,7 +993,8 @@ export async function auditCommand(): Promise<void> {
       .update(`resolve:${resolveId}:${decision}`)
       .digest('hex');
     try {
-      const captureResponse = await fetch(config.api_url, {
+      const captureResponse = await fetch(config.endpoints.captureUrl, {
+        redirect: 'error',
         method: 'POST',
         headers: {
           Authorization: 'Bearer ' + resolveKey,
@@ -1050,7 +1059,7 @@ export async function auditCommand(): Promise<void> {
   if (verbose && (summary.contradictions_inserted ?? 0) > 0) {
     const since30 = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const result = await getFromPostgrest(
-      config.api_url,
+      config.endpoints.restBase,
       serviceKey,
       `contradictions?detected_at=gte.${encodeURIComponent(
         since30,
@@ -1102,7 +1111,7 @@ export async function wikiGetCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
   const result = await getFromPostgrest(
-    config.api_url,
+    config.endpoints.restBase,
     serviceKeyOrExit(config),
     `current_wiki_pages?slug=eq.${encodeURIComponent(
       slug.toLowerCase(),
@@ -1142,7 +1151,7 @@ export async function wikiListCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
   const result = await getFromPostgrest(
-    config.api_url,
+    config.endpoints.restBase,
     serviceKeyOrExit(config),
     `current_wiki_pages?order=compiled_at.desc&limit=${limit}&select=slug,version,source_thought_count,partial,compiled_at`,
   );
@@ -1191,13 +1200,13 @@ export async function wikiRefreshCommand(args: string[]): Promise<void> {
     printSetupInstructions();
     process.exit(1);
   }
-  const base = deriveFunctionsBase(config.api_url);
+  const base = config.endpoints.functionsBase;
   const serviceKey = serviceKeyOrExit(config);
 
   let slugs: string[];
   if (all) {
     const result = await getFromPostgrest(
-      config.api_url,
+      config.endpoints.restBase,
       serviceKey,
       `topic_counts?order=thought_count.desc&limit=${topK}&select=slug,display_name,thought_count`,
     );
@@ -1280,7 +1289,8 @@ export async function wikiRejectCommand(args: string[]): Promise<void> {
   const serviceKey = serviceKeyOrExit(config);
   const idempotency_key = randomUUID();
   const text = `Wiki page ${pageId} rejected: ${reason}`;
-  const response = await fetch(config.api_url, {
+  const response = await fetch(config.endpoints.captureUrl, {
+    redirect: 'error',
     method: 'POST',
     headers: {
       Authorization: 'Bearer ' + serviceKey,

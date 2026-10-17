@@ -246,7 +246,7 @@ cat > ~/.brain/config.json << 'EOF'
 EOF
 ```
 
-`api_url` is the API base URL: REST is `<base>/rest/v1`, functions are `<base>/functions/v1/<name>`. A local Supabase stack works too (`http://127.0.0.1:54321`); plain `http` is accepted only for `localhost` and `127.0.0.1`, anything else must be `https`. Configs that hold the older capture function URL (`https://your-project.supabase.co/functions/v1/capture-thought`) keep working.
+`api_url` is the API base URL: REST is `<base>/rest/v1`, functions are `<base>/functions/v1/<name>`. A local Supabase stack works too (`http://127.0.0.1:54321`); plain `http` to a non-loopback host is refused (only `localhost`, `127.0.0.1` and `[::1]` may use `http`; anything else must be `https`), and any other path in the URL is treated as a base prefix. The older capture function URL form (`https://your-project.supabase.co/functions/v1/capture-thought`) is still supported.
 
 Database access is closed to the anon key, so every `brain` command (capture, `import`, `sync-vault`, `wiki get/list/refresh/reject`, `audit` and `audit --resolve`) needs the service-role key. `audit` and `wiki refresh` also call `detect-contradictions` / `compile-wiki`, which require it. Provide the legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`; the anon key is not used) via `BRAIN_SERVICE_KEY` or a `"service_key"` field in `~/.brain/config.json`; the CLI exits with an error if neither is set. Capture, `import` and `wiki reject` call `capture-thought`, which also requires the service-role key; `api_key` / `BRAIN_API_KEY` is optional and no command sends it.
 

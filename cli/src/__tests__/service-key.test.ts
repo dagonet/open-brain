@@ -482,7 +482,7 @@ describe('service-role commands', () => {
       vi.stubEnv('BRAIN_API_KEY', '');
       writeConfigFile({ api_url: `${URL_BASE}/capture-thought`, service_key: SERVICE });
 
-      expect(loadConfig()).toEqual({
+      expect(loadConfig()).toMatchObject({
         api_url: `${URL_BASE}/capture-thought`,
         api_key: undefined,
         service_key: SERVICE,
@@ -528,7 +528,7 @@ describe('service-role commands', () => {
         service_key: SERVICE,
       });
 
-      expect(loadConfig()).toEqual({
+      expect(loadConfig()).toMatchObject({
         api_url: `${URL_BASE}/capture-thought`,
         api_key: ANON,
         service_key: SERVICE,

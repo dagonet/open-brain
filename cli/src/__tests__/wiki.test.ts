@@ -15,6 +15,6 @@ describe('deriveFunctionsBase', () => {
   });
 
   it('throws for malformed URLs', () => {
-    expect(() => deriveFunctionsBase('not-a-url')).toThrow('Invalid BRAIN_API_URL');
+    expect(() => deriveFunctionsBase('not-a-url')).toThrow('Invalid API URL');
   });
 });

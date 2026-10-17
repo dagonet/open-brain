@@ -40,7 +40,7 @@ describe('derivePostgrestUrl', () => {
   });
 
   it('throws for malformed URLs', () => {
-    expect(() => derivePostgrestUrl('not-a-url')).toThrow('Invalid BRAIN_API_URL');
+    expect(() => derivePostgrestUrl('not-a-url')).toThrow('Invalid API URL');
   });
 });
 
