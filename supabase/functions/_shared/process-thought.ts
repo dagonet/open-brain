@@ -164,5 +164,9 @@ export async function processThought(input: ThoughtInput): Promise<ProcessingRes
     }
   }
 
-  return { thought: data as ThoughtRecord, is_duplicate: false, duplicateCandidate };
+  return {
+    thought: data as ThoughtRecord,
+    is_duplicate: false,
+    duplicate_candidate: duplicateCandidate,
+  };
 }

@@ -48,7 +48,7 @@
 - Deploy edge functions: `supabase functions deploy`
 - Configure CLI: set env vars or create `~/.brain/config.json`
 - Configure MCP server in Claude Code settings
-- Set up Slack app (see `docs/slack-setup.md`)
+- Set up Slack app (see README step 8, "Set Up Slack")
 
 ## Sprint 2 Summary
 
