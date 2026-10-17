@@ -51,6 +51,14 @@ jobs:
       - run: npm install
       - run: npx tsc --noEmit
       - run: npx vitest run
+      # The build needs no real credentials: nothing is fetched at build time and the
+      # server-only keys are read at request time. The two public vars are inlined into
+      # the bundle, so they are set to obvious placeholders to keep the build self-contained.
+      - run: npx next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_TELEMETRY_DISABLED: 1
 
   format-lint:
     name: Format & Lint

@@ -4,6 +4,23 @@ All notable changes to Open Brain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **MCP server reports its real version.** `serverInfo.version` was hardcoded to `0.7.0`
+  while `mcp-server/package.json` said `0.8.0`; it is now read from `package.json`.
+  Server construction moved into a side-effect-free `createServer()` in
+  `mcp-server/src/server.ts`; the stdio entrypoint behaves as before.
+- **`zod` is now a declared dependency of `mcp-server`** (`^3.25.76`, the copy the MCP SDK
+  already resolves; the lockfile still holds a single deduped copy).
+
+### Added
+
+- MCP server smoke test that lists the tools and calls one over the SDK's in-memory
+  transport with stubbed Supabase/OpenAI clients (no network, no keys).
+- CI: the web job now runs `next build` with placeholder public Supabase variables.
+
 ## [0.8.0] - 2026-07-12
 
 Inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
