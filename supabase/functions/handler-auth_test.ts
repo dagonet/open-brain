@@ -1,13 +1,15 @@
-// Handler-level check that compile-wiki and detect-contradictions run the
-// service-role guard before doing any work.
+// Handler-level checks for compile-wiki and detect-contradictions: the
+// service-role guard runs before any work, and request-body validation answers
+// 400 (or runs the default audit for an empty body) as documented.
 //
 // Run (from the repo root; also run in CI, job "Edge Functions (Deno)"):
 //   deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts
 //
 // Work is detected through globalThis.fetch: both handlers reach the database
 // (supabase-js) and OpenAI only via fetch, so a recorded call means work started.
-// Most tests expect zero calls; the body tests that expect an audit to start
-// expect at least one (the stub answers with an empty list, so nothing real runs).
+// Tests that expect a rejection assert zero fetch calls; tests that expect the
+// handler to proceed assert at least one (the stub answers every request with an
+// empty 200 list, so nothing real runs).
 // All values below are made-up fixtures.
 
 import { handler as compileWiki } from './compile-wiki/handler.ts';
@@ -134,8 +136,8 @@ for (const [name, handle] of handlers) {
 }
 
 // ---- detect-contradictions request body (#102) -------------------------------
-// A present-but-invalid JSON body is a client error (400, no work), as in
-// compile-wiki. An absent or empty body still runs the default audit.
+// A body that is invalid JSON or not a JSON object is a client error (400, no
+// work). An absent, empty or whitespace-only body still runs the default audit.
 
 const serviceAuth = { Authorization: `Bearer ${jwt({ role: 'service_role' })}` };
 
@@ -173,43 +175,6 @@ Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', a
     });
     assertEquals(calls, 0, `fetch calls for ${raw}`);
   }
-});
-
-// ---- compile-wiki request body (#105) ----------------------------------------
-
-Deno.test('compile-wiki: 400 and no work for a non-object JSON body', async () => {
-  for (const raw of ['null', '42', '"text"', 'true', '[]']) {
-    const calls = await withStubs(async () => {
-      const res = await compileWiki(
-        new Request('http://localhost/fn', {
-          method: 'POST',
-          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
-          body: raw,
-        }),
-      );
-      assertEquals(res.status, 400, `status for ${raw}`);
-      const body = await res.json();
-      assertEquals(body.success, false, `success for ${raw}`);
-      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
-    });
-    assertEquals(calls, 0, `fetch calls for ${raw}`);
-  }
-});
-
-Deno.test('compile-wiki: a JSON object body with a slug passes body validation', async () => {
-  let status = 0;
-  const calls = await withStubs(async () => {
-    const res = await compileWiki(
-      new Request('http://localhost/fn', {
-        method: 'POST',
-        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
-        body: '{"slug":"example"}',
-      }),
-    );
-    status = res.status;
-  });
-  if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
-  if (status === 400) throw new Error('expected a valid body not to answer 400');
 });
 
 // The authorized PUT is rejected by the method check before the body is read.
@@ -258,3 +223,67 @@ for (const [label, init, hasSince] of [
     );
   });
 }
+
+// ---- compile-wiki request body (#105) ----------------------------------------
+
+Deno.test('compile-wiki: 400 and no work for a non-object JSON body', async () => {
+  for (const raw of ['null', '42', '"text"', 'true', '[]']) {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, `status for ${raw}`);
+      const body = await res.json();
+      assertEquals(body.success, false, `success for ${raw}`);
+      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
+    });
+    assertEquals(calls, 0, `fetch calls for ${raw}`);
+  }
+});
+
+// Existing 400s stay as they were.
+for (const [raw, expected] of [
+  ['{}', 'slug is required'],
+  ['{"slug":42}', 'slug is required'],
+  ['{bad json', 'JSON body required with { slug }'],
+] as Array<[string, string]>) {
+  Deno.test(`compile-wiki: 400 "${expected}" and no work for body ${raw}`, async () => {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, 'status');
+      const body = await res.json();
+      assertEquals(body.success, false, 'success');
+      assertEquals(body.error, expected, 'error');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  });
+}
+
+Deno.test('compile-wiki: a JSON object body with a slug passes body validation', async () => {
+  const calls = await withStubs(async () => {
+    const res = await compileWiki(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{"slug":"example"}',
+      }),
+    );
+    // The empty-list stub means the cluster is too small to compile.
+    assertEquals(res.status, 200, 'status');
+    const body = await res.json();
+    assertEquals(body.status, 'refused', 'status field');
+    assertEquals(body.reason, 'cluster_too_small', 'reason');
+    assertEquals(body.slug, 'example', 'slug');
+  });
+  if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
+});

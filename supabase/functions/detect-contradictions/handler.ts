@@ -109,9 +109,8 @@ export async function handler(req: Request): Promise<Response> {
 
   let body: AuditRequest = {};
   // An absent, empty or whitespace-only body runs the default audit. A body that
-  // is present but not valid JSON is a client error with the same 400 shape as
-  // compile-wiki; unlike compile-wiki, a JSON value that is not an object is
-  // rejected here too.
+  // is present but not valid JSON, or not a JSON object, is a client error with
+  // the same 400 shape and object check as compile-wiki.
   let rawBody: string;
   try {
     rawBody = await req.text();

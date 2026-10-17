@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `detect-contradictions` answers 400 for a body that is invalid JSON or not a JSON object, instead of running a default audit (#102).
-- `compile-wiki` answers 400 for a body that is not a JSON object instead of a 500 (#105).
+- `compile-wiki` answers 400 `Request body must be a JSON object` for a body that is not a JSON object; a `null` body used to end in a 500 (#105).
 
 ## [0.9.0] - 2026-10-17
 
