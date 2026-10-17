@@ -108,12 +108,26 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   let body: AuditRequest = {};
+  // An absent, empty or whitespace-only body runs the default audit. A body that
+  // is present but not valid JSON, or not a JSON object, is a client error with
+  // the same 400 shape and object check as compile-wiki.
+  let rawBody: string;
   try {
-    if (req.headers.get('content-length') !== '0') {
-      body = await req.json();
-    }
+    rawBody = await req.text();
   } catch {
-    body = {};
+    return jsonResponse(400, { success: false, error: 'Could not read request body' });
+  }
+  if (rawBody.trim() !== '') {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      return jsonResponse(400, { success: false, error: 'Invalid JSON body' });
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return jsonResponse(400, { success: false, error: 'Request body must be a JSON object' });
+    }
+    body = parsed as AuditRequest;
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');

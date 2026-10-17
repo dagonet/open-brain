@@ -1,11 +1,15 @@
-// Handler-level check that compile-wiki and detect-contradictions run the
-// service-role guard before doing any work.
+// Handler-level checks for compile-wiki and detect-contradictions: the
+// service-role guard runs before any work, and request-body validation answers
+// 400 (or runs the default audit for an empty body) as documented.
 //
 // Run (from the repo root; also run in CI, job "Edge Functions (Deno)"):
 //   deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts
 //
 // Work is detected through globalThis.fetch: both handlers reach the database
 // (supabase-js) and OpenAI only via fetch, so a recorded call means work started.
+// Tests that expect a rejection assert zero fetch calls; tests that expect the
+// handler to proceed assert at least one (the stub answers every request with an
+// empty 200 list, so nothing real runs).
 // All values below are made-up fixtures.
 
 import { handler as compileWiki } from './compile-wiki/handler.ts';
@@ -35,14 +39,20 @@ function post(authorization?: string): Request {
 }
 
 // Runs fn with env + fetch stubbed; returns the number of fetch calls it made.
-async function withStubs(fn: () => Promise<void>): Promise<number> {
+// The stub answers every request with an empty 200 list (so a handler that does
+// start work finishes cleanly without logging a failure) and, when given, pushes
+// each requested URL onto `urls`.
+async function withStubs(fn: () => Promise<void>, urls?: string[]): Promise<number> {
   const realFetch = globalThis.fetch;
   const prevKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const prevUrl = Deno.env.get('SUPABASE_URL');
   let calls = 0;
-  globalThis.fetch = (() => {
+  globalThis.fetch = ((input: Request | URL | string) => {
     calls++;
-    return Promise.reject(new Error('fetch must not be reached in these tests'));
+    urls?.push(input instanceof Request ? input.url : String(input));
+    return Promise.resolve(
+      new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
   }) as typeof fetch;
   Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', FAKE_KEY);
   Deno.env.set('SUPABASE_URL', 'http://localhost:54321');
@@ -124,3 +134,156 @@ for (const [name, handle] of handlers) {
     assertEquals(calls, 0, 'fetch calls');
   });
 }
+
+// ---- detect-contradictions request body (#102) -------------------------------
+// A body that is invalid JSON or not a JSON object is a client error (400, no
+// work). An absent, empty or whitespace-only body still runs the default audit.
+
+const serviceAuth = { Authorization: `Bearer ${jwt({ role: 'service_role' })}` };
+
+Deno.test('detect-contradictions: 400 and no work for an invalid JSON body', async () => {
+  const calls = await withStubs(async () => {
+    const res = await detectContradictions(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      }),
+    );
+    assertEquals(res.status, 400, 'status');
+    const body = await res.json();
+    assertEquals(body.success, false, 'success');
+    assertEquals(body.error, 'Invalid JSON body', 'error');
+  });
+  assertEquals(calls, 0, 'fetch calls');
+});
+
+Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', async () => {
+  for (const raw of ['null', '42', '[]', '"text"', 'true']) {
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, `status for ${raw}`);
+      const body = await res.json();
+      assertEquals(body.success, false, `success for ${raw}`);
+      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
+    });
+    assertEquals(calls, 0, `fetch calls for ${raw}`);
+  }
+});
+
+// The authorized PUT is rejected by the method check before the body is read.
+Deno.test(
+  'detect-contradictions: 405 and no work for a PUT with an invalid JSON body',
+  async () => {
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', {
+          method: 'PUT',
+          headers: serviceAuth,
+          body: '{not valid json',
+        }),
+      );
+      assertEquals(res.status, 405, 'status');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  },
+);
+
+// [label, request init, whether the candidate query carries the `since` filter]
+for (const [label, init, hasSince] of [
+  ['no body', {}, false],
+  ['empty string body', { body: '' }, false],
+  ['whitespace-only body', { body: '  \n' }, false],
+  ['empty object body', { body: '{}' }, false],
+  ['object body with since', { body: '{"since":"2026-01-01T00:00:00Z"}' }, true],
+] as Array<[string, RequestInit, boolean]>) {
+  Deno.test(`detect-contradictions: ${label} runs the audit`, async () => {
+    let status = 0;
+    const urls: string[] = [];
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', { method: 'POST', headers: serviceAuth, ...init }),
+      );
+      status = res.status;
+    }, urls);
+    // The audit started (it reached the stubbed database fetch) and did not answer 400.
+    if (calls === 0) throw new Error('expected the audit to start, but no fetch was made');
+    assertEquals(status, 200, 'status');
+    // The decoded body reached the candidate query: `since` becomes a created_at filter.
+    assertEquals(
+      urls.some((u) => u.includes('created_at=gte.')),
+      hasSince,
+      'candidate query has a created_at=gte filter',
+    );
+  });
+}
+
+// ---- compile-wiki request body (#105) ----------------------------------------
+
+Deno.test('compile-wiki: 400 and no work for a non-object JSON body', async () => {
+  for (const raw of ['null', '42', '"text"', 'true', '[]']) {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, `status for ${raw}`);
+      const body = await res.json();
+      assertEquals(body.success, false, `success for ${raw}`);
+      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
+    });
+    assertEquals(calls, 0, `fetch calls for ${raw}`);
+  }
+});
+
+// Existing 400s stay as they were.
+for (const [raw, expected] of [
+  ['{}', 'slug is required'],
+  ['{"slug":42}', 'slug is required'],
+  ['{bad json', 'JSON body required with { slug }'],
+] as Array<[string, string]>) {
+  Deno.test(`compile-wiki: 400 "${expected}" and no work for body ${raw}`, async () => {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, 'status');
+      const body = await res.json();
+      assertEquals(body.success, false, 'success');
+      assertEquals(body.error, expected, 'error');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  });
+}
+
+Deno.test('compile-wiki: a JSON object body with a slug passes body validation', async () => {
+  const calls = await withStubs(async () => {
+    const res = await compileWiki(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{"slug":"example"}',
+      }),
+    );
+    // The empty-list stub means the cluster is too small to compile.
+    assertEquals(res.status, 200, 'status');
+    const body = await res.json();
+    assertEquals(body.status, 'refused', 'status field');
+    assertEquals(body.reason, 'cluster_too_small', 'reason');
+    assertEquals(body.slug, 'example', 'slug');
+  });
+  if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
+});
