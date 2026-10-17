@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the REST API does not expose, and `public.is_owner()` is dropped. The ten remaining
   SECURITY DEFINER functions pin `search_path = public, extensions, pg_temp`.
   `docs/sql/verify-owner-scope.sql` and `verify-anon-lockdown.sql` cover all of it,
-  including a check that neither `anon` nor `authenticated` can CREATE in `public`.
-  The grants are reset with `REVOKE ALL` before `GRANT SELECT`, so a privilege a later
+  including a check that neither `anon` nor `authenticated` can CREATE in `public`; the
+  migration also revokes that privilege (a no-op on the default image, relevant for
+  projects created on older ones). The grants are reset with `REVOKE ALL` before `GRANT SELECT`, so a privilege a later
   PostgreSQL adds (17 added MAINTAIN) cannot linger.
   Re-runnable; rollback steps are in the migration header.
 - **`tasks-feed` order and truncation headers.** Tasks come back newest first

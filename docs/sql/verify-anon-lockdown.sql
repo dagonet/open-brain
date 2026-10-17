@@ -36,7 +36,8 @@
 --   9. Neither anon nor authenticated holds CREATE on the schema public (directly or
 --      through PUBLIC). The SECURITY DEFINER functions resolve names through public
 --      (migration 018 section 3), so a role that could create objects there could
---      plant look-alikes. Fix a failure with
+--      plant look-alikes. Migration 018 section 4 revokes it; a failure means it was
+--      granted again (or 018 is not applied). Fix with
 --      REVOKE CREATE ON SCHEMA public FROM PUBLIC, anon, authenticated;
 
 WITH

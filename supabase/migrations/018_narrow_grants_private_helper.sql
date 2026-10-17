@@ -17,10 +17,14 @@
 --                   public.is_owner() is dropped.
 --   3. search_path  the ten SECURITY DEFINER functions in public that had none now
 --                   pin it (public, extensions, pg_temp). Bodies are unchanged.
+--   4. schema       PUBLIC, anon and authenticated lose CREATE on the schema public
+--                   (projects created on older images may still carry it). The
+--                   functions of section 3 resolve names through public, so a role
+--                   that could create objects there could plant look-alikes.
 --
--- Unchanged: service_role (bypasses RLS and keeps all its privileges), anon (fully
--- locked down by migration 016) and every row-level security policy except the
--- function it calls.
+-- Unchanged: service_role and postgres (they keep all their privileges, CREATE on
+-- public included), anon (fully locked down by migration 016) and every row-level
+-- security policy except the function it calls.
 --
 -- Idempotent: REVOKE / GRANT / CREATE ... IF NOT EXISTS / CREATE OR REPLACE /
 -- DROP ... IF EXISTS / ALTER FUNCTION can be re-run. The order inside section 1
@@ -41,6 +45,9 @@
 --     DROP FUNCTION private.is_owner(); DROP SCHEMA private;
 --   * ALTER FUNCTION <name>(<args>) RESET search_path; for the ten functions in
 --     section 3
+--   * if a project really needs it back: GRANT CREATE ON SCHEMA public TO <role>;
+--     (section 4 only removes a grant that nothing in web/src, cli/src or
+--     mcp-server/src uses; on the default image it changes nothing)
 
 -- ---------------------------------------------------------------------------
 -- 1. Table privileges for `authenticated`
@@ -225,6 +232,22 @@ ALTER FUNCTION public.archive_thoughts(int, int)
   SET search_path = public, extensions, pg_temp;
 ALTER FUNCTION public.increment_retrieval(uuid[])
   SET search_path = public, extensions, pg_temp;
+
+-- ---------------------------------------------------------------------------
+-- 4. No CREATE on the schema public for the API roles
+--
+-- The functions of section 3 put public on their search_path, so a role that may
+-- create objects there could plant a look-alike table, function or operator. The
+-- default image gives these roles USAGE only, but a project created on an older
+-- image may still carry CREATE (from PUBLIC or from the API roles). Nothing the
+-- dashboard, the CLI or the MCP server does creates objects in public as these roles
+-- (they only read and write rows through PostgREST); migrations run as postgres.
+--
+-- USAGE stays. service_role and postgres are not touched. On the default image this
+-- is a no-op. verify-anon-lockdown.sql check 9 asserts the result.
+-- ---------------------------------------------------------------------------
+
+REVOKE CREATE ON SCHEMA public FROM PUBLIC, anon, authenticated;
 
 -- NOTE for later migrations:
 --   * a table or view created later is granted in full to authenticated by Supabase's
