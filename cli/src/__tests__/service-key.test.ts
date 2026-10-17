@@ -501,9 +501,12 @@ describe('service-role commands', () => {
 
     it('resolves each field on its own: file api_url with env api_key', () => {
       vi.stubEnv('BRAIN_API_URL', '');
-      writeConfigFile({ api_url: 'https://file.supabase.co/x' });
+      writeConfigFile({ api_url: 'https://file.supabase.co/functions/v1/capture-thought' });
 
-      expect(loadConfig()).toMatchObject({ api_url: 'https://file.supabase.co/x', api_key: ANON });
+      expect(loadConfig()).toMatchObject({
+        api_url: 'https://file.supabase.co/functions/v1/capture-thought',
+        api_key: ANON,
+      });
     });
 
     it('is not configured without api_url', () => {

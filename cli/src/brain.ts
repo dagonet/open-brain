@@ -61,6 +61,56 @@ function readConfigFile(): ConfigFile {
   }
 }
 
+export interface ApiEndpoints {
+  /** URL of the capture-thought function (what `api_url` is used for in captures). */
+  captureUrl: string;
+  /** `<base>/functions/v1` */
+  functionsBase: string;
+  /** `<base>/rest/v1` */
+  restBase: string;
+}
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+
+/**
+ * Resolve the REST and function URLs from the configured API URL.
+ *
+ * Accepts a bare base (`https://<ref>.supabase.co`, `http://127.0.0.1:54321`, optional
+ * trailing slash) or, for older configs, the capture-thought function URL
+ * (`<base>/functions/v1/capture-thought`). Plain http is only accepted for localhost and
+ * 127.0.0.1, so a typo cannot send the service key unencrypted to a remote host.
+ */
+export function resolveApiEndpoints(apiUrl: string): ApiEndpoints {
+  let url: URL;
+  try {
+    url = new URL(apiUrl.trim());
+  } catch {
+    throw new Error(
+      `Invalid BRAIN_API_URL "${apiUrl}". Expected a base URL such as https://<ref>.supabase.co or http://127.0.0.1:54321`,
+    );
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(
+      `Invalid BRAIN_API_URL "${apiUrl}": the scheme must be https (or http for localhost).`,
+    );
+  }
+  if (url.protocol === 'http:' && !LOCAL_HOSTS.has(url.hostname)) {
+    throw new Error(
+      `Refusing BRAIN_API_URL "${apiUrl}": plain http is only allowed for localhost or 127.0.0.1. Use https.`,
+    );
+  }
+  const path = url.pathname.replace(/\/+$/, '');
+  const fn = path.match(/\/functions\/v1(\/.*)?$/);
+  const prefix = fn ? path.slice(0, fn.index) : path;
+  const root = url.origin + prefix;
+  const functionsBase = root + '/functions/v1';
+  return {
+    captureUrl: functionsBase + (fn?.[1] || '/capture-thought'),
+    functionsBase,
+    restBase: root + '/rest/v1',
+  };
+}
+
 export function loadConfig(): Config | null {
   // 1. Environment variables, 2. config file ~/.brain/config.json
   const file = readConfigFile();
@@ -71,7 +121,7 @@ export function loadConfig(): Config | null {
   // The service key is resolved on its own, however url/key were loaded:
   // BRAIN_SERVICE_KEY wins, then the config file's service_key.
   const service_key = process.env.BRAIN_SERVICE_KEY || file.service_key || undefined;
-  return { api_url: apiUrl, api_key: apiKey, service_key };
+  return { api_url: resolveApiEndpoints(apiUrl).captureUrl, api_key: apiKey, service_key };
 }
 
 /**
@@ -125,11 +175,12 @@ function printSetupInstructions(): void {
       'Open Brain CLI - Setup Required',
       '',
       'Configure via environment variables:',
-      '  export BRAIN_API_URL="https://<project>.supabase.co/functions/v1/capture-thought"',
+      '  export BRAIN_API_URL="https://<project>.supabase.co"',
+      '  (local stack: http://127.0.0.1:54321; the older .../functions/v1/capture-thought form still works)',
       '',
       'Or create ~/.brain/config.json:',
       '  {',
-      '    "api_url": "https://<project>.supabase.co/functions/v1/capture-thought",',
+      '    "api_url": "https://<project>.supabase.co",',
       '    "service_key": "<your-service-role-key>"',
       '  }',
       '',
@@ -210,13 +261,7 @@ function printUsage(print: (message: string) => void = console.error): void {
 }
 
 export function deriveFunctionsBase(apiUrl: string): string {
-  const match = apiUrl.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\/functions\/v1\//);
-  if (!match) {
-    throw new Error(
-      'Cannot derive functions base from BRAIN_API_URL. Expected format: https://<ref>.supabase.co/functions/v1/...',
-    );
-  }
-  return match[1] + '/functions/v1';
+  return resolveApiEndpoints(apiUrl).functionsBase;
 }
 
 function formatConfirmation(thought: ThoughtResponse['thought']): string {
@@ -478,13 +523,7 @@ interface Thought {
 }
 
 export function derivePostgrestUrl(apiUrl: string): string {
-  const match = apiUrl.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\//);
-  if (!match) {
-    throw new Error(
-      'Cannot derive PostgREST URL from BRAIN_API_URL. Expected format: https://<ref>.supabase.co/...',
-    );
-  }
-  return match[1] + '/rest/v1/thoughts';
+  return resolveApiEndpoints(apiUrl).restBase + '/thoughts';
 }
 
 export function slugify(text: string, maxLen = 50): string {
@@ -826,11 +865,7 @@ async function getFromPostgrest(
   apiKey: string,
   pathAndQuery: string,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const match = apiUrl.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\//);
-  if (!match) {
-    throw new Error('Cannot derive PostgREST base from api_url');
-  }
-  const url = match[1] + '/rest/v1/' + pathAndQuery;
+  const url = resolveApiEndpoints(apiUrl).restBase + '/' + pathAndQuery;
   const response = await fetch(url, {
     headers: {
       apikey: apiKey,
@@ -902,12 +937,10 @@ export async function auditCommand(): Promise<void> {
       status: decision,
       resolved_at: new Date().toISOString(),
     };
-    const match = config.api_url.match(/^(https:\/\/[a-z0-9-]+\.supabase\.co)\//);
-    if (!match) {
-      console.error('Error: cannot derive PostgREST base');
-      process.exit(1);
-    }
-    const url = match[1] + '/rest/v1/contradictions?id=eq.' + encodeURIComponent(resolveId);
+    const url =
+      resolveApiEndpoints(config.api_url).restBase +
+      '/contradictions?id=eq.' +
+      encodeURIComponent(resolveId);
     const response = await fetch(url, {
       method: 'PATCH',
       headers: {
@@ -1387,5 +1420,8 @@ const isMainModule =
     process.argv[1].endsWith('\\brain.ts'));
 
 if (isMainModule) {
-  main();
+  main().catch((err: unknown) => {
+    console.error('Error: ' + (err instanceof Error ? err.message : String(err)));
+    process.exit(1);
+  });
 }

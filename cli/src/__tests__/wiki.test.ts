@@ -14,15 +14,7 @@ describe('deriveFunctionsBase', () => {
     ).toBe('https://my-cool-project.supabase.co/functions/v1');
   });
 
-  it('throws for non-Supabase URLs', () => {
-    expect(() => deriveFunctionsBase('https://example.com/api/thoughts')).toThrow(
-      'Cannot derive functions base from BRAIN_API_URL',
-    );
-  });
-
   it('throws for malformed URLs', () => {
-    expect(() => deriveFunctionsBase('not-a-url')).toThrow(
-      'Cannot derive functions base from BRAIN_API_URL',
-    );
+    expect(() => deriveFunctionsBase('not-a-url')).toThrow('Invalid BRAIN_API_URL');
   });
 });
