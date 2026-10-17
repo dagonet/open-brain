@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`tasks-feed` edge function.** Read-only task list (JSON) for local tools that lost
+  anon access to `tasks` with migration 016. Authenticated by the `TASKS_FEED_TOKEN`
+  function secret (constant-time compare, fail closed when unset or shorter than 32
+  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See README step 10.
+- MCP server smoke test that lists the tools and calls one over the SDK's in-memory
+  transport with stubbed Supabase/OpenAI clients (no network, no keys).
+- CI: the web job now runs `next build` with placeholder public Supabase variables.
+
 ### Changed
 
 - **Narrower database access for the dashboard role (migration 018).** `authenticated`
@@ -36,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mcp-server/src/server.ts`; the stdio entrypoint behaves as before.
 - **`zod` is now a declared dependency of `mcp-server`** (`^3.25.76`, the copy the MCP SDK
   already resolves; the lockfile still holds a single deduped copy).
+- CLI tests: `cli/vitest.config.ts` limits discovery to `src/`, so `npm test` no longer
+  also runs the compiled copies in `cli/dist/__tests__` (the suite was counted twice).
 
 ### Fixed
 
@@ -43,16 +55,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
   `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.
 - README step 8 no longer links to the nonexistent `docs/slack-setup.md`.
+- **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#96).
+  `brain --version` / `-V` print the version from `cli/package.json`; `brain help` (sole
+  argument), `--help` and `-h` print usage on stdout and exit 0. If the first argument starts
+  with `-` and is not known, it is an error (stderr with a hint, exit 1, nothing captured);
+  text that starts with a dash is captured after `--`, e.g. `brain -- "-x is a flag"`.
+- **CLI: `--help` / `-h` on subcommands no longer run them.** `brain sync-vault --help`
+  used to treat `--help` as the vault path and export into a directory of that name, and
+  `brain import --help` tried to read it as the file. `sync-vault`, `import`, `audit` and
+  `wiki ...` now print usage and exit 0 (`wiki`: `--help`/`-h` in any position, so a
+  `wiki reject --reason` of exactly `-h` prints help too); `sync-vault` and `import` reject
+  an unknown dash-prefixed argument where a path goes (`./-name` still works), and
+  `import --source/--delay/--project` without a value says "needs a value".
 
-### Added
-
-- **`tasks-feed` edge function.** Read-only task list (JSON) for local tools that lost
-  anon access to `tasks` with migration 016. Authenticated by the `TASKS_FEED_TOKEN`
-  function secret (constant-time compare, fail closed when unset or shorter than 32
-  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See README step 10.
-- MCP server smoke test that lists the tools and calls one over the SDK's in-memory
-  transport with stubbed Supabase/OpenAI clients (no network, no keys).
-- CI: the web job now runs `next build` with placeholder public Supabase variables.
+  Rebuild the CLI (`npm run build --prefix cli`) to pick these up. Wrappers that pass
+  arbitrary text should call `brain -- "$TEXT"`.
 
 ## [0.8.0] - 2026-07-12
 

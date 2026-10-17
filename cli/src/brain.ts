@@ -11,6 +11,12 @@ import {
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+
+// Same approach as mcp-server/src/server.ts: ../package.json is cli/package.json
+// from both src/ (tests) and dist/ (installed).
+const require = createRequire(import.meta.url);
+export const CLI_VERSION: string = (require('../package.json') as { version: string }).version;
 
 interface Config {
   api_url: string;
@@ -135,15 +141,35 @@ function printSetupInstructions(): void {
   );
 }
 
-function printUsage(): void {
+function isHelpFlag(arg: string | undefined): boolean {
+  return arg === '--help' || arg === '-h';
+}
+
+/**
+ * Reject an unknown dash-prefixed argument where a path is expected, instead of
+ * treating it as a file or directory name. `./-name` is the way to name such a path.
+ */
+function rejectDashPath(arg: string, what: string): void {
+  if (!arg.startsWith('-')) return;
   console.error(
+    `Error: unknown option: ${arg} (${what}; to use a path that starts with a dash, write ./${arg})`,
+  );
+  printUsage();
+  process.exit(1);
+}
+
+function printUsage(print: (message: string) => void = console.error): void {
+  print(
     [
       'Usage:',
       '  brain "<your thought>" [options]     Capture a single thought',
+      '  brain -- "<your thought>" [options]  Capture text that starts with a dash',
       '  brain import <file> [options]        Import memories from a file',
       '  brain sync-vault <path> [options]    Export thoughts as Obsidian markdown',
       '  brain audit [options]                Audit recent thoughts for contradictions',
       '  brain wiki <subcommand> [options]    Manage wiki pages (get|list|refresh|reject)',
+      '  brain help | --help | -h             Show this help',
+      '  brain --version | -V                 Show the CLI version',
       '',
       'Example:',
       '  brain "Met with Sarah today, she\'s considering consulting"',
@@ -226,6 +252,10 @@ export async function importMemories(): Promise<void> {
   let project: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
+    if (isHelpFlag(args[i])) {
+      printUsage(console.log);
+      return;
+    }
     if (args[i] === '--source' && i + 1 < args.length) {
       source = args[++i];
     } else if (args[i] === '--delay' && i + 1 < args.length) {
@@ -238,7 +268,13 @@ export async function importMemories(): Promise<void> {
       dryRun = true;
     } else if (args[i] === '--project' && i + 1 < args.length) {
       project = args[++i];
+    } else if (args[i] === '--source' || args[i] === '--delay' || args[i] === '--project') {
+      // Reached only when the value is missing (the branches above need i + 1 < length).
+      console.error(`Error: ${args[i]} needs a value`);
+      printUsage();
+      process.exit(1);
     } else if (!filePath) {
+      rejectDashPath(args[i], 'import expects a file path');
       filePath = args[i];
     } else {
       console.error('Error: unexpected argument: ' + args[i]);
@@ -591,9 +627,14 @@ export async function syncVault(): Promise<void> {
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {
+    if (isHelpFlag(args[i])) {
+      printUsage(console.log);
+      return;
+    }
     if (args[i] === '--dry-run') {
       dryRun = true;
     } else if (!vaultPath) {
+      rejectDashPath(args[i], 'sync-vault expects a vault path');
       vaultPath = args[i];
     } else {
       console.error('Error: unexpected argument: ' + args[i]);
@@ -812,6 +853,10 @@ export async function auditCommand(): Promise<void> {
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
+    if (isHelpFlag(a)) {
+      printUsage(console.log);
+      return;
+    }
     if (a === '--since' && i + 1 < args.length) {
       since = args[++i];
     } else if (a.startsWith('--since=')) {
@@ -1230,6 +1275,12 @@ export async function wikiRejectCommand(args: string[]): Promise<void> {
 async function wikiCommand(): Promise<void> {
   const sub = process.argv[3];
   const rest = process.argv.slice(4);
+  // Any position: `wiki refresh --all -h` must not run the refresh. (A reject reason of
+  // exactly -h/--help therefore prints help; the wiki parsers have no `--` escape.)
+  if (isHelpFlag(sub) || rest.some(isHelpFlag)) {
+    printUsage(console.log);
+    return;
+  }
   switch (sub) {
     case 'get':
       await wikiGetCommand(rest);
@@ -1250,7 +1301,7 @@ async function wikiCommand(): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const command = process.argv[2];
 
   if (command === 'import') {
@@ -1273,15 +1324,47 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Existing single-thought capture (command is the text)
-  const text = command;
+  if (command === '--version' || command === '-V') {
+    console.log(CLI_VERSION);
+    return;
+  }
+
+  // The bare word `help` is reserved only when it is the sole argument;
+  // `brain "help me remember X"` is one argument and is captured.
+  // `brain -- help` captures the word itself.
+  if (
+    command === '--help' ||
+    command === '-h' ||
+    (command === 'help' && process.argv.length === 3)
+  ) {
+    printUsage(console.log);
+    return;
+  }
+
+  // Single-thought capture. `--` ends flag parsing so the text may start with a dash;
+  // any other leading dash is an unknown option and must never be captured as text.
+  let textIndex = 2;
+  if (command === '--') {
+    textIndex = 3;
+  } else if (command?.startsWith('-')) {
+    console.error('Error: unknown option: ' + command);
+    console.error(
+      command === '--project'
+        ? 'Hint: --project must come after the text, e.g. brain "your thought" --project <name>'
+        : 'Hint: to capture text that starts with a dash, put it after --, e.g. brain -- "- buy milk"',
+    );
+    printUsage();
+    process.exit(1);
+  }
+
+  const text = process.argv[textIndex];
   if (!text) {
     printUsage();
     process.exit(1);
   }
 
   // Parse options after the text (e.g. --project)
-  const remaining = process.argv.slice(3);
+  const remaining = process.argv.slice(textIndex + 1);
   let projectArg: string | undefined;
   for (let i = 0; i < remaining.length; i++) {
     if (remaining[i] === '--project' && i + 1 < remaining.length) {
