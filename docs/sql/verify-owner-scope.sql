@@ -1,5 +1,9 @@
 -- docs/sql/verify-owner-scope.sql
 --
+-- See also: docs/security.md (the security model and how to read this script) and
+-- docs/troubleshooting.md (the SQL editor's warning about the TEMP table: choose
+-- "Run without RLS").
+--
 -- Run in the Supabase SQL editor (or psql) after applying migrations 017 and 018
 -- and after the owner is listed in public.owners. Sibling of
 -- verify-anon-lockdown.sql, which checks the anon side.

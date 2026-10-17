@@ -7,7 +7,9 @@ import {
   statSync,
   readdirSync,
   unlinkSync,
+  realpathSync,
 } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
@@ -19,7 +21,6 @@ const require = createRequire(import.meta.url);
 export const CLI_VERSION: string = (require('../package.json') as { version: string }).version;
 
 interface Config {
-  api_url: string;
   /** Anon key. No command sends it any more; kept optional for old configs. */
   api_key?: string;
   /** Service-role key; every command sends it (capture, import, sync-vault, wiki, audit). */
@@ -50,6 +51,19 @@ interface ConfigFile {
   api_url?: string;
   api_key?: string;
   service_key?: string;
+}
+
+/** Reason behind a failed fetch: Node puts it in `err.cause` ("fetch failed" alone says nothing). */
+function causeMessage(err: unknown): string | undefined {
+  const cause = err instanceof Error ? err.cause : undefined;
+  return cause instanceof Error && cause.message ? cause.message : undefined;
+}
+
+/** The error message, with the cause appended when there is one. */
+function describeError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = causeMessage(err);
+  return cause ? `${message} (${cause})` : message;
 }
 
 function readConfigFile(): ConfigFile {
@@ -127,7 +141,7 @@ export function loadConfig(): Config | null {
   // The service key is resolved on its own, however url/key were loaded:
   // BRAIN_SERVICE_KEY wins, then the config file's service_key.
   const service_key = process.env.BRAIN_SERVICE_KEY || file.service_key || undefined;
-  return { api_url: endpoints.captureUrl, api_key: apiKey, service_key, endpoints };
+  return { api_key: apiKey, service_key, endpoints };
 }
 
 /**
@@ -264,10 +278,6 @@ function printUsage(print: (message: string) => void = console.error): void {
       '',
     ].join('\n'),
   );
-}
-
-export function deriveFunctionsBase(apiUrl: string): string {
-  return resolveApiEndpoints(apiUrl).functionsBase;
 }
 
 function formatConfirmation(thought: ThoughtResponse['thought']): string {
@@ -437,8 +447,7 @@ export async function importMemories(): Promise<void> {
         captured++;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.log(`${prefix} \u2717 Failed: ${message}`);
+      console.log(`${prefix} \u2717 Failed: ${describeError(err)}`);
       failed++;
     }
 
@@ -510,11 +519,14 @@ export async function captureSingleThought(text: string, projectArg?: string): P
       message.includes('ECONNREFUSED') ||
       message.includes('ENOTFOUND')
     ) {
+      const cause = causeMessage(err);
       console.error(
-        '\u2717 Failed to capture thought: Could not reach the API. Check your connection and BRAIN_API_URL.',
+        '\u2717 Failed to capture thought: Could not reach the API' +
+          (cause ? ` (${cause})` : '') +
+          '. Check your connection and BRAIN_API_URL.',
       );
     } else {
-      console.error('\u2717 Failed to capture thought: ' + message);
+      console.error('\u2717 Failed to capture thought: ' + describeError(err));
     }
     process.exit(1);
   }
@@ -534,10 +546,6 @@ interface Thought {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-}
-
-export function derivePostgrestUrl(apiUrl: string): string {
-  return resolveApiEndpoints(apiUrl).restBase + '/thoughts';
 }
 
 export function slugify(text: string, maxLen = 50): string {
@@ -579,7 +587,11 @@ export function thoughtToMarkdown(thought: Thought): string {
   if (thought.thought_type) {
     tags.push(`open-brain/${thought.thought_type}`);
   }
-  for (const topic of thought.topics) {
+  // The database columns can be NULL; treat that as an empty list.
+  const people = thought.people ?? [];
+  const topics = thought.topics ?? [];
+  const actionItems = thought.action_items ?? [];
+  for (const topic of topics) {
     tags.push(topic);
   }
 
@@ -587,14 +599,14 @@ export function thoughtToMarkdown(thought: Thought): string {
     id: thought.id,
     title,
     type: thought.thought_type || 'note',
-    people: thought.people,
-    topics: thought.topics,
+    people,
+    topics,
     source: thought.source,
     created: thought.created_at,
     updated: thought.updated_at,
   };
-  if (thought.action_items.length > 0) {
-    frontmatter.action_items = thought.action_items;
+  if (actionItems.length > 0) {
+    frontmatter.action_items = actionItems;
     frontmatter.action_items_resolved = thought.action_items_resolved;
   }
   frontmatter.tags = tags;
@@ -620,10 +632,8 @@ export function thoughtToMarkdown(thought: Thought): string {
 
   let body = '\n' + thought.raw_text + '\n';
 
-  if (thought.people.length > 0) {
-    const wikilinks = thought.people
-      .map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`)
-      .join(', ');
+  if (people.length > 0) {
+    const wikilinks = people.map((p) => `[[${p.charAt(0).toUpperCase() + p.slice(1)}]]`).join(', ');
     body += `\n**People:** ${wikilinks}\n`;
   }
 
@@ -731,8 +741,7 @@ export async function syncVault(): Promise<void> {
   try {
     thoughts = await fetchAllThoughts(postgrestUrl, serviceKey);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('\u2717 Failed to fetch thoughts: ' + message);
+    console.error('\u2717 Failed to fetch thoughts: ' + describeError(err));
     process.exit(1);
   }
 
@@ -1018,8 +1027,7 @@ export async function auditCommand(): Promise<void> {
         );
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  (audit thought capture failed: ${msg})`);
+      console.error(`  (audit thought capture failed: ${describeError(err)})`);
     }
     return;
   }
@@ -1422,16 +1430,24 @@ export async function main(): Promise<void> {
   await captureSingleThought(text, projectArg);
 }
 
-const isMainModule =
-  process.argv[1] &&
-  (process.argv[1].endsWith('/brain.js') ||
-    process.argv[1].endsWith('\\brain.js') ||
-    process.argv[1].endsWith('/brain.ts') ||
-    process.argv[1].endsWith('\\brain.ts'));
+/**
+ * True when this file is the process entry point. Compares real paths so npm's bin
+ * link (`.../bin/brain` -> `.../dist/brain.js`) counts; the Windows .cmd shim passes
+ * the real path already.
+ */
+function isEntryPoint(): boolean {
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = isEntryPoint();
 
 if (isMainModule) {
   main().catch((err: unknown) => {
-    console.error('Error: ' + (err instanceof Error ? err.message : String(err)));
+    console.error('Error: ' + describeError(err));
     process.exit(1);
   });
 }

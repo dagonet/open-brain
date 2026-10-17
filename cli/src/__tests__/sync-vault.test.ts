@@ -3,13 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-  derivePostgrestUrl,
-  thoughtToFilename,
-  slugify,
-  computeTitle,
-  thoughtToMarkdown,
-} from '../brain.js';
+import { thoughtToFilename, slugify, computeTitle, thoughtToMarkdown } from '../brain.js';
 
 function makeThought(overrides: Record<string, unknown> = {}) {
   return {
@@ -27,22 +21,6 @@ function makeThought(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
-describe('derivePostgrestUrl', () => {
-  it('extracts PostgREST URL from standard Supabase function URL', () => {
-    const url = 'https://myproject.supabase.co/functions/v1/capture-thought';
-    expect(derivePostgrestUrl(url)).toBe('https://myproject.supabase.co/rest/v1/thoughts');
-  });
-
-  it('works with project refs containing hyphens', () => {
-    const url = 'https://my-cool-project.supabase.co/functions/v1/capture-thought';
-    expect(derivePostgrestUrl(url)).toBe('https://my-cool-project.supabase.co/rest/v1/thoughts');
-  });
-
-  it('throws for malformed URLs', () => {
-    expect(() => derivePostgrestUrl('not-a-url')).toThrow('Invalid API URL');
-  });
-});
 
 describe('slugify', () => {
   it('converts text to lowercase slug', () => {
@@ -155,6 +133,15 @@ describe('thoughtToMarkdown', () => {
     expect(md).toContain('type: "decision"');
     expect(md).toContain('source: "mcp"');
     expect(md).toContain('created: "2026-03-04T14:30:00Z"');
+  });
+
+  it('treats NULL people, topics and action_items as empty lists', () => {
+    const thought = makeThought({ people: null, topics: null, action_items: null });
+    const md = thoughtToMarkdown(thought as unknown as Parameters<typeof thoughtToMarkdown>[0]);
+    expect(md).toContain('people: []');
+    expect(md).toContain('topics: []');
+    expect(md).not.toContain('action_items');
+    expect(md).not.toContain('**People:**');
   });
 
   it('includes people as wikilinks in body', () => {

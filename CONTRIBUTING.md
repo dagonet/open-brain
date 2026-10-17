@@ -4,10 +4,11 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ## Prerequisites
 
-- [Node.js 18+](https://nodejs.org/)
-- [Supabase account](https://supabase.com/) (free tier works)
+- [Node.js](https://nodejs.org/) 22 recommended (the CLI and MCP server run on 18+, but `npm ci` warns below 22.12 and the CLI tests need 22.12+; the dashboard needs 20.9+)
+- [Supabase account](https://supabase.com/) (free tier works), or Docker and the Supabase CLI for a [local stack](#testing-against-a-local-stack)
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 - [OpenAI API key](https://platform.openai.com/api-keys)
+- [Deno](https://deno.com/) for the edge function tests
 
 ## Development Setup
 
@@ -16,38 +17,60 @@ Thanks for your interest in contributing! Here's how to get started.
 3. Install dependencies for the component you're working on:
 
 ```bash
-# MCP Server
-cd mcp-server && npm install
-
-# CLI
-cd cli && npm install
-
-# Web Dashboard
-cd web && npm install
+npm ci --prefix mcp-server   # MCP server
+npm ci --prefix cli          # CLI
+npm ci --prefix web          # Web dashboard
 ```
 
-4. Set up your Supabase project (see README.md for full instructions)
+4. Set up your Supabase project (see [`docs/install.md`](docs/install.md) for the full instructions)
+
+Component references: [`docs/cli.md`](docs/cli.md), [`docs/mcp.md`](docs/mcp.md), [`docs/dashboard.md`](docs/dashboard.md), [`docs/edge-functions.md`](docs/edge-functions.md). How the pieces fit: [`docs/architecture.md`](docs/architecture.md).
 
 ## Running Tests
 
-```bash
-cd mcp-server && npx vitest run
-```
-
-Edge function tests run under [Deno](https://deno.com/) (not part of `cct-gate`; CI runs them):
+The quality gate runs everything the CI runs for the Node components: the node_modules drift check, the migration dollar-quote lint, `tsc --noEmit`, vitest, prettier and ESLint, for `cli/`, `mcp-server/` and `web/`.
 
 ```bash
-deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts
+cct-gate               # inside Claude Code, where it is on the PATH
+bash scripts/gate.sh   # the same checks, directly
 ```
+
+A single component:
+
+```bash
+npm test --prefix mcp-server
+```
+
+Edge function tests run under [Deno](https://deno.com/) (not part of the gate; CI runs them):
+
+```bash
+deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts supabase/functions/tasks-feed_test.ts supabase/functions/slack-webhook_test.ts supabase/functions/process-thought_test.ts
+```
+
+## Testing against a local stack
+
+You can run the whole database and the edge functions on your machine with Docker and the Supabase CLI. [`docs/install.md`](docs/install.md#try-it-on-a-local-stack) has the walk-through; these are the rules for doing it safely and repeatably.
+
+- **Local only.** Use the `supabase` CLI for `start`, `db reset`, `functions serve`, `status` and `stop`. Never `login`, `link`, `db push` or `functions deploy` from a test run: those touch a hosted project.
+- **Sign-ups are off** in `supabase/config.toml` (`[auth] enable_signup = false`, as on a hosted project). The email provider stays on (`[auth.email] enable_signup = true`), so password login works, the dashboard login included. Create the user with Studio or the admin API (`/auth/v1/admin/users` with the service key). Review `supabase/config.toml` before any `supabase config push`: it pushes the whole local auth config to the hosted project.
+- **Keep `kong`.** Do not exclude it from `supabase start`: the edge functions and REST API are reached through it.
+- **Run SQL inside the database container**, so no local `psql` is needed and errors stop the run:
+
+  ```bash
+  DB=supabase_db_$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' supabase/config.toml)
+  docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql
+  ```
+
+  `<project_id>` is `project_id` in `supabase/config.toml`.
+- **Test a commit, not your working tree.** Export a clean copy from a SHA with `git archive <sha> | tar -x -C <scratch-dir>` and run the stack from there, so uncommitted files cannot make a test pass.
+- **Use a unique `project_id`** in that copy's `config.toml`, so the containers and volumes of parallel runs do not collide.
+- **Delete `start.log` and `reset.log`** (and any other captured output) when you are done. They contain the local keys. Finish with `supabase stop --no-backup`.
 
 ## Making Changes
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Ensure tests pass and TypeScript compiles cleanly:
-   ```bash
-   cd mcp-server && npx tsc --noEmit && npx vitest run
-   ```
+3. Ensure the gate passes (`cct-gate` or `bash scripts/gate.sh`), plus the Deno tests when you touched `supabase/functions/`
 4. Commit with a clear message describing what and why
 5. Open a pull request
 
@@ -68,18 +91,20 @@ ideas are encouraged to do the same.
 ## Release Process
 
 Open Brain follows a single root `CHANGELOG.md` (Keep-a-Changelog format) as
-the source of truth. Sub-package versions are managed as follows:
+the source of truth. None of the packages is published to npm; each is built
+from a clone and **versioned independently**:
 
-- **`mcp-server`** is published to npm — bump its `package.json` version on
-  every release that changes the tool surface or `instructions` string.
-- **`cli`** is published to npm — bump its `package.json` version when new
-  subcommands are added or argument behaviour changes.
-- **`web`** is the internal Next.js dashboard, **not published** — leaves its
-  `package.json` version at `1.0.0` permanently.
+- **`mcp-server`** — bump its `package.json` version on every release that
+  changes the tool surface or `instructions` string. It reports that version
+  as `serverInfo.version`, and the release tag follows it.
+- **`cli`** — bump its `package.json` version when new subcommands are added
+  or argument behaviour changes. `brain --version` prints it.
+- **`web`** is the internal Next.js dashboard — leaves its `package.json`
+  version at `1.0.0` permanently.
 
-The two npm packages are versioned **independently**, not lock-step, because
-they were on different version tracks before v0.3.0 (mcp-server at `0.x`, cli
-at `1.x`). Bump each on its own merit.
+The packages are on different version tracks (mcp-server at `0.x`, cli at
+`1.x`), so they are not lock-step. Bump each on its own merit, and let the
+CHANGELOG entry name the versions a release ships.
 
 Each release lands:
 
@@ -87,12 +112,14 @@ Each release lands:
    `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` subsections as
    needed.
 2. An "Upgrading from <prev>" note in the release section if the change
-   requires migration steps or new env vars.
+   requires migration steps or new env vars, with the steps in
+   [`docs/upgrading.md`](docs/upgrading.md).
 3. The `Inspired-by:` trailer in the merge commit when applicable.
 
-Sub-package READMEs (`cli/README.md`, `mcp-server/README.md`,
-`web/README.md`) should be updated in the same PR that ships the version
-bump, so the documented surface always matches the published version.
+Documentation lives in `docs/`. Update the matching `docs/*.md` (and the
+short stub in `cli/README.md`, `mcp-server/README.md` or `web/README.md` if
+its pointer changes) in the same PR that changes the behaviour, so the
+documented surface always matches the code.
 
 ## Pull Request Guidelines
 
@@ -106,13 +133,14 @@ bump, so the documented surface always matches the published version.
 - Use [GitHub Issues](https://github.com/dagonet/open-brain/issues) for bug reports and feature requests
 - Include steps to reproduce for bugs
 - Check existing issues before opening a new one
+- Report vulnerabilities privately, see [`SECURITY.md`](SECURITY.md)
 
 ## Project Structure
 
 | Component | Path | Runtime |
 |-----------|------|---------|
-| CLI | `cli/` | Node.js 18+ |
+| CLI | `cli/` | Node.js 18+ (tests: 22.12+) |
 | MCP Server | `mcp-server/` | Node.js 18+ |
 | Edge Functions | `supabase/functions/` | Deno |
-| Web Dashboard | `web/` | Next.js |
+| Web Dashboard | `web/` | Next.js 16 |
 | Database | `supabase/migrations/` | PostgreSQL + pgvector |

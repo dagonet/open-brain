@@ -473,7 +473,7 @@ describe('service-role commands', () => {
     it('is configured by api_url alone (env)', () => {
       vi.stubEnv('BRAIN_API_KEY', '');
 
-      expect(loadConfig()?.api_url).toBe(`${URL_BASE}/capture-thought`);
+      expect(loadConfig()?.endpoints.captureUrl).toBe(`${URL_BASE}/capture-thought`);
       expect(loadConfig()?.api_key).toBeUndefined();
     });
 
@@ -483,7 +483,7 @@ describe('service-role commands', () => {
       writeConfigFile({ api_url: `${URL_BASE}/capture-thought`, service_key: SERVICE });
 
       expect(loadConfig()).toMatchObject({
-        api_url: `${URL_BASE}/capture-thought`,
+        endpoints: { captureUrl: `${URL_BASE}/capture-thought` },
         api_key: undefined,
         service_key: SERVICE,
       });
@@ -494,7 +494,7 @@ describe('service-role commands', () => {
       writeConfigFile({ api_url: 'https://file.supabase.co/x', api_key: 'file-anon' });
 
       expect(loadConfig()).toMatchObject({
-        api_url: `${URL_BASE}/capture-thought`,
+        endpoints: { captureUrl: `${URL_BASE}/capture-thought` },
         api_key: 'file-anon',
       });
     });
@@ -504,7 +504,7 @@ describe('service-role commands', () => {
       writeConfigFile({ api_url: 'https://file.supabase.co/functions/v1/capture-thought' });
 
       expect(loadConfig()).toMatchObject({
-        api_url: 'https://file.supabase.co/functions/v1/capture-thought',
+        endpoints: { captureUrl: 'https://file.supabase.co/functions/v1/capture-thought' },
         api_key: ANON,
       });
     });
@@ -529,7 +529,7 @@ describe('service-role commands', () => {
       });
 
       expect(loadConfig()).toMatchObject({
-        api_url: `${URL_BASE}/capture-thought`,
+        endpoints: { captureUrl: `${URL_BASE}/capture-thought` },
         api_key: ANON,
         service_key: SERVICE,
       });

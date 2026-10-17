@@ -5,6 +5,6 @@
 // Plain object export (no `defineConfig` import), same as the repo-root config.
 export default {
   test: {
-    exclude: ['**/node_modules/**', '**/dist/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.tmp-entrypoint-*/**'],
   },
 };

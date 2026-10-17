@@ -22,9 +22,10 @@
 --                   functions of section 3 resolve names through public, so a role
 --                   that could create objects there could plant look-alikes.
 --
--- Unchanged: service_role and postgres (they keep all their privileges, CREATE on
--- public included), anon (fully locked down by migration 016) and every row-level
--- security policy except the function it calls.
+-- Unchanged: service_role and postgres (this migration revokes nothing from them;
+-- service_role has only USAGE on the schema public by default, no CREATE), anon
+-- (fully locked down by migration 016) and every row-level security policy except
+-- the function it calls.
 --
 -- Idempotent: REVOKE / GRANT / CREATE ... IF NOT EXISTS / CREATE OR REPLACE /
 -- DROP ... IF EXISTS / ALTER FUNCTION can be re-run. The order inside section 1

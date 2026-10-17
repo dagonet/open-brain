@@ -28,7 +28,7 @@ enabled = true
 port = 54323
 api_url = "http://127.0.0.1"
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -48,7 +48,9 @@ enable_anonymous_sign_ins = false
 enable_manual_linking = false
 
 [auth.email]
-enable_signup = false
+# Public sign-up stays closed via [auth] enable_signup = false above. The email provider must
+# stay on, or password login (the dashboard) fails with 422 email_provider_disabled.
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 

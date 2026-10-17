@@ -11,6 +11,8 @@ Instead, use one of these methods:
 1. **GitHub Private Security Advisory** (preferred): Go to the [Security tab](https://github.com/dagonet/open-brain/security/advisories/new) and create a private advisory.
 2. **Email**: Contact the maintainer directly via GitHub profile.
 
+For how Open Brain protects your data (roles, keys, row-level security, function authentication), see the [security model](docs/security.md).
+
 ## What to Include
 
 - Description of the vulnerability

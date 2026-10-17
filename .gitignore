@@ -35,3 +35,6 @@ nate_new_video_open-brain_update.txt
 
 # Playwright MCP scratch output — machine-local, regenerated on demand
 /.playwright-mcp/
+
+# CLI entrypoint test build output (removed by the test; ignored in case a run is killed)
+cli/.tmp-entrypoint-*/
