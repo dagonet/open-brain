@@ -173,6 +173,8 @@ supabase link --project-ref your-project-ref
 supabase db push
 ```
 
+Migration 017 limits dashboard (`authenticated`) access to the accounts in `public.owners`; see step 7 of the web dashboard setup for the bootstrap and how to add an owner.
+
 Then run the semantic search function in the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql):
 
 ```sql
@@ -282,7 +284,11 @@ The web dashboard is a Next.js app that lets you browse thoughts, wiki pages, an
 
 **1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/providers` → toggle **Email** to ON. For local development, also toggle **Confirm email** to OFF (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings (after you have created your user in step 2): `supabase/config.toml` only covers local dev and `supabase config push`, so this dashboard setting is a required step, otherwise anyone could register and log in.
 
-**2. Create at least one user.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/users` → **Add user → Create new user** → enter email + password → toggle **Auto Confirm User** ON → Create.
+**2. Create at least one user.** Open `https://supabase.com/dashboard/project/<your-ref>/auth/users` → **Add user → Create new user** → enter email + password → toggle **Auto Confirm User** ON → Create. On a new install the migrations (step 3) ran before this user existed, so `public.owners` is still empty and the dashboard shows no data: right after creating the user, add it as the owner in the SQL editor (the user id is shown in the Users list):
+
+```sql
+insert into public.owners (user_id) values ('<your-user-id>');
+```
 
 **3. Configure `web/.env.local`.** Copy from the example:
 
@@ -320,6 +326,20 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 - Set the **server-only** `OWNER_USER_IDS` env var (never `NEXT_PUBLIC_`) to your Supabase auth user id (Supabase dashboard → **Authentication → Users**); use a comma-separated list for more than one owner. If it is unset or empty these buttons are refused (fail closed).
 - Set it in `web/.env.local` for local runs and in Vercel for both **Production** and **Preview**, alongside `SUPABASE_SERVICE_ROLE_KEY` (also server-only).
 - Turning off sign-ups for a hosted project (step 1) is the other half of this lock.
+
+**7. Scope database access to the owner.** Migration 017 is a second layer behind step 6: the database policies for the signed-in (`authenticated`) role only grant access when the user id is listed in the `public.owners` table, so another account that somehow got a session sees no rows and cannot change any. `service_role` callers (CLI, MCP server, edge functions) are unaffected, and `anon` stays fully locked down.
+
+- **Bootstrap.** The migration seeds `public.owners` with the user in `auth.users` only when there is exactly one. With zero or several users it seeds nothing and prints a notice; until you add an owner the dashboard shows no data.
+- **Add an owner.** In the Supabase SQL editor (or any admin connection):
+
+  ```sql
+  insert into public.owners (user_id) values ('<your-user-id>');
+  ```
+
+  Find the id under **Authentication → Users**. To remove one: `delete from public.owners where user_id = '<user-id>';`. Users deleted from Supabase Auth leave the list automatically. The table has no API access; only the SQL editor and `service_role` can change it.
+
+- **Keep the two lists the same.** `OWNER_USER_IDS` (web, step 6) and `public.owners` should name the same account(s). An id only in `OWNER_USER_IDS` passes the web check but the database returns no rows, and resolving a contradiction fails with a "no row was updated" error before any audit note is saved; an id only in `public.owners` can browse the dashboard but the refresh / reject / resolve buttons are refused.
+- **Verify.** After applying the migration, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side.
 
 ### 8. Set Up Slack (Optional)
 
@@ -651,7 +671,7 @@ cd mcp-server && npx vitest
 
 ## Architecture
 
-**Database:** Single `thoughts` table in PostgreSQL with pgvector extension. HNSW index for fast approximate nearest neighbor search. GIN indexes on `people` and `topics` arrays. Soft delete via `deleted_at` column. Single-user RLS.
+**Database:** Single `thoughts` table in PostgreSQL with pgvector extension. HNSW index for fast approximate nearest neighbor search. GIN indexes on `people` and `topics` arrays. Soft delete via `deleted_at` column. Single-user RLS: signed-in access is limited to the accounts in `public.owners` (migration 017).
 
 **Processing:** All capture paths (CLI, Slack, MCP) call the same `capture-thought` edge function, which runs embedding generation and metadata extraction in parallel via the shared `processThought()` core.
 
