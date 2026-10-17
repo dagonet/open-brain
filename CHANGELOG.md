@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `detect-contradictions` answers 400 for an invalid JSON or a non-object body instead of running a default audit (#102).
+- `detect-contradictions` answers 400 for a body that is invalid JSON or not a JSON object, instead of running a default audit (#102).
 
 ## [0.9.0] - 2026-10-17
 

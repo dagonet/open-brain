@@ -6,6 +6,8 @@
 //
 // Work is detected through globalThis.fetch: both handlers reach the database
 // (supabase-js) and OpenAI only via fetch, so a recorded call means work started.
+// Most tests expect zero calls; the body tests that expect an audit to start
+// expect at least one (the stub answers with an empty list, so nothing real runs).
 // All values below are made-up fixtures.
 
 import { handler as compileWiki } from './compile-wiki/handler.ts';
@@ -35,14 +37,20 @@ function post(authorization?: string): Request {
 }
 
 // Runs fn with env + fetch stubbed; returns the number of fetch calls it made.
-async function withStubs(fn: () => Promise<void>): Promise<number> {
+// The stub answers every request with an empty 200 list (so a handler that does
+// start work finishes cleanly without logging a failure) and, when given, pushes
+// each requested URL onto `urls`.
+async function withStubs(fn: () => Promise<void>, urls?: string[]): Promise<number> {
   const realFetch = globalThis.fetch;
   const prevKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const prevUrl = Deno.env.get('SUPABASE_URL');
   let calls = 0;
-  globalThis.fetch = (() => {
+  globalThis.fetch = ((input: Request | URL | string) => {
     calls++;
-    return Promise.reject(new Error('fetch must not be reached in these tests'));
+    urls?.push(input instanceof Request ? input.url : String(input));
+    return Promise.resolve(
+      new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
   }) as typeof fetch;
   Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', FAKE_KEY);
   Deno.env.set('SUPABASE_URL', 'http://localhost:54321');
@@ -149,7 +157,7 @@ Deno.test('detect-contradictions: 400 and no work for an invalid JSON body', asy
 });
 
 Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', async () => {
-  for (const raw of ['null', '42', '[]']) {
+  for (const raw of ['null', '42', '[]', '"text"', 'true']) {
     const calls = await withStubs(async () => {
       const res = await detectContradictions(
         new Request('http://localhost/fn', {
@@ -167,21 +175,46 @@ Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', a
   }
 });
 
-for (const [label, init] of [
-  ['no body', {}],
-  ['empty string body', { body: '' }],
-  ['whitespace-only body', { body: '  \n' }],
-] as Array<[string, RequestInit]>) {
-  Deno.test(`detect-contradictions: ${label} still runs the default audit`, async () => {
+// The authorized PUT is rejected by the method check before the body is read.
+Deno.test('detect-contradictions: 405 and no work for a PUT with an invalid JSON body', async () => {
+  const calls = await withStubs(async () => {
+    const res = await detectContradictions(
+      new Request('http://localhost/fn', {
+        method: 'PUT',
+        headers: serviceAuth,
+        body: '{not valid json',
+      }),
+    );
+    assertEquals(res.status, 405, 'status');
+  });
+  assertEquals(calls, 0, 'fetch calls');
+});
+
+// [label, request init, whether the candidate query carries the `since` filter]
+for (const [label, init, hasSince] of [
+  ['no body', {}, false],
+  ['empty string body', { body: '' }, false],
+  ['whitespace-only body', { body: '  \n' }, false],
+  ['empty object body', { body: '{}' }, false],
+  ['object body with since', { body: '{"since":"2026-01-01T00:00:00Z"}' }, true],
+] as Array<[string, RequestInit, boolean]>) {
+  Deno.test(`detect-contradictions: ${label} runs the audit`, async () => {
     let status = 0;
+    const urls: string[] = [];
     const calls = await withStubs(async () => {
       const res = await detectContradictions(
         new Request('http://localhost/fn', { method: 'POST', headers: serviceAuth, ...init }),
       );
       status = res.status;
-    });
+    }, urls);
     // The audit started (it reached the stubbed database fetch) and did not answer 400.
-    if (calls === 0) throw new Error('expected the default audit to start, but no fetch was made');
-    if (status === 400) throw new Error('expected no 400 for an empty body');
+    if (calls === 0) throw new Error('expected the audit to start, but no fetch was made');
+    assertEquals(status, 200, 'status');
+    // The decoded body reached the candidate query: `since` becomes a created_at filter.
+    assertEquals(
+      urls.some((u) => u.includes('created_at=gte.')),
+      hasSince,
+      'candidate query has a created_at=gte filter',
+    );
   });
 }
