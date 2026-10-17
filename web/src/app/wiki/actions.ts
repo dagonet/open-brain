@@ -157,6 +157,9 @@ export async function resolveContradiction(formData: FormData): Promise<void> {
   // (migration 017); requireOwner() above checks OWNER_USER_IDS. Keep both
   // lists the same. If multi-user support is added later, also filter by an
   // ownership column here.
+  // The signed-in role may UPDATE only `status` and `resolved_at` on this table
+  // (column-level grant, migration 018). Writing another column fails with
+  // "permission denied" until a new migration grants it.
   const { data: updated, error: updateErr } = await supabase
     .from('contradictions')
     .update({

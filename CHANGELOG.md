@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Narrower database access for the dashboard role (migration 018).** `authenticated`
+  loses INSERT, UPDATE and DELETE on the data tables and views and all access to `tasks`;
+  it keeps SELECT where the dashboard reads, plus UPDATE of `contradictions.status` and
+  `resolved_at` (the resolve button). `is_owner()` moves to `private.is_owner()`, a schema
+  the REST API does not expose, and `public.is_owner()` is dropped. The ten remaining
+  SECURITY DEFINER functions pin `search_path = public, extensions, pg_temp`.
+  `docs/sql/verify-owner-scope.sql` and `verify-anon-lockdown.sql` cover all of it,
+  including a check that neither `anon` nor `authenticated` can CREATE in `public`; the
+  migration also revokes that privilege (a no-op on the default image, relevant for
+  projects created on older ones). The grants are reset with `REVOKE ALL` before `GRANT SELECT`, so a privilege a later
+  PostgreSQL adds (17 added MAINTAIN) cannot linger.
+  Re-runnable; rollback steps are in the migration header.
 - **`tasks-feed` order and truncation headers.** Tasks come back newest first
   (`updated_at` desc, then `id`), so the cut at the PostgREST row cap keeps the most
   recent ones. `X-Total-Count` and `X-Truncated` response headers report the exact

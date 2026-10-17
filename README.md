@@ -174,7 +174,7 @@ supabase link --project-ref your-project-ref
 supabase db push
 ```
 
-Migration 017 limits dashboard (`authenticated`) access to the accounts in `public.owners`; see step 7 of the web dashboard setup for the bootstrap and how to add an owner.
+Migration 017 limits dashboard (`authenticated`) access to the accounts in `public.owners`, and migration 018 narrows what that role may do; see step 7 of the web dashboard setup for the bootstrap and how to add an owner.
 
 Then run the semantic search function in the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql):
 
@@ -340,7 +340,8 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
   Find the id under **Authentication → Users**. To remove one: `delete from public.owners where user_id = '<user-id>';`. Users deleted from Supabase Auth leave the list automatically. The table has no API access; only the SQL editor and `service_role` can change it.
 
 - **Keep the two lists the same.** `OWNER_USER_IDS` (web, step 6) and `public.owners` should name the same account(s). An id only in `OWNER_USER_IDS` passes the web check but the database returns no rows, and resolving a contradiction fails with a "no row was updated" error before any audit note is saved; an id only in `public.owners` can browse the dashboard but the refresh / reject / resolve buttons are refused.
-- **Verify.** After applying the migration, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side: it is one read-only SELECT with a row per check, failing rows first, and every row must say `pass = true`.
+- **What the signed-in role can do (migration 018).** Read the tables and views the dashboard shows, and update `status` and `resolved_at` of a contradiction (the resolve button); nothing else. It cannot insert or delete rows, it has no access to `tasks`, and the owner check lives in `private.is_owner()`, a schema the REST API does not expose. A hosted project lists its exposed schemas under **Project Settings → API**; `private` must not be among them (the default is `public` and `graphql_public`). The edge functions, CLI and MCP server use `service_role` and are unaffected.
+- **Verify.** After applying the migrations, run `docs/sql/verify-owner-scope.sql` in the SQL editor. It rolls back everything it does and stops with an error naming the failed check; no error means a non-owner session is denied and the owner session still works. `docs/sql/verify-anon-lockdown.sql` checks the anon side: it is one read-only SELECT with a row per check, failing rows first, and every row must say `pass = true`.
 
 ### 8. Set Up Slack (Optional)
 
