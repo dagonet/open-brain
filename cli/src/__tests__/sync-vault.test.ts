@@ -4,7 +4,6 @@ import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  derivePostgrestUrl,
   thoughtToFilename,
   slugify,
   computeTitle,
@@ -27,22 +26,6 @@ function makeThought(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
-describe('derivePostgrestUrl', () => {
-  it('extracts PostgREST URL from standard Supabase function URL', () => {
-    const url = 'https://myproject.supabase.co/functions/v1/capture-thought';
-    expect(derivePostgrestUrl(url)).toBe('https://myproject.supabase.co/rest/v1/thoughts');
-  });
-
-  it('works with project refs containing hyphens', () => {
-    const url = 'https://my-cool-project.supabase.co/functions/v1/capture-thought';
-    expect(derivePostgrestUrl(url)).toBe('https://my-cool-project.supabase.co/rest/v1/thoughts');
-  });
-
-  it('throws for malformed URLs', () => {
-    expect(() => derivePostgrestUrl('not-a-url')).toThrow('Invalid API URL');
-  });
-});
 
 describe('slugify', () => {
   it('converts text to lowercase slug', () => {

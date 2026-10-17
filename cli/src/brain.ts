@@ -19,7 +19,6 @@ const require = createRequire(import.meta.url);
 export const CLI_VERSION: string = (require('../package.json') as { version: string }).version;
 
 interface Config {
-  api_url: string;
   /** Anon key. No command sends it any more; kept optional for old configs. */
   api_key?: string;
   /** Service-role key; every command sends it (capture, import, sync-vault, wiki, audit). */
@@ -50,6 +49,19 @@ interface ConfigFile {
   api_url?: string;
   api_key?: string;
   service_key?: string;
+}
+
+/** Reason behind a failed fetch: Node puts it in `err.cause` ("fetch failed" alone says nothing). */
+function causeMessage(err: unknown): string | undefined {
+  const cause = err instanceof Error ? err.cause : undefined;
+  return cause instanceof Error && cause.message ? cause.message : undefined;
+}
+
+/** The error message, with the cause appended when there is one. */
+function describeError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = causeMessage(err);
+  return cause ? `${message} (${cause})` : message;
 }
 
 function readConfigFile(): ConfigFile {
@@ -127,7 +139,7 @@ export function loadConfig(): Config | null {
   // The service key is resolved on its own, however url/key were loaded:
   // BRAIN_SERVICE_KEY wins, then the config file's service_key.
   const service_key = process.env.BRAIN_SERVICE_KEY || file.service_key || undefined;
-  return { api_url: endpoints.captureUrl, api_key: apiKey, service_key, endpoints };
+  return { api_key: apiKey, service_key, endpoints };
 }
 
 /**
@@ -264,10 +276,6 @@ function printUsage(print: (message: string) => void = console.error): void {
       '',
     ].join('\n'),
   );
-}
-
-export function deriveFunctionsBase(apiUrl: string): string {
-  return resolveApiEndpoints(apiUrl).functionsBase;
 }
 
 function formatConfirmation(thought: ThoughtResponse['thought']): string {
@@ -437,8 +445,7 @@ export async function importMemories(): Promise<void> {
         captured++;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.log(`${prefix} \u2717 Failed: ${message}`);
+      console.log(`${prefix} \u2717 Failed: ${describeError(err)}`);
       failed++;
     }
 
@@ -510,11 +517,14 @@ export async function captureSingleThought(text: string, projectArg?: string): P
       message.includes('ECONNREFUSED') ||
       message.includes('ENOTFOUND')
     ) {
+      const cause = causeMessage(err);
       console.error(
-        '\u2717 Failed to capture thought: Could not reach the API. Check your connection and BRAIN_API_URL.',
+        '\u2717 Failed to capture thought: Could not reach the API' +
+          (cause ? ` (${cause})` : '') +
+          '. Check your connection and BRAIN_API_URL.',
       );
     } else {
-      console.error('\u2717 Failed to capture thought: ' + message);
+      console.error('\u2717 Failed to capture thought: ' + describeError(err));
     }
     process.exit(1);
   }
@@ -534,10 +544,6 @@ interface Thought {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-}
-
-export function derivePostgrestUrl(apiUrl: string): string {
-  return resolveApiEndpoints(apiUrl).restBase + '/thoughts';
 }
 
 export function slugify(text: string, maxLen = 50): string {
@@ -731,8 +737,7 @@ export async function syncVault(): Promise<void> {
   try {
     thoughts = await fetchAllThoughts(postgrestUrl, serviceKey);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('\u2717 Failed to fetch thoughts: ' + message);
+    console.error('\u2717 Failed to fetch thoughts: ' + describeError(err));
     process.exit(1);
   }
 
@@ -1018,8 +1023,7 @@ export async function auditCommand(): Promise<void> {
         );
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  (audit thought capture failed: ${msg})`);
+      console.error(`  (audit thought capture failed: ${describeError(err)})`);
     }
     return;
   }
@@ -1431,7 +1435,7 @@ const isMainModule =
 
 if (isMainModule) {
   main().catch((err: unknown) => {
-    console.error('Error: ' + (err instanceof Error ? err.message : String(err)));
+    console.error('Error: ' + describeError(err));
     process.exit(1);
   });
 }

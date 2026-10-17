@@ -65,7 +65,6 @@ describe('api_url handling in loadConfig and commands', () => {
     it('turns a bare base URL from the environment into the capture URL and endpoints', () => {
       vi.stubEnv('BRAIN_API_URL', 'https://abc.supabase.co');
       expect(loadConfig()).toMatchObject({
-        api_url: CAPTURE,
         endpoints: {
           captureUrl: CAPTURE,
           functionsBase: 'https://abc.supabase.co/functions/v1',
@@ -77,17 +76,19 @@ describe('api_url handling in loadConfig and commands', () => {
     it('turns a bare base URL from the config file into the capture URL and endpoints', () => {
       writeConfigFile({ api_url: 'http://127.0.0.1:54321/' });
       expect(loadConfig()).toMatchObject({
-        api_url: 'http://127.0.0.1:54321/functions/v1/capture-thought',
-        endpoints: { restBase: 'http://127.0.0.1:54321/rest/v1' },
+        endpoints: {
+          captureUrl: 'http://127.0.0.1:54321/functions/v1/capture-thought',
+          restBase: 'http://127.0.0.1:54321/rest/v1',
+        },
       });
     });
 
     it('passes the legacy capture URL through unchanged', () => {
       vi.stubEnv('BRAIN_API_URL', CAPTURE);
-      expect(loadConfig()?.api_url).toBe(CAPTURE);
+      expect(loadConfig()?.endpoints.captureUrl).toBe(CAPTURE);
       vi.stubEnv('BRAIN_API_URL', '');
       writeConfigFile({ api_url: CAPTURE });
-      expect(loadConfig()?.api_url).toBe(CAPTURE);
+      expect(loadConfig()?.endpoints.captureUrl).toBe(CAPTURE);
     });
 
     it('throws for remote http from the environment, naming BRAIN_API_URL', () => {
