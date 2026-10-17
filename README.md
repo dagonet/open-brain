@@ -6,8 +6,7 @@
 
 **Give every AI tool you use the same memory: capture a thought once, from the shell, Claude Code or Slack, and find it again by meaning.**
 
-Open Brain is for people who run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on real work and want a memory they own. It runs in your own Supabase project, with no SaaS in between and nobody else reading your notes.
-You need Node.js, a Supabase project (the free tier works) and an OpenAI API key.
+Open Brain is for people who run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on real work and want a memory they own. Your data lives in your own Supabase project. Note text is sent to OpenAI for embeddings and classification (on capture, wiki compile and the contradiction audit).
 
 ## What you get
 
@@ -25,7 +24,7 @@ For any topic you have a few notes on, Open Brain compiles one readable page. Ev
 
 ### Your own contradictions
 
-A scan finds pairs of notes that disagree, for example an old "we picked Postgres" next to a newer "we switched to SQLite". You decide which one is current; the wiki leaves out the stale one.
+A scan finds pairs of notes that disagree, for example an old "we picked Postgres" next to a newer "we switched to SQLite". You decide which one is current. While a contradiction is open, the wiki leaves out both notes; once you resolve it, both come back.
 
 ### An entity graph
 
@@ -41,7 +40,7 @@ Browse thoughts, wiki pages, contradictions and the graph in a browser. It is pr
 
 ### It looks after itself
 
-Nightly jobs audit contradictions, recompile stale wiki pages, archive old notes and consolidate topics, each with an LLM budget cap.
+Nightly jobs audit contradictions, recompile stale wiki pages and archive old notes, and a weekly job consolidates topics, each with an LLM budget cap.
 
 ### You own all of it
 
@@ -66,7 +65,7 @@ In Claude Code, which searches your memory on its own at the start of a session 
 
 ```
 > What did we decide about the build tool?
-  thoughts_search("build tool decision")  ->  3 notes, newest first
+  thoughts_search("build tool decision")  ->  3 notes, best match first
   We switched to esbuild in March because ... (your own words, with the note it came from)
 ```
 
@@ -112,7 +111,7 @@ Coming from 0.8: [`docs/upgrading.md`](docs/upgrading.md). Keys first, then the 
 | [`docs/operations.md`](docs/operations.md) | Nightly jobs, routine upkeep, checks |
 | [`docs/architecture.md`](docs/architecture.md) | How it fits together and the data model |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Symptoms and fixes |
-| [`docs/background/`](docs/background/Open_Brain_Summary_EN.md) | A longer plain-language summary, in [English](docs/background/Open_Brain_Summary_EN.md) and [German](docs/background/Open_Brain_Zusammenfassung_DE.md) |
+| [`docs/background/`](docs/background/Open_Brain_Summary_EN.md) | Background: a summary of the video that inspired the project (not of Open Brain itself), in [English](docs/background/Open_Brain_Summary_EN.md) and [German](docs/background/Open_Brain_Zusammenfassung_DE.md) |
 
 Already using [claude-code-toolkit](https://github.com/dagonet/claude-code-toolkit)? Its templates ship with the Open Brain integration pre-wired, and `OPEN_BRAIN_TOOLS_DISABLED` in a repo's `.mcp.json` silences tool families you do not want there ([`docs/mcp.md`](docs/mcp.md#per-repo-opt-out)).
 

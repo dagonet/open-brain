@@ -69,7 +69,7 @@ supabase functions deploy tasks-feed            # optional, step 10
 supabase functions deploy slack-webhook         # optional, step 8
 ```
 
-> **Never deploy without a name together with `--no-verify-jwt`.** `supabase functions deploy --no-verify-jwt` redeploys every function with JWT verification off, including the four that rely on it. `supabase/config.toml` already pins `verify_jwt` per function; the plain commands above are all you need. See [`edge-functions.md`](edge-functions.md#verify_jwt).
+> **NEVER deploy `capture-thought`, `compile-wiki`, `detect-contradictions` or `run-nightly-jobs` with `--no-verify-jwt`.** Their guard trusts the gateway's signature check, so with verification off a forged token would be accepted. Only `tasks-feed` and `slack-webhook` run without the gateway JWT check, and `supabase/config.toml` already sets that. A bare `supabase functions deploy --no-verify-jwt` switches verification off for every function. The plain commands above are all you need. See [`edge-functions.md`](edge-functions.md#verify_jwt).
 
 > **Windows note:** `supabase functions deploy` uses Docker by default to bundle TypeScript. If Docker volume mounts can't read your project drive (common when the repo lives on a non-`C:` drive like `G:\`), the bundler fails with `entrypoint path does not exist`. Pass `--use-api` to bundle server-side instead: `supabase functions deploy capture-thought --use-api`.
 
@@ -77,9 +77,9 @@ Set the secrets the functions read:
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-your-key
-supabase secrets set SUPABASE_URL=https://<project-ref>.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 ```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided to the functions automatically on a hosted project (the `SUPABASE_` prefix is reserved, so you cannot set them as secrets).
 
 Optional secrets (wiki recency decay, topics to skip) are in [`configuration.md`](configuration.md#edge-function-secrets).
 
@@ -205,7 +205,7 @@ A scheduled job audits contradictions, recompiles stale wiki pages, archives old
    supabase secrets set MAX_LLM_CALLS_PER_JOB=50
    ```
 
-3. Schedule it with pg_cron: open the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql), paste `docs/cron-setup.sql` and replace `<YOUR_PROJECT_REF>`; the Vault step in that file stores the service-role key.
+3. Schedule it with pg_cron: open the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql), paste `docs/cron-setup.sql` and replace **both** placeholders: `<YOUR_PROJECT_REF>` (it appears in each of the four schedules) and `<YOUR_SERVICE_ROLE_KEY>` (twice, in the Vault step near the top, as a literal string in `vault.create_secret(...)`). Use the legacy `service_role` JWT (`eyJ...`). The Vault step stores it once as the secret `service_role_key`, and the schedules read it from there.
 
 The full walk-through, the manual triggers and the knobs are in [`operations.md`](operations.md#nightly-automation).
 

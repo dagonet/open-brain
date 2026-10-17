@@ -45,7 +45,6 @@
 - Install the Supabase CLI (`npm install -g supabase` is deprecated upstream; use scoop, brew or a release binary, see `docs/install.md`)
 - Get OpenAI API key
 - Run migration: `supabase db push`
-- Run `match_thoughts.sql` in Supabase SQL editor
 - Deploy edge functions: `supabase functions deploy`
 - Configure CLI: set env vars or create `~/.brain/config.json`
 - Configure MCP server in Claude Code settings

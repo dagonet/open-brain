@@ -1,6 +1,8 @@
 # Open Brain: Agenten-lesbare Speicherarchitektur fuer KI
 
-**Video:** "Your Second Brain Is Closed. Your AI Can't Use It." von Nate Herk
+*Zusammenfassung des Videos, das dieses Projekt inspiriert hat; die Zahlen beschreiben das urspruengliche Design, nicht den aktuellen Code.*
+
+**Video:** "You Don't Need SaaS. The $0.10 System That Replaced My AI Workflow" von Nate B Jones
 **Quelle:** [YouTube](https://www.youtube.com/watch?v=2JiMmye2ezg)
 **Begleitanleitung:** [Nate's Substack](https://natesnewsletter.substack.com/p/every-ai-you-use-forgets-you-heres)
 

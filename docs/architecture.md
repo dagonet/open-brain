@@ -10,7 +10,7 @@ How the pieces of Open Brain fit together: the capture path, the retrieval layer
 You (CLI / Slack / Claude Code)
   |
   v
-capture-thought edge function (Supabase/Deno)
+capture-thought edge function (Supabase/Deno); slack-webhook runs the same core
   |
   ├── OpenAI text-embedding-3-small → 1536-dim vector
   ├── GPT-4o-mini → thought_type, people, topics, action_items, salience
@@ -101,7 +101,7 @@ The functions are documented in [`edge-functions.md`](edge-functions.md); who ma
 
 **Database.** A `thoughts` table in PostgreSQL with the pgvector extension. An HNSW index serves fast approximate nearest-neighbour search; GIN indexes cover the `people` and `topics` arrays. Soft delete is a `deleted_at` column. Single-user row-level security: the signed-in role sees data only for the accounts listed in `public.owners` (migration 017), and the anon role has no data access (migration 016).
 
-**Processing.** All capture paths (CLI, Slack, MCP, dashboard) call the same `capture-thought` edge function, which runs embedding generation and metadata extraction in parallel via the shared `processThought()` core.
+**Processing.** The CLI, the MCP server and the dashboard call the `capture-thought` edge function; the Slack function calls the same shared `processThought()` core directly. It runs embedding generation and metadata extraction in parallel.
 
 **Embedding.** OpenAI `text-embedding-3-small` produces 1536-dimensional vectors. Semantic search uses the `match_thoughts` / `match_thoughts_v2` SQL functions with pgvector cosine similarity (the `<=>` operator).
 

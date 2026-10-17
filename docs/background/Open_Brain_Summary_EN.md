@@ -1,6 +1,8 @@
 # Open Brain: Agent-Readable Memory Architecture for AI
 
-**Video:** "Your Second Brain Is Closed. Your AI Can't Use It." by Nate Herk
+*Summary of the video that inspired this project; numbers describe the original design, not the current code.*
+
+**Video:** "You Don't Need SaaS. The $0.10 System That Replaced My AI Workflow" by Nate B Jones
 **Source:** [YouTube](https://www.youtube.com/watch?v=2JiMmye2ezg)
 **Companion Guide:** [Nate's Substack](https://natesnewsletter.substack.com/p/every-ai-you-use-forgets-you-heres)
 

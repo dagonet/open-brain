@@ -6,7 +6,7 @@ Six Supabase edge functions (Deno) in `supabase/functions/`. Shared code is in `
 
 | Function | Purpose | Caller | `verify_jwt` |
 | -------- | ------- | ------ | ------------ |
-| [`capture-thought`](#capture-thought) | Embed, classify and store a thought | CLI, MCP server, Slack function, dashboard | true |
+| [`capture-thought`](#capture-thought) | Embed, classify and store a thought | CLI, MCP server, dashboard | true |
 | [`compile-wiki`](#compile-wiki) | Compile a topic wiki page with validated citations | CLI, MCP server, dashboard, nightly job | true |
 | [`detect-contradictions`](#detect-contradictions) | Find pairs of thoughts that disagree | CLI, MCP server, nightly job | true |
 | [`run-nightly-jobs`](#run-nightly-jobs) | Cron orchestrator: contradictions, stale wiki, archive, consolidate | pg_cron, you | true |
@@ -30,9 +30,9 @@ Set the secrets they read (all of them are listed in [`configuration.md`](config
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-your-key
-supabase secrets set SUPABASE_URL=https://<project-ref>.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 ```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided to the functions automatically on a hosted project; the `SUPABASE_` prefix is reserved, so you cannot set them as secrets.
 
 **Windows note.** `supabase functions deploy` bundles with Docker by default. If Docker's volume mounts cannot read your project drive (common when the repo lives on a non-`C:` drive like `G:\`), the bundler fails with `entrypoint path does not exist`. Add `--use-api` to bundle server-side: `supabase functions deploy capture-thought --use-api`.
 
@@ -46,7 +46,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 | `tasks-feed` | `false` | Its caller has no Supabase JWT; a bearer token is the access control. |
 | `slack-webhook` | `false` | Slack cannot send a Supabase JWT; the request signature is the access control. |
 
-**Do not pass `--no-verify-jwt`.** It is never needed because the config already sets the right value, and `supabase functions deploy --no-verify-jwt` without a function name redeploys **every** function with JWT verification off, including the four above, where a forged token would then be accepted. If you must use the flag, always name the function. The CLI uses the config value unless the flag is given on the command line (flag over config; checked against v2.90.0). More: [`security.md`](security.md#the---no-verify-jwt-footgun).
+**NEVER deploy `capture-thought`, `compile-wiki`, `detect-contradictions` or `run-nightly-jobs` with `--no-verify-jwt`.** Their guard trusts the gateway's signature check, so a forged token would be accepted. Only `tasks-feed` and `slack-webhook` run without gateway JWT checks, and the config already sets that; the flag is never needed. A bare `supabase functions deploy --no-verify-jwt` redeploys **every** function with verification off. The CLI uses the config value unless the flag is given on the command line (flag over config; checked against v2.90.0). More: [`security.md`](security.md#the---no-verify-jwt-footgun).
 
 ## capture-thought
 
@@ -70,15 +70,15 @@ What it does for every thought, in parallel: embeds it (`text-embedding-3-small`
 
 Compiles one topic into a wiki page: clusters the topic's thoughts, drops those in an open contradiction, ranks them with recency decay (`WIKI_DECAY_DAYS`, default 90), and asks the model for structured output. A citation validator checks every paragraph against real source thoughts; it retries once and falls back to a `partial` page that omits unverifiable paragraphs. Pages are append-only versions; the `current_wiki_pages` view shows the latest. A topic needs at least 3 thoughts.
 
-Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
+Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON or a missing `slug`; `200` with status `refused` (reason `cluster_too_small`) for an unknown slug. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
 
 ## detect-contradictions
 
-Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Topics in `WIKI_TOPIC_DENYLIST` are skipped.
+Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON. Topics in `WIKI_TOPIC_DENYLIST` are skipped.
 
 ## run-nightly-jobs
 
-A cron-driven orchestrator. `POST {"job": "<name>"}` runs one job; it dispatches to the sibling functions with the injected service key. It accepts the role-claim service-role JWT only.
+A cron-driven orchestrator. `POST {"job": "<name>"}` runs one job; it dispatches to the sibling functions with the injected service key. It accepts the role-claim service-role JWT only. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON or a missing `job`.
 
 | Job | What it does | LLM cost |
 | --- | ------------ | -------- |
@@ -125,6 +125,8 @@ If the second call also returns `401`, the gateway is still verifying JWTs: rede
 Receives Slack Events API requests and captures channel messages as thoughts, replying in a thread with the classification.
 
 Setup is in [`install.md`](install.md#8-set-up-slack-optional): a Slack app with the bot scopes `channels:history` and `chat:write` (plus `groups:history` / `im:history` for private channels and DMs), the secrets `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN`, the request URL `https://<project-ref>.supabase.co/functions/v1/slack-webhook`, and the `message.channels` bot event.
+
+It calls the shared processing code directly, not `capture-thought`, so it reads `OPENAI_API_KEY` and `NEAR_DUP_THRESHOLD` itself.
 
 Slack cannot send a Supabase JWT, so `verify_jwt = false`. The function is protected by Slack's signature instead:
 

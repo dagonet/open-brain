@@ -14,10 +14,10 @@ Set with `supabase secrets set NAME=value` (hosted) or `supabase functions serve
 
 | Variable | Required | Default | Read by | Purpose |
 | -------- | -------- | ------- | ------- | ------- |
-| `OPENAI_API_KEY` | yes | none | capture-thought, compile-wiki, detect-contradictions | Embeddings and GPT-4o-mini calls. Without it captures are stored without embedding ([`troubleshooting.md`](troubleshooting.md)). |
-| `SUPABASE_URL` | yes | injected | all functions | Project URL. Supabase injects it on hosted projects; set it if your setup does not. |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | injected | all functions | Service-role key the functions use to reach the database. |
-| `NEAR_DUP_THRESHOLD` | no | `0.92` | capture-thought | Cosine similarity at or above which a recent thought counts as a near-duplicate. |
+| `OPENAI_API_KEY` | yes | none | capture-thought, compile-wiki, detect-contradictions, slack-webhook | Embeddings and GPT-4o-mini calls. Without it captures are stored without embedding ([`troubleshooting.md`](troubleshooting.md)). |
+| `SUPABASE_URL` | yes | injected | all functions | Project URL. Provided automatically on a hosted project; the `SUPABASE_` prefix is reserved, so `supabase secrets set` cannot set it. |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | injected | all functions | Service-role key the functions use to reach the database. Provided automatically on a hosted project (reserved prefix, not settable as a secret). |
+| `NEAR_DUP_THRESHOLD` | no | `0.92` | capture-thought, slack-webhook | Cosine similarity at or above which a recent thought counts as a near-duplicate. |
 | `WIKI_COMPILE_MODEL` | no | `gpt-4o-mini` | compile-wiki | Model for wiki compilation. |
 | `WIKI_DECAY_DAYS` | no | `90` | compile-wiki | Recency-decay rate in cluster ranking. |
 | `WIKI_TOPIC_DENYLIST` | no | empty | compile-wiki, detect-contradictions | Comma-separated topic slugs to skip (sensitive notes). |

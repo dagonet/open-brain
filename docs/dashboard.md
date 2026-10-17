@@ -26,7 +26,7 @@ cp web/.env.local.example web/.env.local
 | -------- | ----- | ------- |
 | `NEXT_PUBLIC_SUPABASE_URL` | public | Your project URL. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | The anon key. Serves the login page and auth only. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server-only** | The legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`). Wiki refresh sends it to `compile-wiki`; refresh, reject and the contradiction note send it to `capture-thought`. Never prefix it with `NEXT_PUBLIC_`; mark it sensitive in Vercel. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server-only** | The legacy `service_role` JWT (`eyJ...`, not `sb_secret_...`). Wiki refresh sends it to `compile-wiki`; reject and the contradiction note send it to `capture-thought`. Never prefix it with `NEXT_PUBLIC_`; mark it sensitive in Vercel. |
 | `OWNER_USER_IDS` | **server-only** | Comma-separated Supabase auth user ids allowed to use the refresh, reject and resolve buttons. Unset or empty means refused (fail closed). Keep it equal to `public.owners`. |
 
 Find the URL and keys under Project Settings > API; user ids under Authentication > Users.
@@ -61,8 +61,8 @@ The left sidebar lists Thoughts, Wiki, Contradictions and Graph with badges (wik
 
 The server actions live in `web/src/app/wiki/actions.ts` and run on the Next.js server.
 
-- `refreshWikiPage` and `rejectWikiPage` call `compile-wiki` and `capture-thought` with the service-role key. They spend LLM tokens, so being logged in is not enough: the caller's user id must be in `OWNER_USER_IDS`.
-- `resolveContradiction` updates `contradictions` as the signed-in user (database policy: the id must be in `public.owners`) and sends its audit note with the service-role key.
+- `refreshWikiPage` calls only `compile-wiki`; `rejectWikiPage` calls `capture-thought` (to record the rejection). Both use the service-role key and spend LLM tokens, so being logged in is not enough: the caller's user id must be in `OWNER_USER_IDS`.
+- `resolveContradiction` also checks `OWNER_USER_IDS`, then updates `contradictions` as the signed-in user (database policy: the id must be in `public.owners`) and sends its audit note to `capture-thought` with the service-role key.
 - If an action reports **"no row was updated"**, the database refused the write: your id is in `OWNER_USER_IDS` but not in `public.owners`. Add it ([`troubleshooting.md`](troubleshooting.md#the-dashboard-shows-no-data-or-refuses-a-button)).
 
 ## Architecture notes

@@ -70,7 +70,7 @@ All three are re-runnable.
 - **`tasks-feed` edge function.** Read-only task list (JSON) for local tools that lost
   anon access to `tasks` with migration 016. Authenticated by the `TASKS_FEED_TOKEN`
   function secret (constant-time compare, fail closed when unset or shorter than 32
-  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See [`docs/edge-functions.md`](docs/edge-functions.md#tasks-feed).
+  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI (#94). See [`docs/edge-functions.md`](docs/edge-functions.md#tasks-feed).
 - MCP server smoke test that lists the tools and calls one over the SDK's in-memory
   transport with stubbed Supabase/OpenAI clients (no network, no keys).
 - CI: the web job now runs `next build` with placeholder public Supabase variables.
@@ -79,11 +79,13 @@ All three are re-runnable.
 - **Documentation restructure.** `README.md` is now a short front page; setup, upgrading,
   security, CLI, MCP, dashboard, edge functions, configuration, operations, architecture
   and troubleshooting live under `docs/`. The sub-package READMEs point there. Old
-  README sections moved, none were dropped.
+  README sections moved. Two things were dropped on purpose: the step that pasted
+  `match_thoughts.sql` into the SQL editor (migration 008 defines the function) and the
+  `--supabase-url` flag (the CLI never accepted it).
 
 ### Changed
 
-- **CLI: `api_url` / `BRAIN_API_URL` is now the API base URL** (#99). REST is derived as
+- **CLI: `api_url` / `BRAIN_API_URL` is now the API base URL** (#100). REST is derived as
   `<base>/rest/v1` and functions as `<base>/functions/v1/<name>`, so `brain wiki`,
   `brain audit` and `brain sync-vault` work against a local Supabase stack
   (`http://127.0.0.1:54321`), not only `https://<ref>.supabase.co`. Trailing slashes are
@@ -112,13 +114,13 @@ All three are re-runnable.
 - **`tasks-feed` order and truncation headers.** Tasks come back newest first
   (`updated_at` desc, then `id`), so the cut at the PostgREST row cap keeps the most
   recent ones. `X-Total-Count` and `X-Truncated` response headers report the exact
-  match count and whether the list was cut; the body is unchanged.
+  match count and whether the list was cut; the body is unchanged (#95).
 - **`slack-webhook` is pinned to `verify_jwt = false`** in `supabase/config.toml` (Slack
   cannot send a Supabase JWT). The request signature is now checked first, before the
   body is parsed and before the `url_verification` echo; unsigned callers get 405 or 401.
   Stricter validation of the request timestamp (digits only) before the replay-window
   check; requests always required a valid signature. Event processing is handed to
-  `EdgeRuntime.waitUntil` when available, and the 500 response no longer echoes the error.
+  `EdgeRuntime.waitUntil` when available, and the 500 response no longer echoes the error (#95).
 - **MCP server reports its real version.** `serverInfo.version` was hardcoded to `0.7.0`
   while `mcp-server/package.json` said `0.8.0`; it is now read from `package.json`.
   Server construction moved into a side-effect-free `createServer()` in
@@ -137,8 +139,10 @@ All three are re-runnable.
   the `middleware` file convention is deprecated in favour of `proxy`); CI runs on
   Node 22.
 - `supabase/config.toml`: the deprecated `[inbucket]` table is renamed `[local_smtp]`.
-- Repository tooling: the project template was synced several times (for example #69, #88) and the
-  gate also typechecks and lints `web`.
+- Repository tooling: the project template was synced several times (for example #69, #88);
+  the gate also typechecks and lints `web` (#47, #52), detects `node_modules` drift and no
+  longer races a moving HEAD (#51, #52), and installs prettier and eslint (#40); CI has a
+  format and lint job (#44); `web` has a vitest harness with unit tests (#54).
 - CLI internals: the unused `deriveFunctionsBase` / `derivePostgrestUrl` exports and the
   duplicate `Config.api_url` were removed.
 - CLI tests: `cli/vitest.config.ts` limits discovery to `src/`, so `npm test` no longer
@@ -151,8 +155,8 @@ All three are re-runnable.
 - **Near-duplicate hint restored.** `processThought()` returned `duplicateCandidate`
   instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
   `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.
-- The Slack setup step no longer links to the nonexistent `docs/slack-setup.md` (the steps are now in [`docs/edge-functions.md`](docs/edge-functions.md)).
-- **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#96).
+- The Slack setup step no longer links to the nonexistent `docs/slack-setup.md` (the steps are now in [`docs/edge-functions.md`](docs/edge-functions.md), #95).
+- **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#98).
   `brain --version` / `-V` print the version from `cli/package.json`; `brain help` (sole
   argument), `--help` and `-h` print usage on stdout and exit 0. If the first argument starts
   with `-` and is not known, it is an error (stderr with a hint, exit 1, nothing captured);
