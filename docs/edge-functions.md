@@ -74,7 +74,7 @@ Request body: `slug` (a topic slug), optional `dry_run`. Service-role key requir
 
 ## detect-contradictions
 
-Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET. An invalid JSON body is not rejected: the parse error is ignored and a default audit runs. Topics in `WIKI_TOPIC_DENYLIST` are skipped.
+Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for a body that is present but not valid JSON (an empty or absent body runs a default audit). Topics in `WIKI_TOPIC_DENYLIST` are skipped.
 
 ## run-nightly-jobs
 

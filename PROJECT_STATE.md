@@ -3,8 +3,8 @@
 ## Now
 
 - **Goal:** Keep open-brain secure and on the current claude-code-toolkit template (v5.1.0).
-- **Current step:** v0.9.0 release in progress: version bumps and code follow-ups are on `release/v0.9.0`; docs restructure (README as front page, guides under `docs/`) and CHANGELOG in the release PR. Install-guide verification on a local stack runs separately.
-- **Next step:** Merge the release PR, tag v0.9.0 and cut the GitHub release (PO).
+- **Current step:** v0.9.0 is released (2026-10-17): migrations 016-018 live, tasks-feed live, docs restructured, CLI 1.3.0.
+- **Next step:** No sprint planned; see GitHub Issues.
 
 ## Current Sprint
 

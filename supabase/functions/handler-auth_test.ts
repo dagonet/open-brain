@@ -124,3 +124,45 @@ for (const [name, handle] of handlers) {
     assertEquals(calls, 0, 'fetch calls');
   });
 }
+
+// ---- detect-contradictions request body (#102) -------------------------------
+// A present-but-invalid JSON body is a client error (400, no work), as in
+// compile-wiki. An absent or empty body still runs the default audit.
+
+const serviceAuth = { Authorization: `Bearer ${jwt({ role: 'service_role' })}` };
+
+Deno.test('detect-contradictions: 400 and no work for an invalid JSON body', async () => {
+  const calls = await withStubs(async () => {
+    const res = await detectContradictions(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      }),
+    );
+    assertEquals(res.status, 400, 'status');
+    const body = await res.json();
+    assertEquals(body.success, false, 'success');
+    assertEquals(body.error, 'Invalid JSON body', 'error');
+  });
+  assertEquals(calls, 0, 'fetch calls');
+});
+
+for (const [label, init] of [
+  ['no body', {}],
+  ['empty string body', { body: '' }],
+  ['whitespace-only body', { body: '  \n' }],
+] as Array<[string, RequestInit]>) {
+  Deno.test(`detect-contradictions: ${label} still runs the default audit`, async () => {
+    let status = 0;
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', { method: 'POST', headers: serviceAuth, ...init }),
+      );
+      status = res.status;
+    });
+    // The audit started (it reached the stubbed database fetch) and did not answer 400.
+    if (calls === 0) throw new Error('expected the default audit to start, but no fetch was made');
+    if (status === 400) throw new Error('expected no 400 for an empty body');
+  });
+}

@@ -108,12 +108,15 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   let body: AuditRequest = {};
-  try {
-    if (req.headers.get('content-length') !== '0') {
-      body = await req.json();
+  // An absent or empty body runs the default audit; a body that is present but
+  // not valid JSON is a client error (same answer as compile-wiki).
+  const rawBody = await req.text();
+  if (rawBody.trim() !== '') {
+    try {
+      body = JSON.parse(rawBody) as AuditRequest;
+    } catch {
+      return jsonResponse(400, { success: false, error: 'Invalid JSON body' });
     }
-  } catch {
-    body = {};
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `detect-contradictions` answers 400 for an invalid JSON body instead of running a default audit (#102).
+
 ## [0.9.0] - 2026-10-17
 
 Component versions: `mcp-server` 0.9.0, `cli` 1.3.0, `web` 1.0.0 (the components are
