@@ -1,0 +1,107 @@
+// tasks-feed edge function
+//
+// GET /functions/v1/tasks-feed
+//   Authorization: Bearer <TASKS_FEED_TOKEN>
+//
+// Read-only task list for a local, server-side consumer (the agent dashboard) that
+// has no Supabase session. Migration 016 revoked anon access to `tasks`, so this
+// function reads the table with the service-role key and hands back the rows.
+//
+// Deployed with verify_jwt = false (supabase/config.toml): the caller has no
+// Supabase JWT, so the gateway cannot authenticate it. The ONLY gate is the
+// TASKS_FEED_TOKEN function secret checked below. Do NOT reuse
+// isServiceRoleAuthorized from _shared/auth.ts here: it trusts the role claim of
+// a JWT whose signature the gateway is expected to have verified, and with
+// verify_jwt = false nobody verifies it, so a forged claim would pass.
+//
+// Order of checks (every response is application/json):
+//   1. TASKS_FEED_TOKEN missing or empty -> 500, before anything else (fail
+//      closed: an empty secret must never be compared, or an empty bearer would
+//      match it). Nothing is read from the request.
+//   2. Missing/malformed header or wrong token -> 401.
+//   3. Method other than GET -> 405. This runs AFTER auth, like compile-wiki and
+//      detect-contradictions: unauthenticated callers get 401 whatever the method,
+//      only authenticated callers learn about the method rule.
+//   4. SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing -> 500.
+//   5. Query. A database error answers a generic 500, never the database message.
+//
+// Never log or echo the bearer value or the secret. No CORS headers: the consumer
+// is not a browser.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+
+// The fields the consumer reads. Same shape PostgREST returned to the anon client.
+const TASK_COLUMNS = 'id,project,title,status,priority,metadata,updated_at';
+const MAX_ROWS = 2000;
+
+async function sha256(input: string): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return new Uint8Array(digest);
+}
+
+// Constant-time token check. Both values are hashed first, so the compared digests
+// always have the same length and the loop never exits early: neither the content
+// nor the length of the secret can be learned from the response time.
+async function isAuthorized(authHeader: string | null, feedToken: string): Promise<boolean> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.slice(7);
+  if (!token) return false;
+  const [given, expected] = await Promise.all([sha256(token), sha256(feedToken)]);
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= given[i] ^ expected[i];
+  }
+  return diff === 0;
+}
+
+function jsonResponse(
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  });
+}
+
+export async function handler(req: Request): Promise<Response> {
+  const feedToken = Deno.env.get('TASKS_FEED_TOKEN');
+  if (!feedToken) {
+    return jsonResponse(500, { error: 'Server misconfigured' });
+  }
+
+  if (!(await isAuthorized(req.headers.get('Authorization'), feedToken))) {
+    return jsonResponse(401, { error: 'Unauthorized' });
+  }
+
+  if (req.method !== 'GET') {
+    return jsonResponse(405, { error: 'Method not allowed' }, { Allow: 'GET' });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceKey) {
+    return jsonResponse(500, { error: 'Server misconfigured' });
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await supabase
+      .from('tasks')
+      .select(TASK_COLUMNS)
+      .is('deleted_at', null)
+      .neq('status', 'cancelled')
+      .limit(MAX_ROWS);
+    if (error) {
+      console.error('tasks-feed: query failed', error.code, error.message);
+      return jsonResponse(500, { error: 'Internal error' });
+    }
+    return jsonResponse(200, data ?? []);
+  } catch (err) {
+    console.error('tasks-feed: unexpected error', err instanceof Error ? err.message : 'unknown');
+    return jsonResponse(500, { error: 'Internal error' });
+  }
+}
