@@ -6,15 +6,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-17
+
+Component versions: `mcp-server` 0.9.0, `cli` 1.3.0, `web` 1.0.0 (the components are
+versioned independently; the release number follows the MCP server). Migrations 016, 017
+and 018.
+
+**Upgrading from 0.8:** this release changes who can call what. Read
+[`docs/upgrading.md`](docs/upgrading.md) before deploying; it gives the steps in order.
+
+### Breaking changes
+
+- The anon key no longer reads or writes anything through PostgREST (migration 016). Local
+  tools that read tables with the anon key must use the new `tasks-feed` function or the
+  service-role key.
+- `capture-thought`, `compile-wiki` and `detect-contradictions` return 401 unless the
+  caller sends the legacy `service_role` JWT. `sb_secret_...` keys are rejected by the
+  gateway.
+- Every CLI command needs the service-role key (`BRAIN_SERVICE_KEY` or `service_key` in
+  `~/.brain/config.json`), and the CLI has to be rebuilt.
+- The dashboard needs `SUPABASE_SERVICE_ROLE_KEY` and `OWNER_USER_IDS` (server-only), and
+  the signed-in account has to be listed in `public.owners`; otherwise the dashboard is
+  empty and the refresh, reject and resolve actions are refused.
+- `brain` rejects an unknown first argument that starts with `-`. Text that starts with a
+  dash goes after `--`.
+- `api_url` / `BRAIN_API_URL` is now the API base URL (`https://<ref>.supabase.co`). The
+  `.env.example` default changed to match.
+- Deploy functions by name. A bare `supabase functions deploy --no-verify-jwt` switches
+  JWT verification off for every function.
+
+### Security
+
+- Anon lockdown (migration 016, #80). Policies for `anon` and `PUBLIC` are dropped, views
+  and functions are closed to `anon`, EXECUTE is granted only where a caller needs it, and
+  sign-ups are off in the local config. `docs/sql/verify-anon-lockdown.sql` lists the
+  resulting privileges.
+- `capture-thought` runs the shared service-role guard first; `verify_jwt` is pinned in
+  `supabase/config.toml` (#80).
+- `compile-wiki` and `detect-contradictions` accept only the service role (#76). The guard
+  lives in `supabase/functions/_shared/auth.ts` and `run-nightly-jobs` uses it too (#90).
+- The dashboard actions that use the service-role key are limited to the owner account
+  through `OWNER_USER_IDS`, and fail closed when it is unset (#85).
+- Owner scoping (migration 017, #91) and narrower grants (migration 018, #97): see
+  Migrations.
+
+### Migrations
+
+All three are re-runnable.
+
+- **016** `016_restrict_to_authenticated.sql`: anon lockdown, see Security. Verify with
+  `docs/sql/verify-anon-lockdown.sql`.
+- **017** `017_scope_authenticated_to_owner.sql`: adds `public.owners`. Every policy for
+  `authenticated` now also requires the user to be listed there, and a restrictive policy
+  per data table keeps it. The owner list is seeded when `auth.users` has exactly one row;
+  with none or several, add your account yourself. `get_distinct_*()` switch to SECURITY
+  INVOKER, and TRUNCATE, REFERENCES and TRIGGER are revoked from `authenticated`. Verify
+  with `docs/sql/verify-owner-scope.sql`.
+- **018** `018_narrow_grants_private_helper.sql`: see Changed below. Rollback steps are in
+  the migration header.
+
 ### Added
 
 - **`tasks-feed` edge function.** Read-only task list (JSON) for local tools that lost
   anon access to `tasks` with migration 016. Authenticated by the `TASKS_FEED_TOKEN`
   function secret (constant-time compare, fail closed when unset or shorter than 32
-  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See README step 10.
+  characters) and deployed with `verify_jwt = false` in `supabase/config.toml`. Deno tests run in CI. See [`docs/edge-functions.md`](docs/edge-functions.md#tasks-feed).
 - MCP server smoke test that lists the tools and calls one over the SDK's in-memory
   transport with stubbed Supabase/OpenAI clients (no network, no keys).
 - CI: the web job now runs `next build` with placeholder public Supabase variables.
+- Deno handler tests for the shared service-role guard and the edge function handlers,
+  run in CI (#90).
+- **Documentation restructure.** `README.md` is now a short front page; setup, upgrading,
+  security, CLI, MCP, dashboard, edge functions, configuration, operations, architecture
+  and troubleshooting live under `docs/`. The sub-package READMEs point there. Old
+  README sections moved, none were dropped.
 
 ### Changed
 
@@ -60,6 +125,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mcp-server/src/server.ts`; the stdio entrypoint behaves as before.
 - **`zod` is now a declared dependency of `mcp-server`** (`^3.25.76`, the copy the MCP SDK
   already resolves; the lockfile still holds a single deduped copy).
+- CLI: failure messages say why a server call failed, `api_key` in the config is optional,
+  and install with `npm install -g --install-links=false ./cli`; building the CLI needs
+  Node 22.12 or newer (#81). When `fetch` fails, the underlying cause is printed too (for
+  example a refused redirect).
+- CLI: every command that reads or writes through PostgREST or calls a function (capture,
+  import, sync-vault, wiki, audit) uses the service key (#80, #76).
+- `docs/sql/verify-anon-lockdown.sql` returns one result set (#93).
+- Dependencies: vitest 5 and `npm audit fix` in `mcp-server` and `web` (#83); web upgraded
+  from Next.js 15 to 16 (#53, `eslint-config-next` stays on 15.5.x; `next build` warns that
+  the `middleware` file convention is deprecated in favour of `proxy`); CI runs on
+  Node 22.
+- `supabase/config.toml`: the deprecated `[inbucket]` table is renamed `[local_smtp]`.
+- Repository tooling: the project template was synced several times (for example #69, #88) and the
+  gate also typechecks and lints `web`.
+- CLI internals: the unused `deriveFunctionsBase` / `derivePostgrestUrl` exports and the
+  duplicate `Config.api_url` were removed.
 - CLI tests: `cli/vitest.config.ts` limits discovery to `src/`, so `npm test` no longer
   also runs the compiled copies in `cli/dist/__tests__` (the suite was counted twice).
 
@@ -68,7 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Near-duplicate hint restored.** `processThought()` returned `duplicateCandidate`
   instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
   `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.
-- README step 8 no longer links to the nonexistent `docs/slack-setup.md`.
+- The Slack setup step no longer links to the nonexistent `docs/slack-setup.md` (the steps are now in [`docs/edge-functions.md`](docs/edge-functions.md)).
 - **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#96).
   `brain --version` / `-V` print the version from `cli/package.json`; `brain help` (sole
   argument), `--help` and `-h` print usage on stdout and exit 0. If the first argument starts
@@ -317,7 +398,7 @@ superseding.` (WP4)
 ### Upgrading from v0.4.x
 
 1. Pull this branch; rebuild `mcp-server` and `cli` (`npm install && npm run build` in each).
-2. Apply migrations 008–011 against a **preview branch** first (see the smoke-test recipe in README.md).
+2. Apply migrations 008–011 against a **preview branch** first (see the smoke-test recipe in [`docs/upgrading.md`](docs/upgrading.md#smoke-test-recipe-recommended)).
    Migrations are strictly additive — no column drops or type changes.
 3. Verify `match_thoughts` was created by migration 008: run `SELECT * FROM information_schema.routines
 WHERE routine_name = 'match_thoughts'` in the SQL editor.
@@ -453,7 +534,7 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
 1. Pull this branch; rebuild `mcp-server` and `cli` (`npm install && npm run build` in each).
 2. Apply migration `005_wiki.sql` (and `006_contradictions_anon_update.sql`)
    against a Supabase **preview branch** first — see the
-   "Upgrading from v0.2.x" section of `README.md` for the 6-step smoke-test
+   "Upgrading from v0.2.x" section of [`docs/upgrading.md`](docs/upgrading.md) for the 6-step smoke-test
    recipe. Confirm `\d thoughts` is byte-identical before and after.
 3. Deploy the new edge functions:
    - `supabase functions deploy compile-wiki`

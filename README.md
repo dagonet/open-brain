@@ -49,6 +49,8 @@ The data lives in your Supabase project. The public key can read nothing, the da
 
 ## What it looks like
 
+The output below is illustrative; your notes and the model's answers will differ.
+
 From a shell:
 
 ```
@@ -72,12 +74,12 @@ On the dashboard, after you sign in:
 
 | Route | What it shows |
 | ----- | ------------- |
-| `/` | Your thoughts, filterable by topic, person and type, with full-text search |
+| `/` | Your thoughts, filterable by topic, person and type, with text search |
 | `/wiki` | Compiled topic pages, each with its sources and a staleness banner |
 | `/contradictions` | Pairs of notes that disagree, with a resolve form |
 | `/graph` | Contradictions and entities as force-directed graphs |
 
-Slack: invite the bot to a channel and every message there is captured, with a threaded reply that shows what was extracted.
+Slack: invite the bot to a channel and every message people post there is captured (bot posts and edits are ignored), with a threaded reply that shows what was extracted.
 
 ## Get started
 
@@ -85,7 +87,7 @@ You need Node.js, the [Supabase CLI](https://github.com/supabase/cli#install-the
 
 ```bash
 supabase link --project-ref <project-ref> && supabase db push     # 1. the database
-supabase functions deploy capture-thought                         # 2. the functions, one by name
+supabase functions deploy capture-thought                         # 2. the functions, each by name (six in all)
 npm ci --prefix cli && npm run build --prefix cli && npm install -g --install-links=false ./cli   # 3. the brain command
 ```
 
@@ -110,6 +112,7 @@ Coming from 0.8: [`docs/upgrading.md`](docs/upgrading.md). Keys first, then the 
 | [`docs/operations.md`](docs/operations.md) | Nightly jobs, routine upkeep, checks |
 | [`docs/architecture.md`](docs/architecture.md) | How it fits together and the data model |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Symptoms and fixes |
+| [`docs/background/`](docs/background/Open_Brain_Summary_EN.md) | A longer plain-language summary, in [English](docs/background/Open_Brain_Summary_EN.md) and [German](docs/background/Open_Brain_Zusammenfassung_DE.md) |
 
 Already using [claude-code-toolkit](https://github.com/dagonet/claude-code-toolkit)? Its templates ship with the Open Brain integration pre-wired, and `OPEN_BRAIN_TOOLS_DISABLED` in a repo's `.mcp.json` silences tool families you do not want there ([`docs/mcp.md`](docs/mcp.md#per-repo-opt-out)).
 

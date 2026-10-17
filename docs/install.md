@@ -26,6 +26,7 @@ Clone the repository first; every command below runs from its root:
 
 ```bash
 git clone https://github.com/dagonet/open-brain
+cd open-brain
 ```
 
 ## 1. Create the Supabase project
@@ -114,9 +115,8 @@ Every command needs the service-role key. Full reference, including URL rules: [
 ## 6. Set up the MCP server (Claude Code)
 
 ```bash
-cd mcp-server
-npm install
-npm run build
+npm ci --prefix mcp-server
+npm run build --prefix mcp-server
 ```
 
 Add the server to your Claude Code MCP configuration: a project's `.mcp.json` (repo root) or `~/.claude.json`:
@@ -235,7 +235,10 @@ Everything above except the hosted-only parts (Vercel, Slack, hosted Auth settin
 ```bash
 supabase start                      # API 54321, DB 54322, Studio 54323
 supabase status -o env              # API_URL, ANON_KEY, SERVICE_ROLE_KEY (the legacy JWT form), DB_URL
-supabase db reset                   # applies migrations 001-018 locally; stands in for `supabase db push`
+supabase db reset --yes             # applies migrations 001-018 locally; stands in for `supabase db push`
+
+# load the local keys into this shell (API_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL)
+set -a; eval "$(supabase status -o env)"; set +a
 ```
 
 `supabase/config.toml` has sign-ups disabled, as on a hosted project. To create your user locally either use Studio (<http://127.0.0.1:54323>, Authentication > Users > Add user) or the admin API:
@@ -250,17 +253,18 @@ curl -s -X POST http://127.0.0.1:54321/auth/v1/admin/users \
 Migration 017 seeded no owner (there was no user yet), so add one and run the checks. `psql` is not needed: run them inside the database container (`supabase_db_<project_id>`; the id is `project_id` in `supabase/config.toml`):
 
 ```bash
-docker exec -i supabase_db_open-brain psql -U postgres -v ON_ERROR_STOP=1 \
+DB=supabase_db_open-brain
+docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 \
   -c "insert into public.owners (user_id) select id from auth.users"
-docker exec -i supabase_db_open-brain psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql
-docker exec -i supabase_db_open-brain psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-owner-scope.sql
+docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-anon-lockdown.sql
+docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 < docs/sql/verify-owner-scope.sql
 ```
 
 Serve the functions and point the tools at the local API (`http://127.0.0.1:54321` is accepted by the CLI; plain `http` works only for loopback):
 
 ```bash
-printf 'OPENAI_API_KEY=%s\nTASKS_FEED_TOKEN=%s\n' "$OPENAI_API_KEY" "$(openssl rand -hex 32)" > fn.env
-supabase functions serve --env-file fn.env
+printf 'OPENAI_API_KEY=%s\nTASKS_FEED_TOKEN=%s\n' "$OPENAI_API_KEY" "$(openssl rand -hex 32)" > supabase/.env.local
+supabase functions serve --env-file supabase/.env.local
 BRAIN_API_URL=http://127.0.0.1:54321 BRAIN_SERVICE_KEY=$SERVICE_ROLE_KEY brain "local capture"
 ```
 

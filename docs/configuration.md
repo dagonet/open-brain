@@ -4,7 +4,7 @@
 
 Every environment variable Open Brain reads, by component. Each component reads only its own set, from its own place: function secrets live in Supabase, the CLI reads your shell or `~/.brain/config.json`, the MCP server reads the `env` block of `.mcp.json`, the dashboard reads `web/.env.local` or the Vercel project settings.
 
-`.env.example` at the repo root lists the same names as a starting point (copy it to `.env`). The source of truth is the code: `Deno.env.get` in `supabase/functions/`, `process.env` in `cli/`, `mcp-server/` and `web/`.
+`.env.example` at the repo root is a starting point (copy it to `.env`); it does not list every variable, so use the tables below. The source of truth is the code: `Deno.env.get` in `supabase/functions/`, `process.env` in `cli/`, `mcp-server/` and `web/`.
 
 "Service-role key" always means the **legacy `service_role` JWT** (`eyJ...`), never `sb_secret_...` ([`security.md`](security.md#keys)).
 

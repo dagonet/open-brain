@@ -46,7 +46,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 | `tasks-feed` | `false` | Its caller has no Supabase JWT; a bearer token is the access control. |
 | `slack-webhook` | `false` | Slack cannot send a Supabase JWT; the request signature is the access control. |
 
-**Do not pass `--no-verify-jwt`.** It is never needed because the config already sets the right value, and `supabase functions deploy --no-verify-jwt` without a function name redeploys **every** function with JWT verification off, including the four above, where a forged token would then be accepted. If you must use the flag, always name the function. The CLI uses the config value unless the flag is given on the command line (flag over config; checked against v2.90.0). More: [`security.md`](security.md#the-no-verify-jwt-footgun).
+**Do not pass `--no-verify-jwt`.** It is never needed because the config already sets the right value, and `supabase functions deploy --no-verify-jwt` without a function name redeploys **every** function with JWT verification off, including the four above, where a forged token would then be accepted. If you must use the flag, always name the function. The CLI uses the config value unless the flag is given on the command line (flag over config; checked against v2.90.0). More: [`security.md`](security.md#the---no-verify-jwt-footgun).
 
 ## capture-thought
 
