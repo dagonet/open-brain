@@ -47,6 +47,8 @@ and 018.
   lives in `supabase/functions/_shared/auth.ts` and `run-nightly-jobs` uses it too (#90).
 - The dashboard actions that use the service-role key are limited to the owner account
   through `OWNER_USER_IDS`, and fail closed when it is unset (#85).
+- `supabase/config.toml` keeps public sign-up off (`[auth] enable_signup = false`) but leaves the email
+  provider on (`[auth.email] enable_signup = true`), so password login works on the local stack.
 - Owner scoping (migration 017, #91) and narrower grants (migration 018, #97): see
   Migrations.
 
@@ -155,6 +157,8 @@ All three are re-runnable.
 - **Near-duplicate hint restored.** `processThought()` returned `duplicateCandidate`
   instead of the declared `duplicate_candidate`, so `capture-thought`, the CLI and the MCP
   `thoughts_capture` tool never received it. Redeploy `capture-thought` to pick it up.
+- The MCP server instructions text for the wiki and contradiction tools is corrected (it now says a
+  contradiction that is open keeps both thoughts out of the wiki, and closing it brings them back).
 - The Slack setup step no longer links to the nonexistent `docs/slack-setup.md` (the steps are now in [`docs/edge-functions.md`](docs/edge-functions.md), #95).
 - **CLI: `brain --version` and `brain help` no longer get captured as thoughts** (#98).
   `brain --version` / `-V` print the version from `cli/package.json`; `brain help` (sole

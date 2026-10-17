@@ -72,7 +72,7 @@ const WIKI_INSTRUCTIONS = [
   '',
   "CONTRADICTIONS — surface conflicts in the user's own notes:",
   "- contradictions_list({status:'open'}): see what disagreements the audit pass has found.",
-  '- contradictions_resolve({id, decision}): mark a contradiction as resolved/ignored/false_positive',
+  '- contradictions_resolve({id, decision}): mark a contradiction as resolved/ignored/false_positive.',
   '  While a contradiction is open the wiki leaves out both thoughts; once it is closed both are used again.',
   '- contradictions_audit({since}): trigger an on-demand audit pass (also `brain audit` from the CLI).',
 ];

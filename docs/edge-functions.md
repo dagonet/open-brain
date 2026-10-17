@@ -74,7 +74,7 @@ Request body: `slug` (a topic slug), optional `dry_run`. Service-role key requir
 
 ## detect-contradictions
 
-Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON. Topics in `WIKI_TOPIC_DENYLIST` are skipped.
+Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET. An invalid JSON body is not rejected: the parse error is ignored and a default audit runs. Topics in `WIKI_TOPIC_DENYLIST` are skipped.
 
 ## run-nightly-jobs
 
@@ -95,7 +95,7 @@ A read-only JSON task list for a local consumer (for example an agent dashboard 
 
 - **Request:** `GET /functions/v1/tasks-feed` with `Authorization: Bearer <token>`. No query parameters.
 - **Response:** `200` with a JSON array of `{id, project, title, status, priority, metadata, updated_at}`, newest first (`updated_at` descending, then `id`), limited to 2000 rows. Two headers say whether the list is complete: `X-Total-Count` is the exact number of matching tasks and `X-Truncated` is `true` when more tasks match than the body holds (the cut keeps the most recently updated tasks). Soft-deleted tasks and tasks with status `cancelled` are left out. Standard JSON values pass through as PostgREST returns them (very large numbers in `metadata` can lose precision on re-serialisation, as with any JavaScript client). Your project's PostgREST "max rows" setting (default 1000) can cap the result below 2000.
-- **Errors:** `401` for a missing, malformed or wrong token; `405` for anything but `GET` (checked after the token, so an unauthenticated caller always sees `401`); `500` if the secret is not set or is shorter than 32 characters (the function fails closed and compares nothing), or if the database call fails.
+- **Errors:** `500` if the secret is not set or is shorter than 32 characters (checked first: the function fails closed and compares nothing, so an unauthenticated caller gets `500` rather than `401` until the secret is fixed), or if the database call fails; otherwise `401` for a missing, malformed or wrong token; `405` for anything but `GET` (checked after the token, so an unauthenticated caller sees `401`, not `405`).
 
 The token is the only access control: it is compared in constant time against the `TASKS_FEED_TOKEN` function secret. Use at least 32 characters (`openssl rand -hex 32` gives 64), keep it out of git, and rotate it by setting a new secret and updating the consumer.
 

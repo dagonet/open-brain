@@ -29,8 +29,8 @@ Applies to `capture-thought`, `compile-wiki`, `detect-contradictions` and `run-n
 
 | Status | Meaning |
 | ------ | ------- |
-| `401` | The bearer token is missing, malformed or wrong. It is compared in constant time against the `TASKS_FEED_TOKEN` function secret. If a correct token still gets `401`, see the second bullet above. |
-| `405` | The method is not `GET`. The method is checked after the token, so an unauthenticated caller always sees `401`. |
+| `401` | The bearer token is missing, malformed or wrong. It is compared in constant time against the `TASKS_FEED_TOKEN` function secret. If a correct token still gets `401`, see the second bullet above. An unauthenticated caller gets `401` only when the secret is set and at least 32 characters long; otherwise it gets `500` first. |
+| `405` | The method is not `GET`. The method is checked after the token, so an unauthenticated caller sees `401` (or `500`, see below), not `405`. |
 | `500` | `TASKS_FEED_TOKEN` is not set or is shorter than 32 characters (the function fails closed and compares nothing), or the database call failed. Generate a longer token with `openssl rand -hex 32` and set it with `supabase secrets set TASKS_FEED_TOKEN=<token>`. |
 
 Contract and checks: [`edge-functions.md`](edge-functions.md#tasks-feed).
@@ -46,7 +46,7 @@ Contract and checks: [`edge-functions.md`](edge-functions.md#tasks-feed).
 - **Refresh, reject or resolve buttons are refused.** `OWNER_USER_IDS` (the dashboard's server-only variable) is unset, empty, or does not include your id. It fails closed. Set it in `web/.env.local` and in Vercel for Production and Preview, then redeploy.
 - **"no row was updated" when resolving a contradiction.** Your id is in `OWNER_USER_IDS` but not in `public.owners`: the web check passes, the database refuses the write. Add the id to `public.owners`.
 - **Refresh or note saving fails with 401.** The dashboard's `SUPABASE_SERVICE_ROLE_KEY` is missing or is an `sb_secret_...` key. See the first entry above.
-- **Login fails with "Email logins are disabled" (`422 email_provider_disabled`).** The email provider is off. On a local stack the shipped `supabase/config.toml` sets `[auth.email] enable_signup = false`: set it to `true` in your local copy (leave `[auth] enable_signup = false`), then `supabase stop` and `supabase start`. On a hosted project, switch **Email** back on under Authentication > Providers; this happens if `supabase config push` was run with the shipped config, so do not run it.
+- **Login fails with "Email logins are disabled" (`422 email_provider_disabled`).** The email provider is off. The shipped `supabase/config.toml` keeps it on (`[auth.email] enable_signup = true`), so someone set `[auth.email] enable_signup = false`, in a local copy or in a config that was pushed to the hosted project with `supabase config push`. Set it back to `true` and, on a local stack, run `supabase stop`, then `supabase start`. On a hosted project, switch **Email** back on under Authentication > Providers. Review `config.toml` before any `supabase config push`: it pushes the whole local auth config.
 
 Keep the two owner lists equal: [`security.md`](security.md#the-owner-list). Setup: [`dashboard.md`](dashboard.md).
 
@@ -98,7 +98,7 @@ Since migration 018 the owner check lives in `private.is_owner()`, in a schema t
 
 If `capture-thought` has no `OPENAI_API_KEY` (or OpenAI is unreachable), the call still returns `200` and the text is stored. But the thought has no embedding, type `note` and `processing_status = failed`, so semantic search never finds it. `brain` and Claude show a normal confirmation, so the failure is easy to miss.
 
-Fix: `supabase secrets set OPENAI_API_KEY=sk-...` for new captures. **Setting the key does not repair a thought that is already stored without an embedding.** There is no reprocess command (CLI or MCP). The MCP tool `thoughts_capture` and `brain import` use a key derived from the text, so capturing the same text again that way returns the broken row (`capture-thought` looks the key up first, and the lookup ignores soft-deleted rows, so deleting it does not help either). To repair one: re-capture the text with `brain "<text>"` (it sends a fresh random key, so a new row is created), then delete the broken row with `thoughts_delete` in Claude. A reprocess command would be a new feature. Failed rows can be found with `select id, raw_text from thoughts where processing_status = 'failed'`, and `system_status` (in Claude) lists recent failures. A thought stored as `partial` had its metadata extraction fail while the embedding worked. Details: [`edge-functions.md`](edge-functions.md#capture-thought).
+Fix: `supabase secrets set OPENAI_API_KEY=sk-...` for new captures. **Setting the key does not repair a thought that is already stored without an embedding.** There is no reprocess command (CLI or MCP). The MCP tool `thoughts_capture` and `brain import` use a key derived from the text, so capturing the same text again that way returns the broken row (`capture-thought` looks the key up first, and the lookup also finds soft-deleted rows, so deleting it does not help either). To repair one: re-capture the text with `brain "<text>"` (it sends a fresh random key, so a new row is created), then delete the broken row with `thoughts_delete` in Claude. A reprocess command would be a new feature. Failed rows can be found with `select id, raw_text from thoughts where processing_status = 'failed'`, and `system_status` (in Claude) lists recent failures. A thought stored as `partial` had its metadata extraction fail while the embedding worked. Details: [`edge-functions.md`](edge-functions.md#capture-thought).
 
 ## The SQL editor warns about a temporary table
 

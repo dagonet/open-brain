@@ -144,7 +144,7 @@ Restart Claude Code. It then lists 22 tools. Details and per-repo options: [`mcp
 
 The dashboard is a Next.js app in `web/`. Reference: [`dashboard.md`](dashboard.md).
 
-**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/providers` and toggle **Email** on. For local development, also toggle **Confirm email** off (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings, once you have created your user in step 2: `supabase/config.toml` only covers the local stack, so this dashboard setting is required. Otherwise anyone could register and log in. **Do not run `supabase config push`**: the shipped config switches the email provider off (`[auth.email] enable_signup = false`), and pushing it to a hosted project would lock you out of the dashboard login.
+**1. Enable email auth in Supabase.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/providers` and toggle **Email** on. For local development, also toggle **Confirm email** off (skips the verification email). For a **hosted** project, also turn **off** "Allow new users to sign up" and anonymous sign-ins in the same Auth settings, once you have created your user in step 2: `supabase/config.toml` only covers the local stack, so this dashboard setting is required. Otherwise anyone could register and log in. Review `supabase/config.toml` before any `supabase config push`: it pushes the whole local auth config to the hosted project.
 
 **2. Create at least one user.** Open `https://supabase.com/dashboard/project/<project-ref>/auth/users`, choose **Add user > Create new user**, enter email and password, toggle **Auto Confirm User** on, and create it. On a new install the migrations (step 3) ran before this user existed, so `public.owners` is still empty and the dashboard shows no data. Right after creating the user, add it as the owner in the SQL editor (the user id is shown in the Users list):
 
@@ -241,7 +241,7 @@ supabase db reset --yes             # applies migrations 001-018 locally; stands
 set -a; eval "$(supabase status -o env)"; set +a
 ```
 
-`supabase/config.toml` has public sign-ups off (`[auth] enable_signup = false`), as on a hosted project. It also switches the email provider off (`[auth.email] enable_signup = false`), and then nobody can sign in with a password, the dashboard login included. To use the dashboard locally, set `[auth.email] enable_signup = true` in your local copy of the file (leave `[auth] enable_signup = false`: sign-up stays closed) and run `supabase stop`, then `supabase start`. Create your user with Studio (http://127.0.0.1:54323, Authentication > Users > Add user) or the admin API:
+`supabase/config.toml` has public sign-ups off (`[auth] enable_signup = false`), as on a hosted project. It keeps the email provider on (`[auth.email] enable_signup = true`), so password login, the dashboard included, works. Create your user with Studio (http://127.0.0.1:54323, Authentication > Users > Add user) or the admin API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:54321/auth/v1/admin/users \

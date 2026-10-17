@@ -73,7 +73,7 @@ Pinned in `supabase/config.toml`; the CLI uses the config value unless a flag ov
 
 - The dashboard reads with the signed-in session; the anon key only serves the login page.
 - Actions that spend tokens or write through the service-role key (wiki refresh, reject, contradiction note) check `OWNER_USER_IDS` first and fail closed: unset or empty means refused.
-- Turn off sign-ups and anonymous sign-ins on the hosted project once your user exists ([`install.md`](install.md#7-set-up-the-dashboard), step 1). `supabase/config.toml` has public sign-ups off for the local stack only, and it also switches the email provider off (`[auth.email] enable_signup = false`), which blocks password login. Do not run `supabase config push` with it: that would lock you out of the dashboard on a hosted project. Local steps: [`install.md`](install.md#try-it-on-a-local-stack).
+- Turn off sign-ups and anonymous sign-ins on the hosted project once your user exists ([`install.md`](install.md#7-set-up-the-dashboard), step 1). `supabase/config.toml` has public sign-ups off for the local stack only (`[auth] enable_signup = false`) and keeps the email provider on, so password login works. Review it before any `supabase config push`: that command pushes the whole local auth config to the hosted project. Local steps: [`install.md`](install.md#try-it-on-a-local-stack).
 
 ## The verify scripts
 

@@ -30,7 +30,9 @@ describe('entry point via a bin symlink', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('runs main() when started through a symlink without a .js suffix', () => {
+  // File symlinks need Developer Mode on Windows (EPERM otherwise). Windows starts the CLI through
+  // npm's .cmd shim, and the realpath logic under test is unaffected there.
+  it.skipIf(process.platform === 'win32')('runs main() when started through a symlink without a .js suffix', () => {
     mkdirSync(join(tmp, 'bin'));
     const link = join(tmp, 'bin', 'brain');
     symlinkSync(join(buildDir, 'brain.js'), link);
