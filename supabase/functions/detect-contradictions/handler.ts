@@ -112,11 +112,16 @@ export async function handler(req: Request): Promise<Response> {
   // not valid JSON is a client error (same answer as compile-wiki).
   const rawBody = await req.text();
   if (rawBody.trim() !== '') {
+    let parsed: unknown;
     try {
-      body = JSON.parse(rawBody) as AuditRequest;
+      parsed = JSON.parse(rawBody);
     } catch {
       return jsonResponse(400, { success: false, error: 'Invalid JSON body' });
     }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return jsonResponse(400, { success: false, error: 'Request body must be a JSON object' });
+    }
+    body = parsed as AuditRequest;
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');

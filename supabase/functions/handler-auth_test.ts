@@ -148,6 +148,25 @@ Deno.test('detect-contradictions: 400 and no work for an invalid JSON body', asy
   assertEquals(calls, 0, 'fetch calls');
 });
 
+Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', async () => {
+  for (const raw of ['null', '42', '[]']) {
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, `status for ${raw}`);
+      const body = await res.json();
+      assertEquals(body.success, false, `success for ${raw}`);
+      assertEquals(body.error, 'Request body must be a JSON object', `error for ${raw}`);
+    });
+    assertEquals(calls, 0, `fetch calls for ${raw}`);
+  }
+});
+
 for (const [label, init] of [
   ['no body', {}],
   ['empty string body', { body: '' }],
