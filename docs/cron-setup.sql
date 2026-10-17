@@ -1,6 +1,8 @@
 -- docs/cron-setup.sql
 --
 -- NOT a Supabase migration (stays in docs/ for manual reference).
+-- See also: docs/operations.md (walk-through, manual triggers, checks) and
+-- docs/edge-functions.md (the run-nightly-jobs function).
 -- Sets up pg_cron to invoke run-nightly-jobs for contradictions and stale-wiki.
 --
 -- Prerequisites:

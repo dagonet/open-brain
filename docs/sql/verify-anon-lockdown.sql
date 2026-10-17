@@ -1,5 +1,8 @@
 -- docs/sql/verify-anon-lockdown.sql
 --
+-- See also: docs/security.md (the security model and how to read this script) and
+-- docs/troubleshooting.md.
+--
 -- Read-only check, run in the Supabase SQL editor after applying migrations 016
 -- and 018 (check 8 needs the schema private from 018). Sibling of
 -- verify-owner-scope.sql, which checks the authenticated side (only the owner may

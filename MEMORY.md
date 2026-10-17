@@ -2,13 +2,14 @@
 
 ## Current State
 
+- **v0.9.0**: Release in progress (locked-down database, owner scope, `tasks-feed`, CLI fixes, docs restructure). MCP server 0.9.0, CLI 1.3.0, web 1.0.0; migrations up to 018. The README is the front page; setup, upgrade, security, CLI, MCP, dashboard, functions, configuration, operations and troubleshooting live in `docs/` (start at `docs/install.md`). Release notes: `CHANGELOG.md`.
 - **Sprint 7**: Complete — Wiki layer + contradiction surfacing (T3 Standard, single PR)
 - **Sprint 5/6**: Complete — Obsidian export (`brain sync-vault`) + Vercel-deployed read-only Next.js dashboard
 - **Sprint 4**: Complete — MCP Capture Tool (T2 Simple)
 - **Sprint 3**: Complete — Memory Import Tool (T2 Simple)
 - **Sprint 2**: Complete — Exploration & Review Tools (T2 Simple)
 - **Sprint 1**: Complete — AI Memory System (T4 Complex)
-- **Plan file**: `docs/plans/2026-03-04-open-brain-sprint1.md`
+- **Plans**: `docs/plans/` (the Sprint 1 plan file is no longer in the repository); install guide: `docs/install.md`
 - **Repository**: https://github.com/dagonet/open-brain
 
 ## Sprint 1 Summary
@@ -20,7 +21,7 @@
 - CLI tool (`brain` command, zero runtime deps)
 - MCP server (4 tools: thoughts_search, thoughts_recent, thoughts_delete, system_status)
 - Slack webhook edge function (signature verification, async processing)
-- Slack app setup guide
+- Slack app setup guide (now in `docs/install.md`; the old `docs/slack-setup.md` is gone)
 
 ### PRs Merged
 - #1: DB schema + project setup
@@ -41,14 +42,14 @@
 
 ### Pending Setup (user action required)
 - Create Supabase account + project
-- Install Supabase CLI (`npm install -g supabase`)
+- Install the Supabase CLI (`npm install -g supabase` is deprecated upstream; use scoop, brew or a release binary, see `docs/install.md`)
 - Get OpenAI API key
 - Run migration: `supabase db push`
 - Run `match_thoughts.sql` in Supabase SQL editor
 - Deploy edge functions: `supabase functions deploy`
 - Configure CLI: set env vars or create `~/.brain/config.json`
 - Configure MCP server in Claude Code settings
-- Set up Slack app (see README step 8, "Set Up Slack")
+- Set up Slack app (see `docs/install.md` step 8 and `docs/edge-functions.md#slack-webhook`)
 
 ## Sprint 2 Summary
 
@@ -119,9 +120,9 @@ via Nate B Jones' [Karpathy's Wiki vs Open Brain](https://www.youtube.com/watch?
 ### Smoke-test recipe (run before merge to main)
 1. Create a Supabase preview branch from production
 2. Apply `005_wiki.sql` against the preview only; confirm `\d thoughts` is byte-identical
-3. `brain wiki refresh --dry-run --all --supabase-url=<preview>` — eyeball the compile/refuse split
+3. `brain wiki refresh --dry-run --all` with `BRAIN_API_URL` pointed at the preview (the CLI never had a `--supabase-url` flag) — eyeball the compile/refuse split
 4. Real refresh on one slug with ≥5 thoughts; verify citations resolve
-5. Capture two contradictory thoughts; `brain audit --since=now-1h`; verify exactly one row in `contradictions`
+5. Capture two contradictory thoughts; `brain audit --since <recent date>`; verify exactly one row in `contradictions`
 6. Drop the preview; merge to main
 
 ## Future TODOs
