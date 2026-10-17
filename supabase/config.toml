@@ -83,3 +83,10 @@ verify_jwt = true
 # picks this setting up from here; --no-verify-jwt is not needed.
 [functions.tasks-feed]
 verify_jwt = false
+
+# slack-webhook is the other exception: Slack cannot send a Supabase JWT. The function
+# authenticates every event request itself by checking Slack's request signature
+# (X-Slack-Signature / X-Slack-Request-Timestamp, HMAC-SHA256 with SLACK_SIGNING_SECRET,
+# constant-time compare, 5-minute window) and answers 401 when it does not match.
+[functions.slack-webhook]
+verify_jwt = false

@@ -24,7 +24,9 @@
 //      detect-contradictions: unauthenticated callers get 401 whatever the method,
 //      only authenticated callers learn about the method rule.
 //   4. SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing -> 500.
-//   5. Query. A database error answers a generic 500, never the database message.
+//   5. Query, newest first (updated_at desc, id asc). The 200 body is a plain JSON array;
+//      X-Total-Count (exact number of matching rows) and X-Truncated (true when more
+//      rows match than were returned) are response headers. A database error answers a generic 500, never the database message.
 //
 // Never log or echo the bearer value or the secret. No CORS headers: the consumer
 // is not a browser.
@@ -101,17 +103,29 @@ export async function handler(req: Request): Promise<Response> {
     const supabase = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('tasks')
-      .select(TASK_COLUMNS)
+      .select(TASK_COLUMNS, { count: 'exact' })
       .is('deleted_at', null)
       .neq('status', 'cancelled')
+      // Newest first, id as tiebreaker: the cut at the row cap keeps the most recently
+      // updated tasks, and the order is the same on every call.
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: true })
       .limit(MAX_ROWS);
     if (error) {
       console.error('tasks-feed: query failed', error.code, error.message);
       return jsonResponse(500, { error: 'Internal error' });
     }
-    return jsonResponse(200, data ?? []);
+    const rows = data ?? [];
+    // The body stays a plain array. The total goes into headers so a consumer can tell
+    // a cut list (PostgREST max_rows is below MAX_ROWS) from a complete one.
+    const headers: Record<string, string> = {};
+    if (count !== null && count !== undefined) {
+      headers['X-Total-Count'] = String(count);
+      headers['X-Truncated'] = String(count > rows.length);
+    }
+    return jsonResponse(200, rows, headers);
   } catch (err) {
     console.error('tasks-feed: unexpected error', err instanceof Error ? err.message : 'unknown');
     return jsonResponse(500, { error: 'Internal error' });

@@ -193,7 +193,7 @@ supabase functions deploy slack-webhook             # optional, only if using Sl
 
 > **Service-role only:** `capture-thought` writes to the database and `compile-wiki` / `detect-contradictions` spend LLM tokens, so they reject every caller except one presenting the **service-role key** (the **legacy `service_role` JWT**, `eyJ...`; the gateway checks its signature and the function checks the `role` claim); the anon key, user JWTs and missing credentials get `401`. The web dashboard (`SUPABASE_SERVICE_ROLE_KEY`, see below) and the CLI (`BRAIN_SERVICE_KEY`) must be given the legacy `service_role` JWT, **not** the new `sb_secret_...` key: a non-JWT bearer is rejected with 401 by the gateway's `verify_jwt` check. The MCP server sends its `SUPABASE_SERVICE_ROLE_KEY` as-is, so use the legacy JWT there too.
 >
-> **Never deploy these functions with `--no-verify-jwt`.** The guard trusts the gateway's signature check; `supabase/config.toml` pins `verify_jwt = true` for them. (`tasks-feed`, [step 10](#10-expose-the-task-list-to-local-tools-optional), is the one function that runs without it, and it does not use this guard.)
+> **Never deploy these functions with `--no-verify-jwt`.** The guard trusts the gateway's signature check; `supabase/config.toml` pins `verify_jwt = true` for them. (`tasks-feed`, [step 10](#10-expose-the-task-list-to-local-tools-optional), and `slack-webhook`, [step 8](#8-set-up-slack-optional), are the two functions that run without it; they authenticate themselves and do not use this guard.)
 
 > **Windows note:** `supabase functions deploy` uses Docker by default to bundle TypeScript. If Docker volume mounts can't read your project drive (common when the repo lives on a non-`C:` drive like `G:\`), the bundler fails with `entrypoint path does not exist`. Pass `--use-api` to bundle server-side instead:
 >
@@ -344,7 +344,14 @@ Open <http://localhost:3000>, sign in with the user you created, and browse `/`,
 
 ### 8. Set Up Slack (Optional)
 
-See [docs/slack-setup.md](docs/slack-setup.md) for the full Slack app setup guide.
+The `slack-webhook` edge function receives Slack Events API requests and captures channel messages as thoughts.
+
+1. Create a Slack app with a bot user and the scopes to read messages in the channels you use and to post replies (`chat:write`). Install it to your workspace and invite the bot to those channels.
+2. Store the app's signing secret and bot token as function secrets (names as in `.env.example`): `supabase secrets set SLACK_SIGNING_SECRET=<secret> SLACK_BOT_TOKEN=<xoxb-token>`.
+3. Deploy, naming the function: `supabase functions deploy slack-webhook`.
+4. In the Slack app, enable Event Subscriptions, set the request URL to `https://<project-ref>.supabase.co/functions/v1/slack-webhook` (Slack's URL challenge is answered by the function) and subscribe to the `message.channels` bot event (add the matching `message.*` events for private channels or DMs).
+
+Slack cannot send a Supabase JWT, so `supabase/config.toml` pins `verify_jwt = false` for this function. It is protected by Slack's request signature instead: every event request must carry a valid `X-Slack-Signature` for `X-Slack-Request-Timestamp` (HMAC-SHA256 with `SLACK_SIGNING_SECRET`, compared in constant time, rejected after 5 minutes) or the function answers `401`. If `SLACK_SIGNING_SECRET` is not set, all events are rejected.
 
 ### 9. Set Up Nightly Automation (v0.5.0)
 
@@ -417,7 +424,7 @@ See [Configure Environment](#2-configure-environment) above for the full environ
 The `tasks-feed` edge function gives a local, read-only consumer (for example an agent dashboard running on your machine) the task list. Migration 016 revoked anon access to the `tasks` table, so such a tool can no longer read it with the anon key. The function reads the table with the service-role key on the server and returns the rows; the consumer only needs a token you generate, never a Supabase key.
 
 - **Request:** `GET /functions/v1/tasks-feed` with `Authorization: Bearer <token>`. No query parameters.
-- **Response:** `200` with a JSON array of `{id, project, title, status, priority, metadata, updated_at}`, limited to 2000 rows. Soft-deleted tasks and tasks with status `cancelled` are left out. Standard JSON values pass through as PostgREST returns them (very large numbers in `metadata` can lose precision on re-serialisation, as with any JavaScript client). Your project's PostgREST "max rows" setting (default 1000) can cap the result below that.
+- **Response:** `200` with a JSON array of `{id, project, title, status, priority, metadata, updated_at}`, newest first (`updated_at` descending, then `id`), limited to 2000 rows. Two headers say whether the list is complete: `X-Total-Count` is the exact number of matching tasks and `X-Truncated` is `true` when more tasks match than the body holds (the cut keeps the most recently updated tasks). Soft-deleted tasks and tasks with status `cancelled` are left out. Standard JSON values pass through as PostgREST returns them (very large numbers in `metadata` can lose precision on re-serialisation, as with any JavaScript client). Your project's PostgREST "max rows" setting (default 1000) can cap the result below that.
 - **Errors:** `401` for a missing, malformed or wrong token; `405` for anything but `GET` (checked after the token, so an unauthenticated caller always sees `401`); `500` if the secret is not set or is shorter than 32 characters (the function fails closed and compares nothing), or if the database call fails.
 
 The function runs with `verify_jwt = false`, because the caller has no Supabase JWT. The token is the only access control: it is compared in constant time against the `TASKS_FEED_TOKEN` function secret. Use at least 32 characters (`openssl rand -hex 32` gives 64; a shorter secret makes the function answer `500` instead of serving tasks), keep it out of git, and rotate it by setting a new secret and updating the consumer.
@@ -433,7 +440,7 @@ supabase secrets set TASKS_FEED_TOKEN=<token>
 supabase functions deploy tasks-feed
 ```
 
-`--no-verify-jwt` is **not** needed: `supabase/config.toml` pins `verify_jwt = false` for `tasks-feed`, and the CLI (checked against v2.90.0) uses the config value unless the flag is given on the command line (flag > config). Always name the function when you use that flag: `supabase functions deploy --no-verify-jwt` without a name redeploys every function with JWT verification off, including `capture-thought`, `compile-wiki`, `detect-contradictions` and `run-nightly-jobs` (step 9), and their service-role guard would then accept a forged token.
+`--no-verify-jwt` is **not** needed: `supabase/config.toml` pins `verify_jwt = false` for `tasks-feed` (and for `slack-webhook`, step 8), and the CLI (checked against v2.90.0) uses the config value unless the flag is given on the command line (flag > config). Always name the function when you use that flag: `supabase functions deploy --no-verify-jwt` without a name redeploys every function with JWT verification off, including `capture-thought`, `compile-wiki`, `detect-contradictions` and `run-nightly-jobs` (step 9), and their service-role guard would then accept a forged token.
 
 Check it (replace the placeholders):
 
@@ -441,8 +448,8 @@ Check it (replace the placeholders):
 # 401 without the token
 curl -i https://<project-ref>.supabase.co/functions/v1/tasks-feed
 
-# 200 and a JSON array with it
-curl -s https://<project-ref>.supabase.co/functions/v1/tasks-feed \
+# 200, a JSON array and the X-Total-Count / X-Truncated headers with it
+curl -i https://<project-ref>.supabase.co/functions/v1/tasks-feed \
   -H "Authorization: Bearer <token>"
 ```
 
