@@ -332,7 +332,7 @@ Deno.test(
     assertEquals(call.url.searchParams.get('limit'), '2000', 'limit');
     assertEquals(
       [...call.url.searchParams.keys()].sort().join(','),
-      'deleted_at,limit,select,status',
+      'deleted_at,limit,order,select,status',
       'query parameters',
     );
     // The database is queried as the service role; the feed token never leaves the function.
@@ -342,6 +342,90 @@ Deno.test(
     for (const [, value] of call.headers) assertNoLeak(value, FEED_TOKEN, 'outbound header');
   },
 );
+
+function postgrestWithRange(rows: unknown[], contentRange: string): Response {
+  return new Response(JSON.stringify(rows), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Content-Range': contentRange },
+  });
+}
+
+Deno.test(
+  'tasks-feed: query is ordered newest first with an id tiebreaker and asks for a count',
+  async () => {
+    const calls = await withStubs(
+      { token: FEED_TOKEN, respond: () => postgrestOk([]) },
+      async () => {
+        await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+      },
+    );
+    assertEquals(calls.length, 1, 'fetch calls');
+    assertEquals(calls[0].url.searchParams.get('order'), 'updated_at.desc,id.asc', 'order');
+    const prefer = calls[0].headers.get('Prefer') ?? '';
+    assertEquals(prefer.includes('count=exact'), true, `Prefer header (${prefer})`);
+  },
+);
+
+Deno.test('tasks-feed: X-Truncated is true when more rows match than were returned', async () => {
+  const rows = [{ id: 'a' }, { id: 'b' }];
+  await withStubs(
+    { token: FEED_TOKEN, respond: () => postgrestWithRange(rows, '0-1/5') },
+    async () => {
+      const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+      assertEquals(res.status, 200, 'status');
+      assertEquals(res.headers.get('X-Total-Count'), '5', 'X-Total-Count');
+      assertEquals(res.headers.get('X-Truncated'), 'true', 'X-Truncated');
+      assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+    },
+  );
+});
+
+Deno.test('tasks-feed: a Content-Range with an unknown total leaves both headers out', async () => {
+  const rows = [{ id: 'a' }];
+  await withStubs(
+    { token: FEED_TOKEN, respond: () => postgrestWithRange(rows, '0-0/*') },
+    async () => {
+      const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+      assertEquals(res.status, 200, 'status');
+      assertEquals(res.headers.get('X-Total-Count'), null, 'X-Total-Count');
+      assertEquals(res.headers.get('X-Truncated'), null, 'X-Truncated');
+      assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+    },
+  );
+});
+
+Deno.test('tasks-feed: no Content-Range at all leaves both headers out', async () => {
+  const rows = [{ id: 'a' }];
+  await withStubs({ token: FEED_TOKEN, respond: () => postgrestOk(rows) }, async () => {
+    const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+    assertEquals(res.status, 200, 'status');
+    assertEquals(res.headers.get('X-Total-Count'), null, 'X-Total-Count');
+    assertEquals(res.headers.get('X-Truncated'), null, 'X-Truncated');
+    assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+  });
+});
+
+Deno.test('tasks-feed: X-Truncated is false when every matching row was returned', async () => {
+  const rows = [{ id: 'a' }, { id: 'b' }];
+  await withStubs(
+    { token: FEED_TOKEN, respond: () => postgrestWithRange(rows, '0-1/2') },
+    async () => {
+      const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+      assertEquals(res.headers.get('X-Total-Count'), '2', 'X-Total-Count');
+      assertEquals(res.headers.get('X-Truncated'), 'false', 'X-Truncated');
+      assertEquals(await res.text(), JSON.stringify(rows), 'body unchanged');
+    },
+  );
+});
+
+Deno.test('tasks-feed: an empty result reports a total of 0, not truncated', async () => {
+  await withStubs({ token: FEED_TOKEN, respond: () => postgrestWithRange([], '*/0') }, async () => {
+    const res = await handler(request('GET', `Bearer ${FEED_TOKEN}`));
+    assertEquals(res.headers.get('X-Total-Count'), '0', 'X-Total-Count');
+    assertEquals(res.headers.get('X-Truncated'), 'false', 'X-Truncated');
+    assertEquals(await res.text(), '[]', 'body');
+  });
+});
 
 Deno.test('tasks-feed: 200 with an empty array when there are no tasks', async () => {
   await withStubs({ token: FEED_TOKEN, respond: () => postgrestOk([]) }, async () => {
