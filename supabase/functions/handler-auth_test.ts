@@ -176,19 +176,22 @@ Deno.test('detect-contradictions: 400 and no work for a non-object JSON body', a
 });
 
 // The authorized PUT is rejected by the method check before the body is read.
-Deno.test('detect-contradictions: 405 and no work for a PUT with an invalid JSON body', async () => {
-  const calls = await withStubs(async () => {
-    const res = await detectContradictions(
-      new Request('http://localhost/fn', {
-        method: 'PUT',
-        headers: serviceAuth,
-        body: '{not valid json',
-      }),
-    );
-    assertEquals(res.status, 405, 'status');
-  });
-  assertEquals(calls, 0, 'fetch calls');
-});
+Deno.test(
+  'detect-contradictions: 405 and no work for a PUT with an invalid JSON body',
+  async () => {
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', {
+          method: 'PUT',
+          headers: serviceAuth,
+          body: '{not valid json',
+        }),
+      );
+      assertEquals(res.status, 405, 'status');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  },
+);
 
 // [label, request init, whether the candidate query carries the `since` filter]
 for (const [label, init, hasSince] of [
