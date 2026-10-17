@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`slack-webhook` is pinned to `verify_jwt = false`** in `supabase/config.toml` (Slack
   cannot send a Supabase JWT). The request signature is now checked first, before the
   body is parsed and before the `url_verification` echo; unsigned callers get 405 or 401.
-  Input validation for the request timestamp: only plain digits are accepted (a
-  non-numeric value used to bypass the 5-minute window). Event processing is handed to
+  Stricter validation of the request timestamp (digits only) before the replay-window
+  check; requests always required a valid signature. Event processing is handed to
   `EdgeRuntime.waitUntil` when available, and the 500 response no longer echoes the error.
 - **MCP server reports its real version.** `serverInfo.version` was hardcoded to `0.7.0`
   while `mcp-server/package.json` said `0.8.0`; it is now read from `package.json`.
