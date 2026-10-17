@@ -417,10 +417,10 @@ See [Configure Environment](#2-configure-environment) above for the full environ
 The `tasks-feed` edge function gives a local, read-only consumer (for example an agent dashboard running on your machine) the task list. Migration 016 revoked anon access to the `tasks` table, so such a tool can no longer read it with the anon key. The function reads the table with the service-role key on the server and returns the rows; the consumer only needs a token you generate, never a Supabase key.
 
 - **Request:** `GET /functions/v1/tasks-feed` with `Authorization: Bearer <token>`. No query parameters.
-- **Response:** `200` with a JSON array of `{id, project, title, status, priority, metadata, updated_at}`, limited to 2000 rows. Soft-deleted tasks and tasks with status `cancelled` are left out. Your project's PostgREST "max rows" setting (default 1000) can cap the result below that.
-- **Errors:** `401` for a missing, malformed or wrong token; `405` for anything but `GET` (checked after the token, so an unauthenticated caller always sees `401`); `500` if the secret is not set (the function fails closed) or the database call fails.
+- **Response:** `200` with a JSON array of `{id, project, title, status, priority, metadata, updated_at}`, limited to 2000 rows. Soft-deleted tasks and tasks with status `cancelled` are left out. Standard JSON values pass through as PostgREST returns them (very large numbers in `metadata` can lose precision on re-serialisation, as with any JavaScript client). Your project's PostgREST "max rows" setting (default 1000) can cap the result below that.
+- **Errors:** `401` for a missing, malformed or wrong token; `405` for anything but `GET` (checked after the token, so an unauthenticated caller always sees `401`); `500` if the secret is not set or is shorter than 32 characters (the function fails closed and compares nothing), or if the database call fails.
 
-The function runs with `verify_jwt = false`, because the caller has no Supabase JWT. The token is the only access control: it is compared in constant time against the `TASKS_FEED_TOKEN` function secret. Generate a long random value, keep it out of git, and rotate it by setting a new secret and updating the consumer.
+The function runs with `verify_jwt = false`, because the caller has no Supabase JWT. The token is the only access control: it is compared in constant time against the `TASKS_FEED_TOKEN` function secret. Use at least 32 characters (`openssl rand -hex 32` gives 64; a shorter secret makes the function answer `500` instead of serving tasks), keep it out of git, and rotate it by setting a new secret and updating the consumer.
 
 ```bash
 # 1. Generate the token
@@ -433,7 +433,7 @@ supabase secrets set TASKS_FEED_TOKEN=<token>
 supabase functions deploy tasks-feed
 ```
 
-`--no-verify-jwt` is **not** needed: `supabase/config.toml` pins `verify_jwt = false` for `tasks-feed`, and the CLI (checked against v2.90.0) uses the config value unless the flag is given on the command line (flag > config). Always name the function when you use that flag: `supabase functions deploy --no-verify-jwt` without a name redeploys every function with JWT verification off, and the service-role guard of the functions in step 4 would then accept a forged token.
+`--no-verify-jwt` is **not** needed: `supabase/config.toml` pins `verify_jwt = false` for `tasks-feed`, and the CLI (checked against v2.90.0) uses the config value unless the flag is given on the command line (flag > config). Always name the function when you use that flag: `supabase functions deploy --no-verify-jwt` without a name redeploys every function with JWT verification off, including `capture-thought`, `compile-wiki`, `detect-contradictions` and `run-nightly-jobs` (step 9), and their service-role guard would then accept a forged token.
 
 Check it (replace the placeholders):
 

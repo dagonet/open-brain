@@ -8,9 +8,14 @@
 // method check and a missing secret must all answer with zero fetch calls.
 // All values below are made-up fixtures.
 
-import { handler } from './tasks-feed/handler.ts';
+import { digestsEqual, handler } from './tasks-feed/handler.ts';
 
 const FEED_TOKEN = 'feed-token-for-tests-0123456789abcdef';
+// Wrong tokens whose SHA-256 matches the digest of FEED_TOKEN at exactly one byte
+// position (byte 0 and byte 31). A comparison that looks at only the first byte, or
+// only the last one, accepts them; the fixture test below checks the property.
+const FIRST_BYTE_ONLY_TOKEN = 'wrong-token-65';
+const LAST_BYTE_ONLY_TOKEN = 'wrong-token-201';
 const FAKE_SERVICE_KEY = 'fake-service-key-for-tests';
 const FAKE_URL = 'http://localhost:54321';
 const SELECT = 'id,project,title,status,priority,metadata,updated_at';
@@ -81,15 +86,85 @@ function assertNoLeak(text: string, secret: string, msg: string) {
   if (text.includes(secret)) throw new Error(`${msg}: response leaks ${secret}`);
 }
 
+async function sha256(input: string): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return new Uint8Array(digest);
+}
+
+// Byte positions at which two equally long arrays hold the same value.
+function equalPositions(a: Uint8Array, b: Uint8Array): number[] {
+  return [...a.keys()].filter((i) => a[i] === b[i]);
+}
+
 // ---------------------------------------------------------------------------
-// Missing secret: fail closed, before anything else.
+// Digest comparison: every byte counts, wherever the difference sits.
 // ---------------------------------------------------------------------------
+
+const DIGEST_A = Uint8Array.from({ length: 32 }, (_, i) => (i * 7 + 1) & 0xff);
+
+function digestDifferingAt(positions: number[]): Uint8Array {
+  const copy = DIGEST_A.slice();
+  for (const i of positions) copy[i] ^= 0x01;
+  return copy;
+}
+
+Deno.test('digestsEqual: equal digests (distinct arrays) are equal', () => {
+  assertEquals(digestsEqual(DIGEST_A, DIGEST_A.slice()), true, 'equal');
+});
+
+Deno.test('digestsEqual: digests that differ at byte 0 only are not equal', () => {
+  assertEquals(digestsEqual(DIGEST_A, digestDifferingAt([0])), false, 'equal');
+});
+
+Deno.test('digestsEqual: digests that differ at a middle byte only are not equal', () => {
+  assertEquals(digestsEqual(DIGEST_A, digestDifferingAt([16])), false, 'equal');
+});
+
+Deno.test('digestsEqual: digests that differ at the last byte only are not equal', () => {
+  assertEquals(digestsEqual(DIGEST_A, digestDifferingAt([31])), false, 'equal');
+});
+
+Deno.test('digestsEqual: a difference at any single position is detected', () => {
+  for (let i = 0; i < DIGEST_A.length; i++) {
+    assertEquals(digestsEqual(DIGEST_A, digestDifferingAt([i])), false, `differ at byte ${i}`);
+  }
+});
+
+Deno.test('digestsEqual: digests that differ in every byte are not equal', () => {
+  const all = [...DIGEST_A.keys()];
+  assertEquals(digestsEqual(DIGEST_A, digestDifferingAt(all)), false, 'equal');
+});
+
+Deno.test('digestsEqual: arrays of different length are not equal', () => {
+  assertEquals(digestsEqual(DIGEST_A, DIGEST_A.slice(0, 31)), false, 'shorter');
+  assertEquals(digestsEqual(DIGEST_A.slice(0, 31), DIGEST_A), false, 'longer');
+});
+
+Deno.test(
+  'tasks-feed fixtures: the collision tokens share exactly one digest byte with the right token',
+  async () => {
+    const right = await sha256(FEED_TOKEN);
+    const first = equalPositions(await sha256(FIRST_BYTE_ONLY_TOKEN), right);
+    const last = equalPositions(await sha256(LAST_BYTE_ONLY_TOKEN), right);
+    assertEquals(JSON.stringify(first), '[0]', 'positions shared by the first-byte token');
+    assertEquals(JSON.stringify(last), '[31]', 'positions shared by the last-byte token');
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Missing or too short secret: fail closed, before anything else.
+// ---------------------------------------------------------------------------
+
+const MIN_SECRET_LENGTH = 32;
+const SHORT_SECRET = 'a'.repeat(MIN_SECRET_LENGTH - 1);
 
 const missingSecrets: Array<[string, string | undefined, string | undefined]> = [
   ['unset', undefined, `Bearer ${FEED_TOKEN}`],
   // An empty secret must not let an empty bearer (or anything else) compare equal.
   ['empty', '', 'Bearer '],
   ['empty with a bearer', '', `Bearer ${FEED_TOKEN}`],
+  // A guessable secret is a misconfiguration even when the caller presents it exactly.
+  ['shorter than 32 characters', SHORT_SECRET, `Bearer ${SHORT_SECRET}`],
 ];
 
 for (const [label, token, header] of missingSecrets) {
@@ -110,6 +185,15 @@ for (const [label, token, header] of missingSecrets) {
   }
 }
 
+Deno.test('tasks-feed: a secret of exactly 32 characters is accepted', async () => {
+  const secret = 'b'.repeat(MIN_SECRET_LENGTH);
+  await withStubs({ token: secret, respond: () => postgrestOk([]) }, async () => {
+    const res = await handler(request('GET', `Bearer ${secret}`));
+    assertEquals(res.status, 200, 'status');
+    assertEquals(await res.text(), '[]', 'body');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Authentication: 401 and no work.
 // ---------------------------------------------------------------------------
@@ -120,6 +204,14 @@ const rejected: Array<[string, string | undefined]> = [
   ['scheme without a token', 'Bearer'],
   ['empty bearer', 'Bearer '],
   ['wrong token', 'Bearer not-the-feed-token'],
+  [
+    'wrong token whose hash shares only the first byte with the right one',
+    `Bearer ${FIRST_BYTE_ONLY_TOKEN}`,
+  ],
+  [
+    'wrong token whose hash shares only the last byte with the right one',
+    `Bearer ${LAST_BYTE_ONLY_TOKEN}`,
+  ],
   ['token that is a prefix of the right one', `Bearer ${FEED_TOKEN.slice(0, -1)}`],
   ['right token plus extra characters', `Bearer ${FEED_TOKEN}x`],
   ['right token as a prefix of a longer value', `Bearer ${FEED_TOKEN}.signature`],

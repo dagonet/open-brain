@@ -15,9 +15,10 @@
 // verify_jwt = false nobody verifies it, so a forged claim would pass.
 //
 // Order of checks (every response is application/json):
-//   1. TASKS_FEED_TOKEN missing or empty -> 500, before anything else (fail
-//      closed: an empty secret must never be compared, or an empty bearer would
-//      match it). Nothing is read from the request.
+//   1. TASKS_FEED_TOKEN missing, empty or shorter than 32 characters -> 500, before
+//      anything else (fail closed: an empty secret must never be compared, or an
+//      empty bearer would match it, and a short one is too easy to guess). Nothing
+//      is read from the request.
 //   2. Missing/malformed header or wrong token -> 401.
 //   3. Method other than GET -> 405. This runs AFTER auth, like compile-wiki and
 //      detect-contradictions: unauthenticated callers get 401 whatever the method,
@@ -33,25 +34,36 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 // The fields the consumer reads. Same shape PostgREST returned to the anon client.
 const TASK_COLUMNS = 'id,project,title,status,priority,metadata,updated_at';
 const MAX_ROWS = 2000;
+// `openssl rand -hex 32` gives 64 characters. A shorter secret is treated as a
+// misconfiguration, because this token is the only access control.
+const MIN_TOKEN_LENGTH = 32;
 
 async function sha256(input: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
   return new Uint8Array(digest);
 }
 
-// Constant-time token check. Both values are hashed first, so the compared digests
-// always have the same length and the loop never exits early: neither the content
-// nor the length of the secret can be learned from the response time.
+// Constant-time comparison of two digests: every byte is folded into `diff`, so the
+// loop never exits early at the first difference. Only the lengths are compared up
+// front, and those are public (SHA-256 digests are always 32 bytes). Exported for tests.
+export function digestsEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+// Token check. Both values are hashed first, so the compared digests always have the
+// same length: neither the content nor the length of the secret can be learned from
+// the response time.
 async function isAuthorized(authHeader: string | null, feedToken: string): Promise<boolean> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.slice(7);
   if (!token) return false;
   const [given, expected] = await Promise.all([sha256(token), sha256(feedToken)]);
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= given[i] ^ expected[i];
-  }
-  return diff === 0;
+  return digestsEqual(given, expected);
 }
 
 function jsonResponse(
@@ -67,7 +79,7 @@ function jsonResponse(
 
 export async function handler(req: Request): Promise<Response> {
   const feedToken = Deno.env.get('TASKS_FEED_TOKEN');
-  if (!feedToken) {
+  if (!feedToken || feedToken.length < MIN_TOKEN_LENGTH) {
     return jsonResponse(500, { error: 'Server misconfigured' });
   }
 
