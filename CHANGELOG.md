@@ -51,8 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI: `--help` / `-h` on subcommands no longer run them.** `brain sync-vault --help`
   used to treat `--help` as the vault path and export into a directory of that name, and
   `brain import --help` tried to read it as the file. `sync-vault`, `import`, `audit` and
-  `wiki ...` now print usage and exit 0; `sync-vault` and `import` reject an unknown
-  dash-prefixed argument where a path goes (`./-name` still works).
+  `wiki ...` now print usage and exit 0 (`wiki`: `--help`/`-h` in any position, so a
+  `wiki reject --reason` of exactly `-h` prints help too); `sync-vault` and `import` reject
+  an unknown dash-prefixed argument where a path goes (`./-name` still works), and
+  `import --source/--delay/--project` without a value says "needs a value".
 
   Rebuild the CLI (`npm run build --prefix cli`) to pick these up. Wrappers that pass
   arbitrary text should call `brain -- "$TEXT"`.

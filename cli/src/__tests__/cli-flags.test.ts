@@ -192,6 +192,9 @@ describe('brain top-level flags (issue #96)', () => {
     beforeEach(() => {
       origCwd = process.cwd();
       dir = mkdtempSync(join(tmpdir(), 'brain-flags-'));
+      // Run inside the temp dir so a relative path that wrongly gets created lands here
+      // and the "nothing written" assertions below can actually fail.
+      process.chdir(dir);
     });
 
     afterEach(() => {
@@ -209,8 +212,8 @@ describe('brain top-level flags (issue #96)', () => {
         }
 
         expect(stderr).toEqual([]);
-        expect(fetchMock).not.toHaveBeenCalled();
         expect(readdirSync(dir)).toEqual([]);
+        expect(fetchMock).not.toHaveBeenCalled();
       },
     );
 
@@ -230,12 +233,35 @@ describe('brain top-level flags (issue #96)', () => {
       ['wiki', 'list', '-h'],
       ['wiki', 'refresh', '--help'],
       ['wiki', 'reject', '--help'],
+      ['wiki', 'refresh', '--all', '-h'],
+      ['wiki', 'refresh', '--dry-run', '-h'],
+      ['wiki', 'reject', 'page-id', '--reason', 'x', '--help'],
+      ['wiki', 'list', '--limit', '5', '--help'],
+      ['wiki', 'get', 'some-slug', '--help'],
     ])('%s %s %s prints usage, exits 0, sends nothing', async (...args) => {
       expect(await run(...args)).toBe(0);
 
       expect(stdout.join('\n')).toContain('Usage:');
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it('a wiki reject reason of exactly -h prints help (documented side effect)', async () => {
+      expect(await run('wiki', 'reject', 'page-id', '--reason', '-h')).toBe(0);
+
+      expect(stdout.join('\n')).toContain('Usage:');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([['--source'], ['--delay'], ['--project']])(
+      'import %s with no value says it needs a value, not unknown option',
+      async (flag) => {
+        expect(await run('import', 'memories.txt', flag)).toBe(1);
+
+        expect(stderr.join('\n')).toContain(`${flag} needs a value`);
+        expect(stderr.join('\n')).not.toContain('unknown option');
+        expect(fetchMock).not.toHaveBeenCalled();
+      },
+    );
 
     it('sync-vault rejects an unknown dash argument where the path goes and writes nothing', async () => {
       process.chdir(dir);

@@ -268,6 +268,11 @@ export async function importMemories(): Promise<void> {
       dryRun = true;
     } else if (args[i] === '--project' && i + 1 < args.length) {
       project = args[++i];
+    } else if (args[i] === '--source' || args[i] === '--delay' || args[i] === '--project') {
+      // Reached only when the value is missing (the branches above need i + 1 < length).
+      console.error(`Error: ${args[i]} needs a value`);
+      printUsage();
+      process.exit(1);
     } else if (!filePath) {
       rejectDashPath(args[i], 'import expects a file path');
       filePath = args[i];
@@ -1270,7 +1275,9 @@ export async function wikiRejectCommand(args: string[]): Promise<void> {
 async function wikiCommand(): Promise<void> {
   const sub = process.argv[3];
   const rest = process.argv.slice(4);
-  if (isHelpFlag(sub) || isHelpFlag(rest[0])) {
+  // Any position: `wiki refresh --all -h` must not run the refresh. (A reject reason of
+  // exactly -h/--help therefore prints help; the wiki parsers have no `--` escape.)
+  if (isHelpFlag(sub) || rest.some(isHelpFlag)) {
     printUsage(console.log);
     return;
   }
