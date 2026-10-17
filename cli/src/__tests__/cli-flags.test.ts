@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main, CLI_VERSION } from '../brain.js';
 
@@ -168,5 +170,109 @@ describe('brain top-level flags (issue #96)', () => {
 
     expect(stderr.join('\n')).toContain('Usage:');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('unknown option error hints at `--` for text that starts with a dash', async () => {
+    expect(await run('-x')).toBe(1);
+
+    expect(stderr.join('\n')).toContain('put it after --, e.g. brain -- "- buy milk"');
+  });
+
+  it('--project before the text says it must come after the text', async () => {
+    expect(await run('--project', 'p1', 'some text')).toBe(1);
+
+    expect(stderr.join('\n')).toContain('--project must come after the text');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe('subcommands', () => {
+    let dir: string;
+    let origCwd: string;
+
+    beforeEach(() => {
+      origCwd = process.cwd();
+      dir = mkdtempSync(join(tmpdir(), 'brain-flags-'));
+    });
+
+    afterEach(() => {
+      process.chdir(origCwd);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it.each([['sync-vault'], ['import'], ['audit']])(
+      '%s --help and -h print usage on stdout, exit 0, send nothing and write nothing',
+      async (sub) => {
+        for (const flag of ['--help', '-h']) {
+          stdout = [];
+          expect(await run(sub, flag)).toBe(0);
+          expect(stdout.join('\n')).toContain('Usage:');
+        }
+
+        expect(stderr).toEqual([]);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(readdirSync(dir)).toEqual([]);
+      },
+    );
+
+    it.each([['--help'], ['-h']])('sync-vault <path> %s writes nothing', async (flag) => {
+      const vault = join(dir, 'vault');
+
+      expect(await run('sync-vault', vault, flag)).toBe(0);
+
+      expect(existsSync(vault)).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['wiki', '--help'],
+      ['wiki', '-h'],
+      ['wiki', 'get', '--help'],
+      ['wiki', 'list', '-h'],
+      ['wiki', 'refresh', '--help'],
+      ['wiki', 'reject', '--help'],
+    ])('%s %s %s prints usage, exits 0, sends nothing', async (...args) => {
+      expect(await run(...args)).toBe(0);
+
+      expect(stdout.join('\n')).toContain('Usage:');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sync-vault rejects an unknown dash argument where the path goes and writes nothing', async () => {
+      process.chdir(dir);
+
+      expect(await run('sync-vault', '--bogus')).toBe(1);
+
+      expect(stderr.join('\n')).toContain('unknown option: --bogus');
+      expect(existsSync(join(dir, '--bogus'))).toBe(false);
+      expect(readdirSync(dir)).toEqual([]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('import rejects an unknown dash argument where the file goes and sends nothing', async () => {
+      expect(await run('import', '--bogus')).toBe(1);
+
+      expect(stderr.join('\n')).toContain('unknown option: --bogus');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('import ./-weird-path still works', async () => {
+      writeFileSync(join(dir, '-weird-path'), 'first memory\nsecond memory\n');
+      process.chdir(dir);
+
+      expect(await run('import', './-weird-path', '--dry-run')).toBe(0);
+
+      expect(stdout.join('\n')).toContain('Found 2 memories in ./-weird-path');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sync-vault ./-weird-vault still reaches the server', async () => {
+      process.chdir(dir);
+      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+
+      await run('sync-vault', './-weird-vault', '--dry-run');
+
+      expect(stderr.join('\n')).not.toContain('unknown option');
+      expect(fetchMock).toHaveBeenCalled();
+    });
   });
 });

@@ -86,7 +86,8 @@ brain help                   # also: brain --help, brain -h; prints usage
 brain -- "-x is a flag"      # capture text that starts with a dash
 ```
 
-- Any other argument that starts with `-` and is not known (for example `brain --bogus`) is an error: a message on stderr, exit code 1, nothing is captured. Put `--` first to capture such text.
+- If the **first** argument starts with `-` and is not known (for example `brain --bogus`), it is an error: a message with a hint on stderr, exit code 1, nothing is captured. Put `--` first to capture such text, e.g. `brain -- "- buy milk"`. Wrappers that pass arbitrary text should call `brain -- "$TEXT"`. (`--project` before the text is reported as such: it must come after the text.)
+- `--help` / `-h` also work on `import`, `sync-vault`, `audit` and `wiki ...`: they print usage and exit 0 without importing, exporting or calling the server. `import` and `sync-vault` reject an unknown dash-prefixed argument where the path goes; write `./-name` for a path that really starts with a dash.
 - The bare word `help` is reserved only when it is the **only** argument. `brain "help me remember X"` is one argument and is captured as a thought; to capture the single word, use `brain -- help`.
 - The same goes for text beginning with a dash inside quotes, such as `brain "--version"`: it is the flag, not a thought. Use `brain -- "--version"`.
 

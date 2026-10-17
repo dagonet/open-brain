@@ -141,6 +141,23 @@ function printSetupInstructions(): void {
   );
 }
 
+function isHelpFlag(arg: string | undefined): boolean {
+  return arg === '--help' || arg === '-h';
+}
+
+/**
+ * Reject an unknown dash-prefixed argument where a path is expected, instead of
+ * treating it as a file or directory name. `./-name` is the way to name such a path.
+ */
+function rejectDashPath(arg: string, what: string): void {
+  if (!arg.startsWith('-')) return;
+  console.error(
+    `Error: unknown option: ${arg} (${what}; to use a path that starts with a dash, write ./${arg})`,
+  );
+  printUsage();
+  process.exit(1);
+}
+
 function printUsage(print: (message: string) => void = console.error): void {
   print(
     [
@@ -235,6 +252,10 @@ export async function importMemories(): Promise<void> {
   let project: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
+    if (isHelpFlag(args[i])) {
+      printUsage(console.log);
+      return;
+    }
     if (args[i] === '--source' && i + 1 < args.length) {
       source = args[++i];
     } else if (args[i] === '--delay' && i + 1 < args.length) {
@@ -248,6 +269,7 @@ export async function importMemories(): Promise<void> {
     } else if (args[i] === '--project' && i + 1 < args.length) {
       project = args[++i];
     } else if (!filePath) {
+      rejectDashPath(args[i], 'import expects a file path');
       filePath = args[i];
     } else {
       console.error('Error: unexpected argument: ' + args[i]);
@@ -600,9 +622,14 @@ export async function syncVault(): Promise<void> {
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {
+    if (isHelpFlag(args[i])) {
+      printUsage(console.log);
+      return;
+    }
     if (args[i] === '--dry-run') {
       dryRun = true;
     } else if (!vaultPath) {
+      rejectDashPath(args[i], 'sync-vault expects a vault path');
       vaultPath = args[i];
     } else {
       console.error('Error: unexpected argument: ' + args[i]);
@@ -821,6 +848,10 @@ export async function auditCommand(): Promise<void> {
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
+    if (isHelpFlag(a)) {
+      printUsage(console.log);
+      return;
+    }
     if (a === '--since' && i + 1 < args.length) {
       since = args[++i];
     } else if (a.startsWith('--since=')) {
@@ -1239,6 +1270,10 @@ export async function wikiRejectCommand(args: string[]): Promise<void> {
 async function wikiCommand(): Promise<void> {
   const sub = process.argv[3];
   const rest = process.argv.slice(4);
+  if (isHelpFlag(sub) || isHelpFlag(rest[0])) {
+    printUsage(console.log);
+    return;
+  }
   switch (sub) {
     case 'get':
       await wikiGetCommand(rest);
@@ -1306,6 +1341,11 @@ export async function main(): Promise<void> {
     textIndex = 3;
   } else if (command?.startsWith('-')) {
     console.error('Error: unknown option: ' + command);
+    console.error(
+      command === '--project'
+        ? 'Hint: --project must come after the text, e.g. brain "your thought" --project <name>'
+        : 'Hint: to capture text that starts with a dash, put it after --, e.g. brain -- "- buy milk"',
+    );
     printUsage();
     process.exit(1);
   }
