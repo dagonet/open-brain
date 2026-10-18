@@ -319,6 +319,10 @@ for (const [field, raw, expectedType] of [
 
 // A validly-typed body still runs the audit; `candidate_limit` reaches the
 // query as the numeric limit and `since` as the created_at filter.
+// `similarity_threshold`/`confidence_floor` are consumed only when candidates
+// are found, which the empty-list stub never produces; they are covered here
+// as accepted at the validation layer (no 400), and at the rejection layer by
+// the wrong-type tests above.
 Deno.test('detect-contradictions: a body with correctly-typed fields runs the audit', async () => {
   let status = 0;
   const urls: string[] = [];
