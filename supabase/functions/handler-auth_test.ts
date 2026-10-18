@@ -287,3 +287,102 @@ Deno.test('compile-wiki: a JSON object body with a slug passes body validation',
   });
   if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
 });
+
+// ---- request body field types (#106) ----------------------------------------
+// A field that is present but has the wrong type is a client error (400, no
+// work, error names the field); a missing field stays missing.
+
+for (const [field, raw, expectedType] of [
+  ['thought_id', '{"thought_id":42}', 'string'],
+  ['since', '{"since":42}', 'string'],
+  ['candidate_limit', '{"candidate_limit":"abc"}', 'number'],
+] as Array<[string, string, string]>) {
+  Deno.test(`detect-contradictions: 400 and no work for a wrong-typed ${field}`, async () => {
+    const calls = await withStubs(async () => {
+      const res = await detectContradictions(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, 'status');
+      const body = await res.json();
+      assertEquals(body.success, false, 'success');
+      assertEquals(body.error, `${field} must be a ${expectedType}`, 'error');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  });
+}
+
+// A validly-typed body still runs the audit; `candidate_limit` reaches the
+// query as the numeric limit and `since` as the created_at filter.
+Deno.test('detect-contradictions: a body with correctly-typed fields runs the audit', async () => {
+  let status = 0;
+  const urls: string[] = [];
+  const calls = await withStubs(async () => {
+    const res = await detectContradictions(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: serviceAuth,
+        body: '{"thought_id":"abc","since":"2026-01-01T00:00:00Z","candidate_limit":10}',
+      }),
+    );
+    status = res.status;
+  }, urls);
+  if (calls === 0) throw new Error('expected the audit to start, but no fetch was made');
+  assertEquals(status, 200, 'status');
+  assertEquals(
+    urls.some((u) => u.includes('created_at=gte.')),
+    true,
+    'candidate query has a created_at=gte filter',
+  );
+  assertEquals(
+    urls.some((u) => u.includes('id=eq.abc')),
+    true,
+    'candidate query filters by thought_id',
+  );
+  assertEquals(
+    urls.some((u) => u.includes('limit=10')),
+    true,
+    'candidate query uses the given limit',
+  );
+});
+
+for (const raw of ['{"slug":"example","dry_run":"yes"}', '{"slug":"example","dry_run":1}']) {
+  Deno.test(`compile-wiki: 400 and no work for a wrong-typed dry_run in ${raw}`, async () => {
+    const calls = await withStubs(async () => {
+      const res = await compileWiki(
+        new Request('http://localhost/fn', {
+          method: 'POST',
+          headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+          body: raw,
+        }),
+      );
+      assertEquals(res.status, 400, 'status');
+      const body = await res.json();
+      assertEquals(body.success, false, 'success');
+      assertEquals(body.error, 'dry_run must be a boolean', 'error');
+    });
+    assertEquals(calls, 0, 'fetch calls');
+  });
+}
+
+Deno.test('compile-wiki: a body with dry_run true passes body validation', async () => {
+  const calls = await withStubs(async () => {
+    const res = await compileWiki(
+      new Request('http://localhost/fn', {
+        method: 'POST',
+        headers: { ...serviceAuth, 'Content-Type': 'application/json' },
+        body: '{"slug":"example","dry_run":true}',
+      }),
+    );
+    // The empty-list stub means the cluster is too small, so the dry-run
+    // answer is never reached; a 200 proves the field type was accepted.
+    assertEquals(res.status, 200, 'status');
+    const body = await res.json();
+    assertEquals(body.status, 'refused', 'status field');
+    assertEquals(body.reason, 'cluster_too_small', 'reason');
+  });
+  if (calls === 0) throw new Error('expected compile to start, but no fetch was made');
+});

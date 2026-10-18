@@ -91,6 +91,21 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
+// A field that is present in the body must have its declared type; a JSON
+// null counts as a value, not an absence. Returns the 400 error text, or null.
+function firstWrongFieldType(body: AuditRequest): string | null {
+  if (body.thought_id !== undefined && typeof body.thought_id !== 'string') {
+    return 'thought_id must be a string';
+  }
+  if (body.since !== undefined && typeof body.since !== 'string') {
+    return 'since must be a string';
+  }
+  if (body.candidate_limit !== undefined && typeof body.candidate_limit !== 'number') {
+    return 'candidate_limit must be a number';
+  }
+  return null;
+}
+
 export async function handler(req: Request): Promise<Response> {
   // Auth guard: service-role callers only (these functions spend LLM tokens).
   // Runs before anything else, including the method check.
@@ -128,6 +143,11 @@ export async function handler(req: Request): Promise<Response> {
       return jsonResponse(400, { success: false, error: 'Request body must be a JSON object' });
     }
     body = parsed as AuditRequest;
+  }
+
+  const wrongField = firstWrongFieldType(body);
+  if (wrongField !== null) {
+    return jsonResponse(400, { success: false, error: wrongField });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
