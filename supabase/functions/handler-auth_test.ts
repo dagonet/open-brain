@@ -296,6 +296,8 @@ for (const [field, raw, expectedType] of [
   ['thought_id', '{"thought_id":42}', 'string'],
   ['since', '{"since":42}', 'string'],
   ['candidate_limit', '{"candidate_limit":"abc"}', 'number'],
+  ['similarity_threshold', '{"similarity_threshold":"0.5"}', 'number'],
+  ['confidence_floor', '{"confidence_floor":"high"}', 'number'],
 ] as Array<[string, string, string]>) {
   Deno.test(`detect-contradictions: 400 and no work for a wrong-typed ${field}`, async () => {
     const calls = await withStubs(async () => {
@@ -325,7 +327,7 @@ Deno.test('detect-contradictions: a body with correctly-typed fields runs the au
       new Request('http://localhost/fn', {
         method: 'POST',
         headers: serviceAuth,
-        body: '{"thought_id":"abc","since":"2026-01-01T00:00:00Z","candidate_limit":10}',
+        body: '{"thought_id":"abc","since":"2026-01-01T00:00:00Z","candidate_limit":10,"similarity_threshold":0.5,"confidence_floor":0.7}',
       }),
     );
     status = res.status;

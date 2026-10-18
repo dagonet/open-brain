@@ -103,6 +103,12 @@ function firstWrongFieldType(body: AuditRequest): string | null {
   if (body.candidate_limit !== undefined && typeof body.candidate_limit !== 'number') {
     return 'candidate_limit must be a number';
   }
+  if (body.similarity_threshold !== undefined && typeof body.similarity_threshold !== 'number') {
+    return 'similarity_threshold must be a number';
+  }
+  if (body.confidence_floor !== undefined && typeof body.confidence_floor !== 'number') {
+    return 'confidence_floor must be a number';
+  }
   return null;
 }
 
