@@ -321,6 +321,9 @@ export async function handler(req: Request): Promise<Response> {
   if (!body.slug || typeof body.slug !== 'string') {
     return jsonResponse(400, { success: false, error: 'slug is required' });
   }
+  if (body.dry_run !== undefined && typeof body.dry_run !== 'boolean') {
+    return jsonResponse(400, { success: false, error: 'dry_run must be a boolean' });
+  }
 
   const slug = body.slug.toLowerCase();
   const dryRun = body.dry_run === true;

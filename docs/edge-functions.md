@@ -70,11 +70,11 @@ What it does for every thought, in parallel: embeds it (`text-embedding-3-small`
 
 Compiles one topic into a wiki page: clusters the topic's thoughts, drops those in an open contradiction, ranks them with recency decay (`WIKI_DECAY_DAYS`, default 90), and asks the model for structured output. A citation validator checks every paragraph against real source thoughts; it retries once and falls back to a `partial` page that omits unverifiable paragraphs. Pages are append-only versions; the `current_wiki_pages` view shows the latest. A topic needs at least 3 thoughts.
 
-Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON, a body that is not a JSON object, or a missing `slug`; `200` with status `refused` (reason `cluster_too_small`) for an unknown slug. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
+Request body: `slug` (a topic slug), optional `dry_run`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for invalid JSON, a body that is not a JSON object, a missing `slug`, or a `dry_run` that is not a boolean; `200` with status `refused` (reason `cluster_too_small`) for an unknown slug. Related knobs: `WIKI_TOPIC_DENYLIST` (comma-separated slugs to skip), `WIKI_COMPILE_MODEL` (default `gpt-4o-mini`), `WIKI_DECAY_DAYS`.
 
 ## detect-contradictions
 
-Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for a body that is invalid JSON or not a JSON object (an absent, empty or whitespace-only body runs the default audit). Topics in `WIKI_TOPIC_DENYLIST` are skipped.
+Scans candidate thoughts, fetches embedding-similar neighbours, asks the model whether each pair contradicts, and inserts rows above a confidence floor (idempotent: the same pair is stored once). Request body: optional `thought_id`, `since`, `candidate_limit`, `similarity_threshold`, `confidence_floor`. Service-role key required. Responses: `401` for no key, the anon key or an `sb_secret_...` key; `405` for GET; `400` for a body that is invalid JSON, not a JSON object, or has a field with the wrong type (an absent, empty or whitespace-only body runs the default audit). Topics in `WIKI_TOPIC_DENYLIST` are skipped.
 
 ## run-nightly-jobs
 
