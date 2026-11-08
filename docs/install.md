@@ -52,6 +52,8 @@ supabase link --project-ref <project-ref>
 supabase db push
 ```
 
+> **Supabase CLI 3.0 and later:** the 3.0 help describes `supabase db push` as local by default and says `--remote` targets the linked project, so add `--remote` (`supabase db push --remote`) when you mean the hosted database. `supabase functions deploy` and `supabase secrets set` are remote only and already use the linked project; `--remote=<ref>` is only needed to name another project. Unattended runs (scripts, CI) also need `--yes` for hosted changes, given as a flag or as `SUPABASE_YES` exported in your shell. CLI 2.x has no `--remote` flag (it uses `--linked`, the default for `db push`) and needs neither, so the commands below run as written there. Check `supabase db push --help` for your version.
+
 Migration 008 defines the semantic search function (`match_thoughts`); there is nothing to paste into the SQL editor. `mcp-server/sql/match_thoughts.sql` is kept only as a deprecated pointer.
 
 Migrations 016 to 018 lock the database down: the anon key can read and write nothing, the signed-in dashboard role is limited to the accounts listed in `public.owners`, and its privileges are narrowed. Step 7 below covers adding the owner. Background: [`security.md`](security.md).
@@ -128,15 +130,17 @@ Add the server to your Claude Code MCP configuration: a project's `.mcp.json` (r
       "command": "node",
       "args": ["path/to/mcp-server/dist/index.js"],
       "env": {
-        "SUPABASE_URL": "https://<project-ref>.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "<service-role-key>",
-        "OPENAI_API_KEY": "sk-your-openai-api-key",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
         "OPEN_BRAIN_DEFAULT_PROJECT": "my-repo-name"
       }
     }
   }
 }
 ```
+
+The `${...}` values are read from the environment Claude Code starts in, so export `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY` in your shell first. Do not paste the keys into a project `.mcp.json`: it is usually committed. Why, and the user-level option: [`mcp.md`](mcp.md#configure-claude-code).
 
 Restart Claude Code. It then lists 22 tools. Details and per-repo options: [`mcp.md`](mcp.md).
 

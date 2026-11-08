@@ -32,15 +32,17 @@ Add the server to a project's `.mcp.json` (at the repo root) or to `~/.claude.js
       "command": "node",
       "args": ["/absolute/path/to/mcp-server/dist/index.js"],
       "env": {
-        "SUPABASE_URL": "https://<project-ref>.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "<service-role-key>",
-        "OPENAI_API_KEY": "sk-your-openai-key",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
         "OPEN_BRAIN_DEFAULT_PROJECT": "my-repo-name"
       }
     }
   }
 }
 ```
+
+> **Never write keys into a project `.mcp.json`.** A project `.mcp.json` is usually committed, and the service-role key gives full access to your database. A project-level `open-brain` entry replaces a user-level entry of the same name, so it needs the keys too; that is why the example references them as `${SUPABASE_URL}`, `${SUPABASE_SERVICE_ROLE_KEY}` and `${OPENAI_API_KEY}`. Claude Code expands `${VAR}` from the environment it starts in, so export the three variables in your shell profile (or another place outside the repo) first. The user-level `~/.claude.json` is not committed, so literal values are acceptable there, and `${VAR}` works there too. `OPEN_BRAIN_DEFAULT_PROJECT` and `OPEN_BRAIN_TOOLS_DISABLED` are not secrets and stay literal.
 
 Environment variables:
 
@@ -124,9 +126,9 @@ Set `OPEN_BRAIN_TOOLS_DISABLED` in a project's `.mcp.json` to hide tool families
       "command": "node",
       "args": ["/absolute/path/to/mcp-server/dist/index.js"],
       "env": {
-        "SUPABASE_URL": "https://<project-ref>.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "<service-role-key>",
-        "OPENAI_API_KEY": "sk-your-openai-key",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
         "OPEN_BRAIN_TOOLS_DISABLED": "wiki,contradictions,tasks,entities"
       }
     }
