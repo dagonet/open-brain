@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Docs: the `.mcp.json` examples reference the keys as `${VAR}` instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. Hosted `supabase db push` lines in README.md and docs/ now say `db push --remote`: in Supabase CLI 3.0 a bare `db push` targets the local database, so it would not migrate the hosted project. `docs/install.md` notes `--linked` for CLI 2.x and `--yes` for non-interactive hosted changes.
+- Docs: the `.mcp.json` examples map the server's keys from Open Brain-specific variables (`${OPEN_BRAIN_SUPABASE_URL}`, `${OPEN_BRAIN_SERVICE_ROLE_KEY}`, `${OPEN_BRAIN_OPENAI_API_KEY}`) instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. The prefix keeps other projects from picking up the full-access key. `docs/install.md` notes `--yes` for non-interactive hosted changes, and the docs that name the email provider setting now say `[auth.email] enabled = true` (CLI 2.x reads `enable_signup`).
 - `supabase/config.toml`: `[auth.email]` and `[auth.sms]` use `enabled` instead of the deprecated `enable_signup` (CLI 3.0 warns about the old name). The top-level `[auth] enable_signup = false` is unchanged.
 - `.gitignore`: ignore `supabase/.branches/`, which CLI 3.0 `supabase start` creates.
 - Edge functions pin `@supabase/supabase-js` to 2.49.4 everywhere; `capture-thought` and `slack-webhook` used an unpinned `@2` import (#92).
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `detect-contradictions` answers 400 for a body that is invalid JSON or not a JSON object, instead of running a default audit (#102).
 - `compile-wiki` answers 400 `Request body must be a JSON object` for a body that is not a JSON object; a `null` body used to end in a 500 (#105).
 - `compile-wiki` and `detect-contradictions` answer 400 when a request body field has the wrong type, instead of passing it through (#106).
+- Docs: hosted `supabase db push` lines in README.md and docs/ now say `db push --remote`. On Supabase CLI 3.0 a bare `db push` targets the local database, so the old docs migrated the local DB and not the hosted one. `docs/install.md` and the README also note `--linked` for CLI 2.x, which has no `--remote`.
 
 ## [0.9.0] - 2026-10-17
 
