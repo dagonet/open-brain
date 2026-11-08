@@ -49,8 +49,10 @@ Link your project and push the migrations (001 to 018):
 
 ```bash
 supabase link --project-ref <project-ref>
-supabase db push
+supabase db push --remote
 ```
+
+> **Supabase CLI version:** in CLI 3.0, `db push` targets the **local** database unless you pass `--remote`, so a bare `supabase db push` would not migrate your hosted project. On CLI 2.x use `--linked` instead (2.x has no `--remote`). `supabase functions deploy` and `supabase secrets set` already target the linked project. Hosted changes need `--yes` (or `SUPABASE_YES=1` exported in your shell) when the CLI cannot prompt, for example in CI or when an AI agent runs the command.
 
 Migration 008 defines the semantic search function (`match_thoughts`); there is nothing to paste into the SQL editor. `mcp-server/sql/match_thoughts.sql` is kept only as a deprecated pointer.
 
@@ -128,15 +130,17 @@ Add the server to your Claude Code MCP configuration: a project's `.mcp.json` (r
       "command": "node",
       "args": ["path/to/mcp-server/dist/index.js"],
       "env": {
-        "SUPABASE_URL": "https://<project-ref>.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "<service-role-key>",
-        "OPENAI_API_KEY": "sk-your-openai-api-key",
+        "SUPABASE_URL": "${OPEN_BRAIN_SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${OPEN_BRAIN_SERVICE_ROLE_KEY}",
+        "OPENAI_API_KEY": "${OPEN_BRAIN_OPENAI_API_KEY}",
         "OPEN_BRAIN_DEFAULT_PROJECT": "my-repo-name"
       }
     }
   }
 }
 ```
+
+The `${...}` values are read from the environment Claude Code starts in, so export `OPEN_BRAIN_SUPABASE_URL`, `OPEN_BRAIN_SERVICE_ROLE_KEY` and `OPEN_BRAIN_OPENAI_API_KEY` in your shell first (the prefix keeps other projects from picking up the full-access key). Do not paste the keys into a project `.mcp.json`: it is usually committed. Why, and the user-level option: [`mcp.md`](mcp.md#configure-claude-code).
 
 Restart Claude Code. It then lists 22 tools. Details and per-repo options: [`mcp.md`](mcp.md).
 
@@ -230,18 +234,18 @@ The contract, the checks and the error meanings are in [`edge-functions.md`](edg
 
 ## Try it on a local stack
 
-Everything above except the hosted-only parts (Vercel, Slack, hosted Auth settings, pg_cron, `supabase link`, `db push`, `functions deploy`, `secrets set`) also runs on your machine with Docker and the Supabase CLI. It is the way to try Open Brain without a hosted project, and what contributors test against ([`CONTRIBUTING.md`](../CONTRIBUTING.md#testing-against-a-local-stack)).
+Everything above except the hosted-only parts (Vercel, Slack, hosted Auth settings, pg_cron, `supabase link`, `db push --remote`, `functions deploy`, `secrets set`) also runs on your machine with Docker and the Supabase CLI. It is the way to try Open Brain without a hosted project, and what contributors test against ([`CONTRIBUTING.md`](../CONTRIBUTING.md#testing-against-a-local-stack)).
 
 ```bash
 supabase start                      # API 54321, DB 54322, Studio 54323
 supabase status -o env              # API_URL, ANON_KEY, SERVICE_ROLE_KEY (the legacy JWT form), DB_URL
-supabase db reset --yes             # applies migrations 001-018 locally; stands in for `supabase db push`
+supabase db reset --yes             # applies migrations 001-018 locally; stands in for `supabase db push --remote`
 
 # load the local keys into this shell (API_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL)
 set -a; eval "$(supabase status -o env)"; set +a
 ```
 
-`supabase/config.toml` has public sign-ups off (`[auth] enable_signup = false`), as on a hosted project. It keeps the email provider on (`[auth.email] enable_signup = true`), so password login, the dashboard included, works. Create your user with Studio (http://127.0.0.1:54323, Authentication > Users > Add user) or the admin API:
+`supabase/config.toml` has public sign-ups off (`[auth] enable_signup = false`), as on a hosted project. It keeps the email provider on (`[auth.email] enabled = true`), so password login, the dashboard included, works. Create your user with Studio (http://127.0.0.1:54323, Authentication > Users > Add user) or the admin API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:54321/auth/v1/admin/users \

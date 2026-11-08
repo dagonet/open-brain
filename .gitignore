@@ -15,6 +15,7 @@ node_modules/
 
 # Supabase local
 supabase/.temp/
+supabase/.branches/
 
 # Build outputs
 dist/
