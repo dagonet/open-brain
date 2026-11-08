@@ -115,7 +115,7 @@ The functions are documented in [`edge-functions.md`](edge-functions.md); who ma
 
 ## Data model, by migration
 
-Migrations are in `supabase/migrations/` and applied in order by `supabase db push`. All use `IF NOT EXISTS` / `CREATE OR REPLACE` patterns where the change can be repeated; 016 to 018 are idempotent. Upgrade notes per release: [`upgrading.md`](upgrading.md).
+Migrations are in `supabase/migrations/` and applied in order by `supabase db push --remote`. All use `IF NOT EXISTS` / `CREATE OR REPLACE` patterns where the change can be repeated; 016 to 018 are idempotent. Upgrade notes per release: [`upgrading.md`](upgrading.md).
 
 | # | File | What it adds |
 | - | ---- | ------------ |

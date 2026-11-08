@@ -85,7 +85,7 @@ Slack: invite the bot to a channel and every message people post there is captur
 You need Node.js, the [Supabase CLI](https://github.com/supabase/cli#install-the-cli), a Supabase project and an OpenAI key. The short version:
 
 ```bash
-supabase link --project-ref <project-ref> && supabase db push     # 1. the database
+supabase link --project-ref <project-ref> && supabase db push --remote     # 1. the database
 supabase functions deploy capture-thought                         # 2. the functions, each by name (six in all)
 npm ci --prefix cli && npm run build --prefix cli && npm install -g --install-links=false ./cli   # 3. the brain command
 ```

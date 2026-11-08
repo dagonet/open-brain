@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Docs: the `.mcp.json` examples reference the keys as `${VAR}` instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. `docs/install.md` notes the Supabase CLI 3.0 `--remote` and `--yes` flags for hosted commands.
+- Docs: the `.mcp.json` examples reference the keys as `${VAR}` instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. Hosted `supabase db push` lines in README.md and docs/ now say `db push --remote`: in Supabase CLI 3.0 a bare `db push` targets the local database, so it would not migrate the hosted project. `docs/install.md` notes `--linked` for CLI 2.x and `--yes` for non-interactive hosted changes.
 - `supabase/config.toml`: `[auth.email]` and `[auth.sms]` use `enabled` instead of the deprecated `enable_signup` (CLI 3.0 warns about the old name). The top-level `[auth] enable_signup = false` is unchanged.
 - `.gitignore`: ignore `supabase/.branches/`, which CLI 3.0 `supabase start` creates.
 - Edge functions pin `@supabase/supabase-js` to 2.49.4 everywhere; `capture-thought` and `slack-webhook` used an unpinned `@2` import (#92).

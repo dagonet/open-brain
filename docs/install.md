@@ -49,10 +49,10 @@ Link your project and push the migrations (001 to 018):
 
 ```bash
 supabase link --project-ref <project-ref>
-supabase db push
+supabase db push --remote
 ```
 
-> **Supabase CLI 3.0 and later:** the 3.0 help describes `supabase db push` as local by default and says `--remote` targets the linked project, so add `--remote` (`supabase db push --remote`) when you mean the hosted database. `supabase functions deploy` and `supabase secrets set` are remote only and already use the linked project; `--remote=<ref>` is only needed to name another project. Unattended runs (scripts, CI) also need `--yes` for hosted changes, given as a flag or as `SUPABASE_YES` exported in your shell. CLI 2.x has no `--remote` flag (it uses `--linked`, the default for `db push`) and needs neither, so the commands below run as written there. Check `supabase db push --help` for your version.
+> **Supabase CLI version:** in CLI 3.0, `db push` targets the **local** database unless you pass `--remote`, so a bare `supabase db push` would not migrate your hosted project. On CLI 2.x use `--linked` instead (2.x has no `--remote`). `supabase functions deploy` and `supabase secrets set` already target the linked project. Hosted changes need `--yes` (or `SUPABASE_YES=1` exported in your shell) when the CLI cannot prompt, for example in CI or when an AI agent runs the command.
 
 Migration 008 defines the semantic search function (`match_thoughts`); there is nothing to paste into the SQL editor. `mcp-server/sql/match_thoughts.sql` is kept only as a deprecated pointer.
 
