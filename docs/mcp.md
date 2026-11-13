@@ -96,9 +96,9 @@ Statuses: `open` (default), `in_progress`, `blocked`, `done`, `cancelled`. There
 | Tool | Description |
 | ---- | ----------- |
 | `task_create` | Create a task. Params: `title` (required), `description`, `priority` (1 to 5, 1 highest), `project`, `linked_thought_ids`, `metadata`. |
-| `task_get` | One task by UUID, with its full `status_history`. Params: `id`. |
-| `task_list` | Tasks, newest first, default limit 50. Params: `project`, `status`, `priority`, `limit`. |
-| `task_update` | Update fields. A status change is appended to `status_history` with a timestamp and optional `note`. Params: `id`, `title`, `description`, `priority`, `linked_thought_ids`, `metadata`, `status`, `note`. |
+| `task_get` | One task by UUID, with its full `status_history`. Params: `id`, `compact` (small answer: compact row plus `description`, `plan` and `history_len`), `description_chars` (0 to 2000, default 300, only with `compact`). |
+| `task_list` | Tasks, newest first, default limit 50. Params: `project`, `status`, `priority`, `limit`, `compact` (rows of `id`, `title` cut to 100 characters, `status`, `priority`, `created_at`, `updated_at`, `planned`), `statuses` (list; not with `status`), `stale_days`, `priority_missing` (not with `priority`), `sort` (`created` or `priority`). `planned` is true when `metadata.plan` = `{owner, goal, next_step, done_check}` is complete. |
+| `task_update` | Update fields. A status change is appended to `status_history` with a timestamp and optional `note`. A `note` without a status change (or with the same status) is kept as a note-only entry (`kind: "note"`). `metadata_merge` is a shallow top-level merge (a `null` value deletes the key), so send the whole `metadata.plan` object; it cannot be combined with `metadata`. Note-only and `metadata_merge` writes fail with `conflict, re-read and retry` if the task changed in between. `echo: "compact"` returns `{id, status, priority, updated_at, history_len}`. A call that changes nothing returns the current row. Params: `id`, `title`, `description`, `priority`, `linked_thought_ids`, `metadata`, `metadata_merge`, `status`, `note`, `echo`. |
 
 ### Entities (2)
 
