@@ -24,6 +24,7 @@ export function createMockSupabase() {
     'not',
     'gte',
     'lte',
+    'lt',
     'order',
     'limit',
     'single',
@@ -59,6 +60,7 @@ export function createMultiQueryMockSupabase(
   results: Array<{ data: unknown; error?: { message: string } | null; count?: number | null }>,
 ) {
   let callIndex = 0;
+  const chains: Array<Record<string, unknown>> = [];
 
   function makeChain(result: {
     data: unknown;
@@ -78,6 +80,7 @@ export function createMultiQueryMockSupabase(
       'not',
       'gte',
       'lte',
+      'lt',
       'order',
       'limit',
       'single',
@@ -96,10 +99,12 @@ export function createMultiQueryMockSupabase(
     from: vi.fn().mockImplementation(() => {
       const result = results[callIndex] ?? results[results.length - 1];
       callIndex++;
-      return makeChain(result);
+      const chain = makeChain(result);
+      chains.push(chain);
+      return chain;
     }),
     rpc: vi.fn(),
   } as unknown as SupabaseClient;
 
-  return { client };
+  return { client, chains };
 }
