@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- MCP `task_update`: a `note` sent without a status change, or with the same status, is now appended to `status_history` as `{status, at, note, kind: "note"}`. It was dropped before. A call that changes nothing returns the current row.
+- MCP `task_update`: a `note` sent without a status change, or with the same status, is now appended to `status_history` as `{status, at, note, kind: "note"}`. It was dropped before. A call that changes nothing returns the current row. A call that carries a `note` without a status change (for example `{id, title, note}`) is guarded as a whole, including its other fields, and can return `conflict, re-read and retry`. A blank note on that path is ignored. Known gap: a status change racing a note or merge can drop the note; atomic append is tracked in #115.
 - Docs: the `.mcp.json` examples map the server's keys from Open Brain-specific variables (`${OPEN_BRAIN_SUPABASE_URL}`, `${OPEN_BRAIN_SERVICE_ROLE_KEY}`, `${OPEN_BRAIN_OPENAI_API_KEY}`) instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. The prefix keeps other projects from picking up the full-access key. `docs/install.md` notes `--yes` for non-interactive hosted changes, and the docs that name the email provider setting now say `[auth.email] enabled = true` (CLI 2.x reads `enable_signup`).
 - `supabase/config.toml`: `[auth.email]` and `[auth.sms]` use `enabled` instead of the deprecated `enable_signup` (CLI 3.0 warns about the old name). The top-level `[auth] enable_signup = false` is unchanged.
 - `.gitignore`: ignore `supabase/.branches/`, which CLI 3.0 `supabase start` creates.

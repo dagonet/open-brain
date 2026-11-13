@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { ToolDefinition } from './registry.js';
+import { historyLen, isPlainObject } from './task-shape.js';
 
 export interface TaskUpdateParams {
   id: string;
@@ -24,7 +25,7 @@ function compactEcho(row: Record<string, unknown>): string {
     status: row.status,
     priority: row.priority,
     updated_at: row.updated_at,
-    history_len: Array.isArray(row.status_history) ? row.status_history.length : 0,
+    history_len: historyLen(row),
   });
 }
 
@@ -70,12 +71,7 @@ export async function taskUpdate(
   if (metadata !== undefined) updates.metadata = metadata;
 
   if (metadata_merge !== undefined) {
-    const base =
-      typeof current.metadata === 'object' &&
-      current.metadata !== null &&
-      !Array.isArray(current.metadata)
-        ? (current.metadata as Record<string, unknown>)
-        : {};
+    const base = isPlainObject(current.metadata) ? current.metadata : {};
     const merged: Record<string, unknown> = { ...base };
     for (const [key, value] of Object.entries(metadata_merge)) {
       if (value === null) {
@@ -88,7 +84,10 @@ export async function taskUpdate(
   }
 
   // A note without a status change is kept as a note-only history entry.
-  const noteOnly = note !== undefined && (status === undefined || status === current.status);
+  const noteOnly =
+    note !== undefined &&
+    note.trim().length > 0 &&
+    (status === undefined || status === current.status);
   if (noteOnly) {
     const history = Array.isArray(current.status_history) ? [...current.status_history] : [];
     history.push({
@@ -131,7 +130,7 @@ export async function taskUpdate(
   const { data, error: writeError } = await writeQuery.select().single();
 
   if (writeError) {
-    if (guarded && (writeError as { code?: string }).code === 'PGRST116') {
+    if (guarded && writeError.code === 'PGRST116') {
       return JSON.stringify({ error: 'conflict, re-read and retry' });
     }
     return JSON.stringify({ error: writeError.message });
@@ -144,9 +143,10 @@ export const definition: ToolDefinition = {
   name: 'task_update',
   description:
     "Update a task by ID. Supports changing title, description, priority, linked_thought_ids, metadata, and status. When status changes, appends an entry to status_history. Setting status to 'cancelled' also sets deleted_at (soft-delete). " +
-    "A note now applies without a status change too: it is appended to status_history as a note-only entry (kind 'note') when status is absent or unchanged. " +
+    "A note also applies without a status change: it is appended to status_history as a note-only entry (kind 'note') when status is absent or unchanged. " +
     'metadata_merge is a SHALLOW top-level merge into the current metadata (null value deletes the key), so to change metadata.plan send the whole plan object {owner, goal, next_step, done_check}; it cannot be combined with metadata. ' +
-    "Note-only and metadata_merge writes fail with 'conflict, re-read and retry' if the task changed meanwhile. echo='compact' returns only {id, status, priority, updated_at, history_len}. A call that changes nothing returns the current row.",
+    "Note-only and metadata_merge writes fail with 'conflict, re-read and retry' if the task changed meanwhile. echo='compact' returns only {id, status, priority, updated_at, history_len}. A call that changes nothing returns the current row. " +
+    'A call that carries a note without a status change is guarded as a whole (including title or priority) and can return the conflict error. A status change racing a note or merge can drop the note; atomic append is tracked in #115.',
   schema: {
     id: z.string().uuid().describe('UUID of the task to update.'),
     title: z.string().min(1).optional().describe('New title (non-empty when provided).'),

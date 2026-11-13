@@ -55,6 +55,15 @@ describe('task_list', () => {
       expect(m.is).toHaveBeenCalledExactlyOnceWith('deleted_at', null);
       expect(m.order).toHaveBeenCalledExactlyOnceWith('created_at', { ascending: false });
       expect(m.limit).toHaveBeenCalledExactlyOnceWith(params.limit);
+      const expectedEq =
+        'status' in raw
+          ? [
+              ['project', 'p'],
+              ['status', 'open'],
+              ['priority', 2],
+            ]
+          : [];
+      expect(m.eq.mock.calls).toEqual(expectedEq);
       expect(m.in).not.toHaveBeenCalled();
       expect(m.lt).not.toHaveBeenCalled();
     }
@@ -82,7 +91,10 @@ describe('task_list', () => {
     const schema = z.object(listDef.schema);
     expect(schema.safeParse({ statuses: [] }).success).toBe(false);
     expect(schema.safeParse({ statuses: ['nope'] }).success).toBe(false);
+    expect(schema.safeParse({ statuses: ['cancelled'] }).success).toBe(false);
     expect(schema.safeParse({ stale_days: 0 }).success).toBe(false);
+    expect(schema.safeParse({ stale_days: 36501 }).success).toBe(false);
+    expect(schema.safeParse({ stale_days: 36500 }).success).toBe(true);
     expect(schema.safeParse({ sort: 'x' }).success).toBe(false);
   });
 
@@ -236,7 +248,7 @@ describe('task_get', () => {
   it('schema bounds description_chars to 0..2000', () => {
     const schema = z.object(getDef.schema);
     expect(schema.safeParse({ id: UUID, description_chars: 2001 }).success).toBe(false);
-    expect(schema.safeParse({ id: UUID, description_chars: -1 }).success).toBe(false);
+    expect(schema.safeParse({ id: UUID, description_chars: 0 }).success).toBe(false);
     expect(schema.safeParse({ id: UUID, description_chars: 2000 }).success).toBe(true);
   });
 
@@ -393,6 +405,74 @@ describe('task_update', () => {
     const { client } = setup(row(), null, { message: 'Cannot coerce', code: 'PGRST116' });
     const out = JSON.parse(await taskUpdate(client, { id: UUID, title: 'N' }));
     expect(out).toEqual({ error: 'Cannot coerce' });
+  });
+
+  it('cancel keeps its exact unguarded payload', async () => {
+    const { client, chains } = setup(row(), row());
+    await taskUpdate(client, { id: UUID, status: 'cancelled', note: 'dropped' });
+    const w = chains[1] as Mocks;
+    expect(w.update).toHaveBeenCalledExactlyOnceWith({
+      status: 'cancelled',
+      status_history: [{ status: 'cancelled', at: NOW_ISO, note: 'dropped' }],
+      deleted_at: NOW_ISO,
+    });
+    expect(w.eq.mock.calls).toEqual([['id', UUID]]);
+  });
+
+  it('{id, title, note} keeps the note and guards the whole write', async () => {
+    const { client, chains } = setup(row(), row());
+    await taskUpdate(client, { id: UUID, title: 'N', note: 'why' });
+    const w = chains[1] as Mocks;
+    expect(w.update).toHaveBeenCalledExactlyOnceWith({
+      title: 'N',
+      status_history: [{ status: 'open', at: NOW_ISO, note: 'why', kind: 'note' }],
+    });
+    expect(w.eq.mock.calls).toEqual([
+      ['id', UUID],
+      ['updated_at', '2026-01-02T00:00:00Z'],
+    ]);
+  });
+
+  it('status change plus metadata_merge is guarded, history entry has no kind', async () => {
+    const { client, chains } = setup(row({ metadata: { a: 1 } }), row());
+    await taskUpdate(client, { id: UUID, status: 'done', metadata_merge: { b: 2 } });
+    const w = chains[1] as Mocks;
+    expect(w.update).toHaveBeenCalledExactlyOnceWith({
+      metadata: { a: 1, b: 2 },
+      status: 'done',
+      status_history: [{ status: 'done', at: NOW_ISO, note: null }],
+    });
+    expect(w.eq.mock.calls).toContainEqual(['updated_at', '2026-01-02T00:00:00Z']);
+  });
+
+  it('blank note on the note-only path appends nothing', async () => {
+    const current = row();
+    const { client } = setup(current, null);
+    const out = await taskUpdate(client, { id: UUID, note: '   ' });
+    expect(out).toBe(JSON.stringify(current));
+    expect(client.from).toHaveBeenCalledTimes(1);
+
+    const { client: c2, chains } = setup(current, row());
+    await taskUpdate(c2, { id: UUID, title: 'N', note: '' });
+    expect((chains[1] as Mocks).update).toHaveBeenCalledExactlyOnceWith({ title: 'N' });
+    expect((chains[1] as Mocks).eq.mock.calls).toEqual([['id', UUID]]);
+  });
+
+  it('blank note with a status change keeps the existing entry', async () => {
+    const { client, chains } = setup(row(), row());
+    await taskUpdate(client, { id: UUID, status: 'done', note: '' });
+    expect((chains[1] as Mocks).update).toHaveBeenCalledWith({
+      status: 'done',
+      status_history: [{ status: 'done', at: NOW_ISO, note: '' }],
+    });
+  });
+
+  it('{id, status: same} returns the current row without a write', async () => {
+    const current = row();
+    const { client } = setup(current, null);
+    const out = await taskUpdate(client, { id: UUID, status: 'open' });
+    expect(out).toBe(JSON.stringify(current));
+    expect(client.from).toHaveBeenCalledTimes(1);
   });
 
   it('a call that changes nothing returns the current row without writing', async () => {

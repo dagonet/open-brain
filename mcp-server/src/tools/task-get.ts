@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { ToolDefinition } from './registry.js';
-import { compactRow, truncateCodePoints } from './task-list.js';
+import { compactRow, historyLen, planOf, truncateCodePoints } from './task-shape.js';
 
 export interface TaskGetParams {
   id: string;
@@ -31,11 +31,7 @@ export async function taskGet(supabase: SupabaseClient, params: TaskGetParams): 
 
   if (compact === true) {
     const row = data as Record<string, unknown>;
-    const metadata = row.metadata;
-    const plan =
-      typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)
-        ? ((metadata as Record<string, unknown>).plan ?? null)
-        : null;
+    const plan = planOf(row);
     const description =
       typeof row.description === 'string'
         ? truncateCodePoints(row.description, description_chars ?? DEFAULT_DESCRIPTION_CHARS)
@@ -44,7 +40,7 @@ export async function taskGet(supabase: SupabaseClient, params: TaskGetParams): 
       ...compactRow({ ...row, plan }),
       description,
       plan,
-      history_len: Array.isArray(row.status_history) ? row.status_history.length : 0,
+      history_len: historyLen(row),
     });
   }
 
@@ -65,7 +61,7 @@ export const definition: ToolDefinition = {
     description_chars: z
       .number()
       .int()
-      .min(0)
+      .min(1)
       .max(2000)
       .optional()
       .describe('With compact: max description characters (default 300).'),
