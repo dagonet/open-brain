@@ -32,7 +32,7 @@ People, projects and technologies you mention become a co-occurrence graph. Expl
 
 ### Tasks
 
-`task_create`, `task_get`, `task_list` and `task_update` track action items from Claude Code, with a status history. A token-protected `tasks-feed` gives a local tool a read-only list.
+`task_create`, `task_get`, `task_list` and `task_update` track action items from Claude Code, with a status history. In a terminal or a hook, `brain task list` filters and counts tasks, and `brain task set` changes a task's status or priority, or adds a note to its history. A token-protected `tasks-feed` gives a local tool a read-only list.
 
 ### A dashboard
 
@@ -82,9 +82,10 @@ Slack: invite the bot to a channel and every message people post there is captur
 
 ## Get started
 
-You need Node.js, the [Supabase CLI](https://github.com/supabase/cli#install-the-cli), a Supabase project and an OpenAI key. The short version:
+You need Node.js 22 or later (the MCP server needs it), the [Supabase CLI](https://github.com/supabase/cli#install-the-cli), a Supabase project and an OpenAI key. The short version:
 
 ```bash
+supabase login                                                                              # once per machine (or set SUPABASE_ACCESS_TOKEN)
 supabase link --project-ref <project-ref> && supabase db push --remote                       # 1. the database
 supabase functions deploy capture-thought                                                    # 2. the functions, each by name (six in all)
 npm ci --prefix cli && npm run build --prefix cli && npm install -g --install-links=false ./cli   # 3. the brain command
@@ -95,6 +96,8 @@ On Supabase CLI 2.x, use `--linked` instead of `--remote` in step 1 (see [`docs/
 That is a teaser, not the guide. The full walk-through, with keys, secrets, the MCP server, the dashboard and optional Slack and nightly jobs, is in [`docs/install.md`](docs/install.md). You can also try everything on a local stack first.
 
 ## Upgrading
+
+Coming from 0.9: apply migration 019 first, then rebuild the MCP server (Node 22 or later) and the CLI; the steps are in [`docs/upgrading.md`](docs/upgrading.md).
 
 Coming from 0.8: [`docs/upgrading.md`](docs/upgrading.md). Keys first, then the new migrations, then the functions by name. Release notes for every version are in [`CHANGELOG.md`](CHANGELOG.md).
 

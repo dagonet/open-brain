@@ -30,7 +30,7 @@ function compactEcho(row: Record<string, unknown>): string {
 }
 
 const MIGRATION_019_MISSING =
-  'task_update needs database migration 019 (task_apply_update): run `supabase db push --remote`, see docs/upgrading.md';
+  'task_update needs database migration 019 (task_apply_update): run `supabase db push --remote` (link the checkout first), see docs/upgrading.md';
 
 /** True when PostgREST or Postgres says the function is missing (migration 019 not applied). */
 function isMissingFunction(error: { code?: string; message: string }): boolean {

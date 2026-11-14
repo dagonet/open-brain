@@ -138,9 +138,9 @@ Set `OPEN_BRAIN_TOOLS_DISABLED` in a project's `.mcp.json` to hide tool families
 
 | Family | Hides |
 | ------ | ----- |
-| `wiki` | `wiki_get`, `wiki_list`, `wiki_refresh`, and the wiki-first rule in the instructions |
-| `contradictions` | `contradictions_list`, `contradictions_resolve`, `contradictions_audit` |
-| `tasks` | `task_create`, `task_get`, `task_list`, `task_update` |
+| `wiki` | `wiki_get`, `wiki_list`, `wiki_refresh`, and the whole wiki block of the instructions: the wiki-first rule **and** the contradictions guidance (the `contradictions` tools stay unless you hide that family too) |
+| `contradictions` | `contradictions_list`, `contradictions_resolve`, `contradictions_audit`. The instructions keep their contradictions guidance: it sits in the wiki block, so only the `wiki` family removes it |
+| `tasks` | `task_create`, `task_get`, `task_list`, `task_update`. The TASKS section of the instructions is always sent, even when this family is hidden |
 | `entities` | `entities_search`, `entities_graph`, and the entity section of the instructions (`thoughts_search_expanded` stays: it is a thoughts tool) |
 
 Hidden tools do not appear in `tools/list`. Toolkit-based projects ([claude-code-toolkit](https://github.com/dagonet/claude-code-toolkit)) ship the Open Brain references pre-wired and can use the same variable.

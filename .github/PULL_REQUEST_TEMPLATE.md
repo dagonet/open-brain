@@ -25,6 +25,7 @@ How was this tested?
 
 - [ ] Tests pass (`npx vitest run`)
 - [ ] TypeScript compiles (`npx tsc --noEmit`)
+- [ ] Database tests pass (`supabase test db`) when migrations or database tests changed
 - [ ] Tested end-to-end
 
 ## Checklist

@@ -42,7 +42,7 @@ export interface TaskSetEcho {
 }
 
 export const MIGRATION_019_MISSING =
-  'task set needs database migration 019 (task_apply_update): run `supabase db push --remote`, see docs/upgrading.md';
+  'task set needs database migration 019 (task_apply_update): run `supabase db push --remote` (link the checkout first), see docs/upgrading.md';
 
 // Any 8-4-4-4-12 hex, like zod's z.guid() in the MCP server: no RFC version or variant bits.
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

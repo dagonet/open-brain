@@ -48,6 +48,7 @@ Fill in `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `OP
 Link your project and push the migrations (001 to 019):
 
 ```bash
+supabase login                                  # once per machine (or set SUPABASE_ACCESS_TOKEN)
 supabase link --project-ref <project-ref>
 supabase db push --remote
 ```

@@ -1,6 +1,6 @@
 # Open Brain MCP Server
 
-A local [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Code read and write access to your Open Brain through 22 tools. It is not published to npm; build it from a clone.
+A local [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Code read and write access to your Open Brain through 22 tools. It is not published to npm; build it from a clone. Needs Node.js 22+.
 
 ```bash
 npm ci

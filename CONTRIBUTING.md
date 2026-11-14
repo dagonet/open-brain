@@ -4,7 +4,7 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 22 recommended (the CLI and MCP server run on 18+, but `npm ci` warns below 22.12 and the CLI tests need 22.12+; the dashboard needs 20.9+)
+- [Node.js](https://nodejs.org/) 22 recommended (the MCP server needs 22+; the CLI runs on 18+, but `npm ci` warns below 22.12 and the CLI tests need 22.12+; the dashboard needs 20.9+)
 - [Supabase account](https://supabase.com/) (free tier works), or Docker and the Supabase CLI for a [local stack](#testing-against-a-local-stack)
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 - [OpenAI API key](https://platform.openai.com/api-keys)
@@ -47,11 +47,18 @@ Edge function tests run under [Deno](https://deno.com/) (not part of the gate; C
 deno test --node-modules-dir=none --allow-env supabase/functions/handler-auth_test.ts supabase/functions/tasks-feed_test.ts supabase/functions/slack-webhook_test.ts supabase/functions/process-thought_test.ts
 ```
 
+Database tests ([pgTAP](https://pgtap.org/), in `supabase/tests/`) run against a local stack, so start it first. CI runs them in the "Database (pgTAP)" job:
+
+```bash
+supabase start
+supabase test db
+```
+
 ## Testing against a local stack
 
 You can run the whole database and the edge functions on your machine with Docker and the Supabase CLI. [`docs/install.md`](docs/install.md#try-it-on-a-local-stack) has the walk-through; these are the rules for doing it safely and repeatably.
 
-- **Local only.** Use the `supabase` CLI for `start`, `db reset`, `functions serve`, `status` and `stop`. Never `login`, `link`, `db push` or `functions deploy` from a test run: they act on a hosted project. `db push` does so with `--remote` on CLI 3.0 and with `--linked` on CLI 2.x, where even a bare `db push` targets the hosted project; on 3.0 a bare one targets the local database.
+- **Local only.** Use the `supabase` CLI for `start`, `test db`, `db reset`, `functions serve`, `status` and `stop`. Never `login`, `link`, `db push` or `functions deploy` from a test run: they act on a hosted project. `db push` does so with `--remote` on CLI 3.0 and with `--linked` on CLI 2.x, where even a bare `db push` targets the hosted project; on 3.0 a bare one targets the local database.
 - **Sign-ups are off** in `supabase/config.toml` (`[auth] enable_signup = false`, as on a hosted project). The email provider stays on (`[auth.email] enabled = true`), so password login works, the dashboard login included. Create the user with Studio or the admin API (`/auth/v1/admin/users` with the service key). Review `supabase/config.toml` before any `supabase config push`: it pushes the whole local auth config to the hosted project.
 - **Keep `kong`.** Do not exclude it from `supabase start`: the edge functions and REST API are reached through it.
 - **Run SQL inside the database container**, so no local `psql` is needed and errors stop the run:
@@ -70,7 +77,7 @@ You can run the whole database and the edge functions on your machine with Docke
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Ensure the gate passes (`cct-gate` or `bash scripts/gate.sh`), plus the Deno tests when you touched `supabase/functions/`
+3. Ensure the gate passes (`cct-gate` or `bash scripts/gate.sh`), plus the Deno tests when you touched `supabase/functions/` and `supabase test db` when you touched `supabase/migrations/` or `supabase/tests/`
 4. Commit with a clear message describing what and why
 5. Open a pull request
 

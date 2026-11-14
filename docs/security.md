@@ -25,7 +25,7 @@ The anon key is embedded in the dashboard and is public by design. It cannot rea
 
 ## Database lockdown, migration by migration
 
-All three migrations are idempotent (safe to re-run). Check them with the [verify scripts](#the-verify-scripts).
+All four migrations are idempotent (safe to re-run). Check them with the [verify scripts](#the-verify-scripts).
 
 **016, anon lockdown.** Drops the policies and privileges that applied to `anon`/`PUBLIC`, makes the views run with the caller's rights (`security_invoker`) and revokes `EXECUTE` on the RPCs from `anon`. After it, `curl` with the anon key against PostgREST returns `401` or `42501` instead of data.
 
@@ -35,6 +35,8 @@ All three migrations are idempotent (safe to re-run). Check them with the [verif
 - *Add or remove an owner.* In the SQL editor: `insert into public.owners (user_id) values ('<your-user-id>');` and `delete from public.owners where user_id = '<user-id>';`. Find the id under Authentication > Users. Users deleted from Supabase Auth leave the list automatically.
 
 **018, narrower grants.** `authenticated` keeps `SELECT` where the dashboard reads, plus `UPDATE` of `contradictions.status` and `resolved_at` (the resolve button), and nothing else: no inserts or deletes, no access to `tasks`. The owner check moves to `private.is_owner()`, a schema the REST API does not expose, and `public.is_owner()` is dropped. The ten remaining `SECURITY DEFINER` functions pin `search_path = public, extensions, pg_temp`. `anon`, `authenticated` and `PUBLIC` lose `CREATE` on the schema `public`. Rollback steps are in the migration header.
+
+**019, task_apply_update.** Keeps the lockdown. `public.task_apply_update()` is `SECURITY INVOKER` with `search_path = ''`, and `EXECUTE` is granted to `service_role` only (revoked from `PUBLIC`, `anon` and `authenticated`).
 
 On a hosted project, check **Project Settings > API > Exposed schemas**: `private` must not be listed (the default is `public` and `graphql_public`).
 
