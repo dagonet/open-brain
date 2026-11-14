@@ -56,10 +56,7 @@ export const definition: ToolDefinition = {
       .string()
       .optional()
       .describe('Project scope. Falls back to OPEN_BRAIN_DEFAULT_PROJECT if omitted.'),
-    linked_thought_ids: z
-      .array(z.string().uuid())
-      .optional()
-      .describe('Optional UUIDs of linked thoughts.'),
+    linked_thought_ids: z.array(z.guid()).optional().describe('Optional UUIDs of linked thoughts.'),
     metadata: z
       .record(z.string(), z.unknown())
       .optional()

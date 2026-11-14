@@ -85,7 +85,7 @@ Every thought you capture is:
 | Component | Runtime | Description |
 | --------- | ------- | ----------- |
 | `cli/` | Node.js 18+ | `brain` command: capture thoughts, import memories, refresh wiki pages, run contradiction audits. Zero runtime dependencies. Reference: [`cli.md`](cli.md). |
-| `mcp-server/` | Node.js 18+ | MCP server with 22 tools (10 thoughts + 3 wiki + 3 contradictions + 4 tasks + 2 entities) for Claude Code integration. Reference: [`mcp.md`](mcp.md). |
+| `mcp-server/` | Node.js 22+ | MCP server with 22 tools (10 thoughts + 3 wiki + 3 contradictions + 4 tasks + 2 entities) for Claude Code integration. Reference: [`mcp.md`](mcp.md). |
 | `web/` | Next.js 16 | Authenticated dashboard with `/`, `/wiki`, `/contradictions` and `/graph` routes. Reads as the signed-in user; the anon key serves only login/auth; auto-deployed from `main` to Vercel. Reference: [`dashboard.md`](dashboard.md). |
 | `supabase/functions/capture-thought/` | Deno | Thought processing and storage |
 | `supabase/functions/compile-wiki/` | Deno | Compiles a topic-level wiki page from clustered thoughts with citation validation |

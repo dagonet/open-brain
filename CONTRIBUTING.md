@@ -140,7 +140,7 @@ documented surface always matches the code.
 | Component | Path | Runtime |
 |-----------|------|---------|
 | CLI | `cli/` | Node.js 18+ (tests: 22.12+) |
-| MCP Server | `mcp-server/` | Node.js 18+ |
+| MCP Server | `mcp-server/` | Node.js 22+ |
 | Edge Functions | `supabase/functions/` | Deno |
 | Web Dashboard | `web/` | Next.js 16 |
 | Database | `supabase/migrations/` | PostgreSQL + pgvector |

@@ -19,11 +19,14 @@
     "directory": "mcp-server"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "bugs": {
     "url": "https://github.com/dagonet/open-brain/issues"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@supabase/supabase-js": "^2.49.4",
     "openai": "^7.57.0",
     "zod": "^4.6.7"

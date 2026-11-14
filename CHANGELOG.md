@@ -13,18 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MCP compact task rows (`task_list` and `task_get` with `compact`) gain `plan_shape` after `planned`: `object`, `text` (older tasks with a plain-text `metadata.plan`; never `planned`), `none` or `other`. The `task_update` description warns that `metadata_merge` replaces `metadata.plan` whole, so text must be copied to `plan_text` in the same call. Writes and non-compact answers are unchanged.
 
-### Security
-
-- Cleared every `npm audit` finding in `mcp-server`, `cli` and `web` (0 vulnerabilities). `mcp-server` moves to `zod` 4 (`^4.6.7`) and `openai` 7 (`^7.57.0`); `npm audit fix` updates the transitive `@modelcontextprotocol/sdk` dependencies (body-parser, hono, @hono/node-server, qs, fast-uri). The dev-only `minimatch` finding behind `typescript-eslint` has no patched release inside typescript-estree's range, so each package overrides `@typescript-eslint/typescript-estree`'s `minimatch` to `^11.0.8`. Tool names, parameters, defaults and answers are unchanged; the `tools/list` JSON Schema loses `additionalProperties: false` on the input object (unknown keys are still stripped), gains a UUID `pattern` and `propertyNames` on metadata objects, and `task_list.limit` gains a `maximum` of 2^53-1.
-
 ### Changed
 
+- **Breaking requirement:** the MCP server now needs Node 22 or later (`openai` 7); `mcp-server/package.json` declares `engines.node >=22`. CI already runs Node 22.
 - CLI: `task` is now a reserved first word, like `import`, `wiki` and `audit`. `brain "task force meeting"` (one argument) and `brain -- task` still capture; an unquoted multi-word `brain task ...` runs the `task` command and fails on an unknown subcommand. `docs/cli.md` lists the reserved words.
 - MCP `task_update`: a `note` sent without a status change, or with the same status, is now appended to `status_history` as `{status, at, note, kind: "note"}`. It was dropped before. A call that changes nothing returns the current row. A call that carries a `note` without a status change (for example `{id, title, note}`) is guarded as a whole, including its other fields, and can return `conflict, re-read and retry`. A blank note on that path is ignored. Known gap: a status change racing a note or merge can drop the note; atomic append is tracked in #115.
 - Docs: the `.mcp.json` examples map the server's keys from Open Brain-specific variables (`${OPEN_BRAIN_SUPABASE_URL}`, `${OPEN_BRAIN_SERVICE_ROLE_KEY}`, `${OPEN_BRAIN_OPENAI_API_KEY}`) instead of literal placeholders, with a warning that a project `.mcp.json` is usually committed. The prefix keeps other projects from picking up the full-access key. `docs/install.md` notes `--yes` for non-interactive hosted changes, and the docs that name the email provider setting now say `[auth.email] enabled = true` (CLI 2.x reads `enable_signup`).
 - `supabase/config.toml`: `[auth.email]` and `[auth.sms]` use `enabled` instead of the deprecated `enable_signup` (CLI 3.0 warns about the old name). The top-level `[auth] enable_signup = false` is unchanged.
 - `.gitignore`: ignore `supabase/.branches/`, which CLI 3.0 `supabase start` creates.
 - Edge functions pin `@supabase/supabase-js` to 2.49.4 everywhere; `capture-thought` and `slack-webhook` used an unpinned `@2` import (#92).
+
+### Security
+
+- Cleared every `npm audit` finding in `mcp-server`, `cli` and `web` (0 vulnerabilities). `mcp-server` moves to `zod` 4 (`^4.6.7`) and `openai` 7 (`^7.57.0`); `npm audit fix` updates the transitive `@modelcontextprotocol/sdk` dependencies (body-parser, hono, @hono/node-server, qs, fast-uri). The dev-only `minimatch` finding behind `typescript-eslint` has no patched release inside typescript-estree's range, so each package overrides `@typescript-eslint/typescript-estree`'s `minimatch` to `^11.0.8`. The override is temporary, until typescript-eslint moves to minimatch 11. Tool names, parameters, defaults and answers are unchanged; the `tools/list` JSON Schema loses `additionalProperties: false` on the input object (unknown keys are still stripped), gains a UUID `pattern` (ids are checked with `z.guid()`, so the accepted ids are the same as before) and `propertyNames` on metadata objects, and `task_list.limit` gains a `maximum` of 2^53-1.
+- `@hono/node-server` (a production dependency of the MCP SDK) moves from 1 to 2 with `npm audit fix`; the stdio transport is unaffected. The wording of InvalidParams error messages for bad tool arguments changed with zod 4; the error codes did not.
 
 ### Fixed
 

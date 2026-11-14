@@ -149,11 +149,11 @@ export const definition: ToolDefinition = {
     "Note-only and metadata_merge writes fail with 'conflict, re-read and retry' if the task changed meanwhile. echo='compact' returns only {id, status, priority, updated_at, history_len}. A call that changes nothing returns the current row. " +
     'A call that carries a note without a status change is guarded as a whole (including title or priority) and can return the conflict error. A status change racing a note or merge can drop the note; atomic append is tracked in #115.',
   schema: {
-    id: z.string().uuid().describe('UUID of the task to update.'),
+    id: z.guid().describe('UUID of the task to update.'),
     title: z.string().min(1).optional().describe('New title (non-empty when provided).'),
     description: z.string().optional().describe('New description.'),
     priority: z.number().int().min(1).max(5).optional().describe('New priority 1-5.'),
-    linked_thought_ids: z.array(z.string().uuid()).optional().describe('New linked thought IDs.'),
+    linked_thought_ids: z.array(z.guid()).optional().describe('New linked thought IDs.'),
     metadata: z
       .record(z.string(), z.unknown())
       .optional()

@@ -11,7 +11,7 @@ Want to try it first without a hosted project? [Try it on a local stack](#try-it
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 22 recommended. The CLI and the MCP server run on Node 18+. Building the CLI also works there, but `npm ci` warns below 22.12 and the CLI test suite (vitest 5) needs 22.12+. The dashboard (`web/`, Next.js 16) needs 20.9+ (Node 18 refuses to build it).
+- [Node.js](https://nodejs.org/) 22 recommended. The MCP server needs Node 22+ (openai 7). The CLI runs on Node 18+, and building it also works there, but `npm ci` warns below 22.12 and the CLI test suite (vitest 5) needs 22.12+. The dashboard (`web/`, Next.js 16) needs 20.9+ (Node 18 refuses to build it).
 - A [Supabase account](https://supabase.com/) (the free tier works).
 - The [Supabase CLI](https://github.com/supabase/cli/releases), see the install note below. Docker, if you deploy functions without `--use-api`.
 - An [OpenAI API key](https://platform.openai.com/api-keys).
