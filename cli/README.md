@@ -1,6 +1,6 @@
 ﻿# @open-brain/cli
 
-The `brain` command: capture thoughts from a shell, import notes, export to Obsidian, compile wiki pages and audit contradictions. It is not published to npm; build it from a clone.
+The `brain` command: capture thoughts from a shell, import notes, export to Obsidian, compile wiki pages, audit contradictions and list tasks. It is not published to npm; build it from a clone.
 
 ```bash
 npm ci --prefix cli
