@@ -47,8 +47,8 @@ SET search_path = ''
 AS $$
 DECLARE
   -- exactly the characters JavaScript String.prototype.trim() strips
-  c_ws constant text := E' \t\n\r\u000B\f        '
-                     || E'         　﻿';
+  c_ws constant text := U&' \0009\000A\000D\000B\000C\00A0\1680\2000\2001\2002\2003\2004\2005'
+                     || U&'\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF';
   v_patch jsonb := coalesce(p_patch, '{}'::jsonb);
   cur public.tasks;
   nxt public.tasks;

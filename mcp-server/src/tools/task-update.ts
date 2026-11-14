@@ -34,10 +34,11 @@ const MIGRATION_019_MISSING =
 
 /** True when PostgREST or Postgres says the function is missing (migration 019 not applied). */
 function isMissingFunction(error: { code?: string; message: string }): boolean {
+  const names = /task_apply_update/.test(error.message);
   return (
     error.code === 'PGRST202' ||
-    error.code === '42883' ||
-    /function .* does not exist/i.test(error.message)
+    (error.code === '42883' && names) ||
+    (names && /function .* does not exist/i.test(error.message))
   );
 }
 

@@ -22,7 +22,7 @@ Neither package is published to npm; "version" means what `brain --version` and 
 3. **Rebuild the MCP server on each machine.** `npm ci --prefix mcp-server && npm run build --prefix mcp-server` (the server runs the compiled `mcp-server/dist/`).
 4. **Reconnect** the MCP server in your client: run `/mcp` and reconnect `open-brain`.
 
-A new server on a database without migration 019 does not fall back to the old code: `task_update` answers `{"error": "task_update needs database migration 019 (task_apply_update): run `supabase db push --remote`, see docs/upgrading.md (...)"}`. Apply the migration and call it again. Rolling back: `DROP FUNCTION public.task_apply_update(uuid, jsonb, jsonb, text, text);` and run an MCP server from before this release.
+A new server on a database without migration 019 does not fall back to the old code: `task_update` answers with an error that starts `task_update needs database migration 019 (task_apply_update)` and tells you to run `supabase db push --remote` (see this page). Apply the migration and call it again. Rolling back: `DROP FUNCTION public.task_apply_update(uuid, jsonb, jsonb, text, text);` and run an MCP server from before this release.
 
 ## From 0.8 to 0.9
 

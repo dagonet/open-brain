@@ -95,3 +95,16 @@ jobs:
         working-directory: web
       - run: npx eslint .
         working-directory: web
+
+  database:
+    name: Database (pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Runner-local only: no secrets, no link, no remote project. Only the database and
+      # auth containers start (the migrations need the auth schema); the rest is excluded.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.0.0
+      - run: supabase start -x realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - run: supabase test db

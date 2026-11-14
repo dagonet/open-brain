@@ -5,7 +5,7 @@
 -- a real write moves it to now() (trigger), a no-op leaves it alone.
 
 BEGIN;
-SELECT plan(35);
+SELECT plan(42);
 
 INSERT INTO public.tasks (id, title, status, priority, metadata, status_history, updated_at) VALUES
   ('00000000-0000-4000-8000-000000000001', 'T1', 'open', 3, '{"keep":1,"drop":2,"plan":{"old":true}}', '[]', '2020-01-01Z'),
@@ -91,9 +91,12 @@ SELECT throws_ok($$SELECT * FROM public.task_apply_update('00000000-0000-4000-80
 
 -- no-op returns the row without writing
 SELECT is((SELECT count(*) FROM public.task_apply_update('00000000-0000-4000-8000-000000000003')), 1::bigint, 'bare id returns the row');
-SELECT is((SELECT updated_at FROM public.tasks WHERE id = '00000000-0000-4000-8000-000000000002'),
-  (SELECT updated_at FROM public.task_apply_update('00000000-0000-4000-8000-000000000002', p_status => 'blocked')),
-  'same status without note returns the row');
+INSERT INTO public.tasks (id, title, status, status_history, updated_at) VALUES
+  ('00000000-0000-4000-8000-0000000000ab', 'same', 'blocked', '[{"status":"blocked","at":"x","note":null}]', '2020-01-01Z');
+SELECT is((SELECT updated_at FROM public.task_apply_update('00000000-0000-4000-8000-0000000000ab', p_status => 'blocked')),
+  '2020-01-01Z'::timestamptz, 'same status without note keeps updated_at');
+SELECT is((SELECT jsonb_array_length(status_history) FROM public.task_apply_update('00000000-0000-4000-8000-0000000000ab', p_status => 'blocked')),
+  1, 'same status without note keeps the history length');
 INSERT INTO public.tasks (id, title, updated_at) VALUES ('00000000-0000-4000-8000-0000000000aa', 'noop', '2020-01-01Z');
 SELECT is((SELECT updated_at FROM public.task_apply_update('00000000-0000-4000-8000-0000000000aa')),
   '2020-01-01Z'::timestamptz, 'no-op keeps updated_at');
@@ -108,6 +111,22 @@ SELECT is((SELECT count(*) FROM public.task_apply_update('00000000-0000-4000-800
   0::bigint, 'an already-deleted task is not found');
 SELECT is((SELECT count(*) FROM public.task_apply_update('00000000-0000-4000-8000-0000000000ff', p_note => 'x')),
   0::bigint, 'an unknown id is not found');
+
+-- combined calls
+SELECT is((SELECT title || (status_history -> -1 ->> 'kind') FROM public.task_apply_update('00000000-0000-4000-8000-000000000005',
+  p_patch => '{"title":"Combo"}', p_note => 'why')), 'Combonote', 'title plus note writes both');
+SELECT is((SELECT status || (metadata ->> 'm') || jsonb_array_length(status_history)::text FROM public.task_apply_update('00000000-0000-4000-8000-000000000005',
+  p_status => 'in_progress', p_metadata_merge => '{"m":"x"}')), 'in_progressx3', 'status change plus merge writes both');
+
+-- patch keys outside the allowed five are refused, so a patch cannot rewrite id, history or deleted_at
+SELECT throws_ok($$SELECT * FROM public.task_apply_update('00000000-0000-4000-8000-000000000005', p_patch => '{"id":"00000000-0000-4000-8000-0000000000ee"}')$$,
+  'P0001', NULL, 'a patch with id is refused');
+SELECT throws_ok($$SELECT * FROM public.task_apply_update('00000000-0000-4000-8000-000000000005', p_patch => '{"deleted_at":"2020-01-01Z"}')$$,
+  'P0001', NULL, 'a patch with deleted_at is refused');
+SELECT throws_ok($$SELECT * FROM public.task_apply_update('00000000-0000-4000-8000-000000000005', p_patch => '{"status_history":[]}')$$,
+  'P0001', NULL, 'a patch with status_history is refused');
+SELECT throws_ok($$SELECT * FROM public.task_apply_update('00000000-0000-4000-8000-000000000005', p_patch => '[1]')$$,
+  'P0001', 'p_patch must be a JSON object', 'a non-object patch is refused');
 
 -- privileges
 SELECT is(has_function_privilege('anon', 'public.task_apply_update(uuid,jsonb,jsonb,text,text)', 'EXECUTE')

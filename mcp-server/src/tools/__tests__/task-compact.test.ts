@@ -454,6 +454,18 @@ describe('task_update', () => {
     }
   });
 
+  it('unrelated SQL errors are not mapped to the migration message', async () => {
+    for (const error of [
+      { code: '42883', message: 'operator does not exist: text = integer' },
+      { code: '23514', message: 'new row violates check constraint "tasks_status_check"' },
+      { message: 'function other_fn(uuid) does not exist' },
+    ]) {
+      const { client } = setup({ data: null, error });
+      const out = JSON.parse(await taskUpdate(client, { id: UUID, status: 'done' }));
+      expect(out).toEqual({ error: error.message });
+    }
+  });
+
   it('rejects metadata together with metadata_merge before any query', async () => {
     const { client, rpc } = setup({ data: [row()] });
     const out = JSON.parse(
