@@ -115,11 +115,7 @@ describe('parseTaskSetArgs', () => {
     ['upper-case status', [ID, '--status', 'DONE'], /--status must be one of/],
     ['priority 0', [ID, '--priority', '0'], /--priority must be an integer from 1 to 5/],
     ['priority 6', [ID, '--priority', '6'], /--priority must be an integer from 1 to 5/],
-    [
-      'priority negative',
-      [ID, '--priority', '-1'],
-      /--priority requires a value|--priority must be/,
-    ],
+    ['priority negative', [ID, '--priority', '-1'], /--priority must be an integer from 1 to 5/],
     ['priority fractional', [ID, '--priority', '1.5'], /--priority must be an integer from 1 to 5/],
     ['priority text', [ID, '--priority', 'high'], /--priority must be an integer from 1 to 5/],
     [
@@ -187,10 +183,9 @@ describe('buildTaskSetBody', () => {
     });
   });
 
-  it('has no undefined or null keys (they would be sent as null)', () => {
+  it('leaves out keys that were not given', () => {
     const body = buildTaskSetBody({ ...base, status: 'open' });
-    expect(Object.keys(body).sort()).toEqual(['p_id', 'p_patch', 'p_status']);
-    expect(JSON.parse(JSON.stringify(body))).toEqual(body);
+    expect(body).toStrictEqual({ p_id: ID, p_patch: {}, p_status: 'open' });
   });
 });
 
@@ -357,6 +352,8 @@ describe('brain task set', () => {
 
     it('--note -h prints help and writes nothing; --note=-h sends the note', async () => {
       expect(await run(ID, '--note', '-h')).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await run(ID, '--note', '--help')).toBe(0);
       expect(fetchMock).not.toHaveBeenCalled();
       expect(await run(ID, '--note=-h')).toBe(0);
       expect(JSON.parse(request().init.body as string).p_note).toBe('-h');

@@ -316,7 +316,7 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  appends a history entry (with the note); a note alone appends a note-only entry;',
       '  cancelled soft-deletes the task. A note that starts with -- must be written --note=<text>.',
       '  Prints one task line, or with --json {id, status, priority, updated_at, history_len}.',
-      '  Fails with "task not found" for an unknown, deleted or cancelled id. Needs migration 019.',
+      '  Fails with "Task not found" for an unknown, deleted or cancelled id. Needs migration 019.',
       '',
     ].join('\n'),
   );

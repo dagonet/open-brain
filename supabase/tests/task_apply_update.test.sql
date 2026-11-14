@@ -5,7 +5,7 @@
 -- a real write moves it to now() (trigger), a no-op leaves it alone.
 
 BEGIN;
-SELECT plan(42);
+SELECT plan(44);
 
 INSERT INTO public.tasks (id, title, status, priority, metadata, status_history, updated_at) VALUES
   ('00000000-0000-4000-8000-000000000001', 'T1', 'open', 3, '{"keep":1,"drop":2,"plan":{"old":true}}', '[]', '2020-01-01Z'),
@@ -100,6 +100,13 @@ SELECT is((SELECT jsonb_array_length(status_history) FROM public.task_apply_upda
 INSERT INTO public.tasks (id, title, updated_at) VALUES ('00000000-0000-4000-8000-0000000000aa', 'noop', '2020-01-01Z');
 SELECT is((SELECT updated_at FROM public.task_apply_update('00000000-0000-4000-8000-0000000000aa')),
   '2020-01-01Z'::timestamptz, 'no-op keeps updated_at');
+
+-- only an empty patch is a no-op: a patch that sets a field to its current value still writes
+INSERT INTO public.tasks (id, title, priority, updated_at) VALUES ('00000000-0000-4000-8000-0000000000ac', 'same prio', 4, '2020-01-01Z');
+SELECT is((SELECT priority FROM public.task_apply_update('00000000-0000-4000-8000-0000000000ac', '{"priority":4}')),
+  4::smallint, 'a same-value priority patch returns the row');
+SELECT isnt((SELECT updated_at FROM public.tasks WHERE id = '00000000-0000-4000-8000-0000000000ac'),
+  '2020-01-01Z'::timestamptz, 'a same-value priority patch still moves updated_at');
 
 -- cancel sets deleted_at, then not found
 SELECT is((SELECT deleted_at IS NOT NULL AND status = 'cancelled' AND date_trunc('milliseconds', deleted_at) = deleted_at
