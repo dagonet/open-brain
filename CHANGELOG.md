@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MCP `task_list`, `task_get` and `task_update` take optional parameters for small answers: `task_list` `compact`, `statuses`, `stale_days`, `priority_missing` and `sort`; `task_get` `compact` and `description_chars`; `task_update` `echo: "compact"` and `metadata_merge` (shallow merge, `null` deletes a key, guarded against concurrent writes). Calls without them behave as before. The plan convention is `metadata.plan = {owner, goal, next_step, done_check}`.
 
-- MCP compact task rows (`task_list` and `task_get` with `compact`) gain `plan_shape` after `planned`: `object`, `text` (older tasks with a plain-text `metadata.plan`; never `planned`), `none` or `other`. The `task_update` description warns that `metadata_merge` replaces `metadata.plan` whole, so text must be moved to another key first. Writes and non-compact answers are unchanged.
+- MCP compact task rows (`task_list` and `task_get` with `compact`) gain `plan_shape` after `planned`: `object`, `text` (older tasks with a plain-text `metadata.plan`; never `planned`), `none` or `other`. The `task_update` description warns that `metadata_merge` replaces `metadata.plan` whole, so text must be copied to `plan_text` in the same call. Writes and non-compact answers are unchanged.
 
 ### Changed
 

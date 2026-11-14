@@ -145,7 +145,7 @@ export const definition: ToolDefinition = {
     "Update a task by ID. Supports changing title, description, priority, linked_thought_ids, metadata, and status. When status changes, appends an entry to status_history. Setting status to 'cancelled' also sets deleted_at (soft-delete). " +
     "A note also applies without a status change: it is appended to status_history as a note-only entry (kind 'note') when status is absent or unchanged. " +
     'metadata_merge is a SHALLOW top-level merge into the current metadata (null value deletes the key), so to change metadata.plan send the whole plan object {owner, goal, next_step, done_check}; it cannot be combined with metadata. ' +
-    "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), move the text to another key first, or it is lost. " +
+    "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), copy that text to `plan_text` in the same metadata_merge call, or it is lost. " +
     "Note-only and metadata_merge writes fail with 'conflict, re-read and retry' if the task changed meanwhile. echo='compact' returns only {id, status, priority, updated_at, history_len}. A call that changes nothing returns the current row. " +
     'A call that carries a note without a status change is guarded as a whole (including title or priority) and can return the conflict error. A status change racing a note or merge can drop the note; atomic append is tracked in #115.',
   schema: {

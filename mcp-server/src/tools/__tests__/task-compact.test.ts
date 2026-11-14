@@ -234,6 +234,19 @@ describe('task_get', () => {
       }),
     );
     const out = JSON.parse(await taskGet(mock.client, { id: UUID, compact: true }));
+    expect(Object.keys(out)).toEqual([
+      'id',
+      'title',
+      'status',
+      'priority',
+      'created_at',
+      'updated_at',
+      'planned',
+      'plan_shape',
+      'description',
+      'plan',
+      'history_len',
+    ]);
     expect(out).toEqual({
       id: UUID,
       title: 'T',
@@ -295,9 +308,10 @@ describe('task_get', () => {
 
   it('descriptions warn about text plans', () => {
     expect(updateDef.description).toContain(
-      "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), move the text to another key first, or it is lost.",
+      "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), copy that text to `plan_text` in the same metadata_merge call, or it is lost.",
     );
     expect(listDef.description).toContain('plan_shape');
+    expect(getDef.description).toContain('plan_shape');
   });
 
   it('schema bounds description_chars to 0..2000', () => {
