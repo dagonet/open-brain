@@ -151,6 +151,7 @@ The server reports its real version: `serverInfo.version` is read from `mcp-serv
 
 | Version | Notes |
 | ------- | ----- |
+| `0.10.0` | `task_list`, `task_get` and `task_update` take optional params for small answers (`compact`, `statuses`, `stale_days`, `priority_missing`, `sort`, `description_chars`, `echo: "compact"`, `metadata_merge`); compact rows carry `plan_shape`; a `note` without a status change is kept as a note-only history entry; `task_update` is atomic (SQL function `task_apply_update()`, **needs migration 019**). Needs Node 22+ (`openai` 7). `zod` 4 changes the wording of InvalidParams messages for bad arguments; the error codes are the same. 22 tools, unchanged. |
 | `0.9.0` | Reports its real version, smoke test, declares `zod`; 22 tools, unchanged. Requires the service-role key for every call (database access is closed to the anon key). |
 | `0.8.0` | Version bump only; entity noise filter in the database. |
 | `0.7.0` | Entity tools: `entities_search`, `entities_graph`, `thoughts_search_expanded` (22 tools). |

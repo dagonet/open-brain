@@ -3,8 +3,8 @@
 ## Now
 
 - **Goal:** Keep open-brain secure and on the current claude-code-toolkit template (v6.2.0).
-- **Current step:** Release prep after #114-#120: compact task tools, `brain task list` and `brain task set`, atomic `task_update` (migration 019 is live on the hosted database), deps security upgrade.
-- **Next step:** Docs consistency pass (#121), then the release.
+- **Current step:** v0.10.0 released 2026-11-14: atomic task_update (migration 019 live), compact task tools, `brain task list`/`set`, deps security upgrade (Node 22+ for the MCP server), docs consistency pass.
+- **Next step:** No sprint planned; see GitHub Issues.
 
 ## Current Sprint
 

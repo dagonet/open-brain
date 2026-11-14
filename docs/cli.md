@@ -2,7 +2,7 @@
 
 # The `brain` command
 
-Capture thoughts from a shell, import notes in bulk, export to Obsidian, compile wiki pages, audit contradictions, and list and update tasks. The CLI is TypeScript with zero runtime dependencies (`cli/`, version 1.3.0). It talks to your Supabase project's edge functions and REST API.
+Capture thoughts from a shell, import notes in bulk, export to Obsidian, compile wiki pages, audit contradictions, and list and update tasks. The CLI is TypeScript with zero runtime dependencies (`cli/`, version 1.4.0). It talks to your Supabase project's edge functions and REST API.
 
 ## Install and rebuild
 

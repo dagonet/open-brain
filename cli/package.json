@@ -1,6 +1,6 @@
 {
   "name": "@open-brain/cli",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "The `brain` command for Open Brain: capture, import, wiki, audit, Obsidian export and tasks",
   "type": "module",
   "bin": {
