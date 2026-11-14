@@ -14,6 +14,16 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import {
+  TaskListUsageError,
+  buildTaskListPath,
+  compactTask,
+  formatTaskLine,
+  parseContentRangeTotal,
+  parseTaskListArgs,
+  type TaskListOptions,
+  type TaskListRow,
+} from './task-list.js';
 
 // Same approach as mcp-server/src/server.ts: ../package.json is cli/package.json
 // from both src/ (tests) and dist/ (installed).
@@ -239,6 +249,7 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  brain sync-vault <path> [options]    Export thoughts as Obsidian markdown',
       '  brain audit [options]                Audit recent thoughts for contradictions',
       '  brain wiki <subcommand> [options]    Manage wiki pages (get|list|refresh|reject)',
+      '  brain task list [options]            List tasks (read-only, one line per task)',
       '  brain help | --help | -h             Show this help',
       '  brain --version | -V                 Show the CLI version',
       '',
@@ -275,6 +286,16 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  brain wiki refresh --dry-run ...     Print what would be compiled',
       '  brain wiki reject <page_id> --reason <text>',
       '                                       Reject a page; feedback nudges next compile',
+      '',
+      'Task list (read-only):',
+      '  brain task list [--project <name>] [--status open,in_progress,blocked,done]',
+      '                  [--stale-days <1-36500>] [--priority-missing] [--sort created|priority]',
+      '                  [--limit <n>] [--count] [--json]',
+      '  Default output is one tab-separated line per task: id, status, priority, updated date,',
+      '  planned (yes/no), title. --count prints only the number of matching tasks (ignores',
+      '  --limit and --sort). --json prints an array of {id, title, status, priority,',
+      '  created_at, updated_at, planned, plan_shape}. --project defaults to OPEN_BRAIN_DEFAULT_PROJECT;',
+      '  --limit defaults to 50.',
       '',
     ].join('\n'),
   );
@@ -881,17 +902,24 @@ async function getFromPostgrest(
   restBase: string,
   apiKey: string,
   pathAndQuery: string,
-): Promise<{ ok: boolean; status: number; data: unknown }> {
+  extraHeaders: Record<string, string> = {},
+): Promise<{ ok: boolean; status: number; data: unknown; contentRange: string | null }> {
   const url = restBase + '/' + pathAndQuery;
   const response = await fetch(url, {
     redirect: 'error',
     headers: {
+      ...extraHeaders,
       apikey: apiKey,
       Authorization: 'Bearer ' + apiKey,
     },
   });
   const data = await response.json().catch(() => ({}));
-  return { ok: response.ok, status: response.status, data };
+  return {
+    ok: response.ok,
+    status: response.status,
+    data,
+    contentRange: response.headers.get('content-range') ?? null,
+  };
 }
 
 export async function auditCommand(): Promise<void> {
@@ -1352,6 +1380,79 @@ async function wikiCommand(): Promise<void> {
   }
 }
 
+// --- task command (read-only) ---
+
+/** `brain task list`: GET requests to the tasks table only. Never writes. */
+export async function taskListCommand(args: string[]): Promise<void> {
+  let opts: TaskListOptions;
+  try {
+    opts = parseTaskListArgs(args);
+  } catch (err) {
+    if (err instanceof TaskListUsageError) {
+      console.error('Error: brain task list: ' + err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  const config = loadConfig();
+  if (!config) {
+    printSetupInstructions();
+    process.exit(1);
+  }
+  // Same default scope as the MCP server: --project, else OPEN_BRAIN_DEFAULT_PROJECT.
+  const project = opts.project || process.env.OPEN_BRAIN_DEFAULT_PROJECT || undefined;
+  const result = await getFromPostgrest(
+    config.endpoints.restBase,
+    serviceKeyOrExit(config),
+    buildTaskListPath(opts, project),
+    opts.count ? { Prefer: 'count=exact' } : {},
+  );
+  if (!result.ok) {
+    console.error(`✗ Failed: ${describeFailure(result.status, result.data)}`);
+    process.exit(1);
+  }
+
+  if (opts.count) {
+    const total = parseContentRangeTotal(result.contentRange);
+    if (total === null) {
+      console.error('✗ Failed: the server did not return a row count (no Content-Range total)');
+      process.exit(1);
+    }
+    console.log(String(total));
+    return;
+  }
+
+  if (!Array.isArray(result.data)) {
+    console.error('✗ Failed: unexpected response from the server (expected a list of tasks)');
+    process.exit(1);
+  }
+  const rows = result.data as TaskListRow[];
+  if (opts.json) {
+    console.log(JSON.stringify(rows.map(compactTask)));
+    return;
+  }
+  for (const row of rows) console.log(formatTaskLine(row));
+}
+
+async function taskCommand(): Promise<void> {
+  const sub = process.argv[3];
+  const rest = process.argv.slice(4);
+  if (isHelpFlag(sub) || rest.some(isHelpFlag)) {
+    printUsage(console.log);
+    return;
+  }
+  switch (sub) {
+    case 'list':
+      await taskListCommand(rest);
+      return;
+    default:
+      console.error('Error: unknown task subcommand: ' + (sub ?? '(none)'));
+      printUsage();
+      process.exit(1);
+  }
+}
+
 export async function main(): Promise<void> {
   const command = process.argv[2];
 
@@ -1372,6 +1473,11 @@ export async function main(): Promise<void> {
 
   if (command === 'wiki') {
     await wikiCommand();
+    return;
+  }
+
+  if (command === 'task') {
+    await taskCommand();
     return;
   }
 

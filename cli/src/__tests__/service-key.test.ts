@@ -50,6 +50,7 @@ describe('service-role commands', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({ success: true, status: 'compiled', findings: [] }),
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -116,6 +117,7 @@ describe('service-role commands', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => [{ id: 'c1', status: 'resolved' }],
     });
 
@@ -141,7 +143,12 @@ describe('service-role commands', () => {
 
   it('wiki get and list read PostgREST with the service key', async () => {
     vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => [],
+    });
 
     await wikiGetCommand(['some-slug']);
     await wikiListCommand([]);
@@ -164,7 +171,12 @@ describe('service-role commands', () => {
 
   it('wiki refresh --all reads topic_counts with the service key', async () => {
     vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => [],
+    });
 
     await wikiRefreshCommand(['--all']);
 
@@ -176,7 +188,12 @@ describe('service-role commands', () => {
   it('sync-vault reads thoughts with the service key', async () => {
     vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
     process.argv = ['node', 'brain', 'sync-vault', join(home, 'vault'), '--dry-run'];
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => [],
+    });
 
     await syncVault();
 
@@ -200,6 +217,7 @@ describe('service-role commands', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({ success: true }),
     });
 
@@ -225,6 +243,7 @@ describe('service-role commands', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({ success: true }),
     });
 
@@ -248,7 +267,12 @@ describe('service-role commands', () => {
 
   it('wiki reject sends the service key to capture-thought, not the anon key', async () => {
     vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ success: true }),
+    });
 
     await wikiRejectCommand(['page-1', '--reason', 'wrong']);
 
@@ -276,6 +300,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 500,
+        headers: new Headers(),
         json: async () => ({ error: 'LLM exploded' }),
       });
 
@@ -293,6 +318,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 401,
+        headers: new Headers(),
         json: async () => ({ error: 'Invalid JWT' }),
       });
 
@@ -310,6 +336,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 403,
+        headers: new Headers(),
         json: async () => ({ error: 'Forbidden' }),
       });
 
@@ -324,6 +351,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 401,
+        headers: new Headers(),
         json: async () => ({ error: 'Unauthorized' }),
       });
 
@@ -338,6 +366,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 404,
+        headers: new Headers(),
         json: async () => ({ message: 'relation does not exist' }),
       });
 
@@ -351,6 +380,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 401,
+        headers: new Headers(),
         json: async () => ({ error: 'Invalid JWT' }),
       });
 
@@ -365,6 +395,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 500,
+        headers: new Headers(),
         json: async () => ({ error: 'embedding failed' }),
       });
 
@@ -382,11 +413,13 @@ describe('service-role commands', () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 401,
+          headers: new Headers(),
           json: async () => ({ error: 'Invalid JWT' }),
         })
         .mockResolvedValueOnce({
           ok: false,
           status: 502,
+          headers: new Headers(),
           json: async () => {
             throw new SyntaxError('Unexpected token <');
           },
@@ -411,11 +444,13 @@ describe('service-role commands', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
+          headers: new Headers(),
           json: async () => [{ id: 'c1', status: 'resolved' }],
         })
         .mockResolvedValueOnce({
           ok: false,
           status: 401,
+          headers: new Headers(),
           json: async () => ({ error: 'Invalid JWT' }),
         });
 
@@ -432,11 +467,13 @@ describe('service-role commands', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
+          headers: new Headers(),
           json: async () => ({ contradictions_inserted: 1 }),
         })
         .mockResolvedValueOnce({
           ok: false,
           status: 403,
+          headers: new Headers(),
           json: async () => ({ message: 'permission denied' }),
         });
 
@@ -451,6 +488,7 @@ describe('service-role commands', () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 401,
+        headers: new Headers(),
         statusText: 'Unauthorized',
         json: async () => ({ message: 'Invalid API key' }),
       });
