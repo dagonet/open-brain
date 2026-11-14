@@ -155,7 +155,9 @@ describe('task_list', () => {
       created_at: 'c',
       updated_at: 'u',
       planned: true,
+      plan_shape: 'object',
     });
+    expect(Object.keys(out[0]).slice(-2)).toEqual(['planned', 'plan_shape']);
     expect(Array.from(out[0].title)).toHaveLength(101);
     expect(out[1].title).toBe('x'.repeat(100));
     expect(out[1].planned).toBe(false);
@@ -175,6 +177,26 @@ describe('task_list', () => {
     mock.resolvesWith(plans.map((plan, i) => ({ id: String(i), title: 't', plan })));
     const out = JSON.parse(await taskList(mock.client, { compact: true }));
     expect(out.map((r: { planned: boolean }) => r.planned)).toEqual(plans.map(() => false));
+  });
+
+  it('plan_shape tells object, text, none and other apart; a text plan is not planned', async () => {
+    const plans: unknown[] = [fullPlan, 'free text plan', null, ['x'], 5, true];
+    const mock = createMockSupabase();
+    mock.resolvesWith(plans.map((plan, i) => ({ id: String(i), title: 't', plan })));
+    const out = JSON.parse(await taskList(mock.client, { compact: true }));
+    expect(out.map((r: { plan_shape: string }) => r.plan_shape)).toEqual([
+      'object',
+      'text',
+      'none',
+      'other',
+      'other',
+      'other',
+    ]);
+    expect(out[1].planned).toBe(false);
+    const absent = createMockSupabase();
+    absent.resolvesWith([{ id: 'z', title: 't' }]);
+    const out2 = JSON.parse(await taskList(absent.client, { compact: true }));
+    expect(out2[0].plan_shape).toBe('none');
   });
 
   it('non-compact keeps select(*) with the new filters', async () => {
@@ -212,6 +234,19 @@ describe('task_get', () => {
       }),
     );
     const out = JSON.parse(await taskGet(mock.client, { id: UUID, compact: true }));
+    expect(Object.keys(out)).toEqual([
+      'id',
+      'title',
+      'status',
+      'priority',
+      'created_at',
+      'updated_at',
+      'planned',
+      'plan_shape',
+      'description',
+      'plan',
+      'history_len',
+    ]);
     expect(out).toEqual({
       id: UUID,
       title: 'T',
@@ -220,6 +255,7 @@ describe('task_get', () => {
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-02T00:00:00Z',
       planned: true,
+      plan_shape: 'object',
       description: '€'.repeat(300) + '…',
       plan: fullPlan,
       history_len: 3,
@@ -243,6 +279,39 @@ describe('task_get', () => {
       await taskGet(mock2.client, { id: UUID, compact: true, description_chars: 3 }),
     );
     expect(out2.description).toBe('abc…');
+  });
+
+  it('compact plan_shape tells object, text, none and other apart', async () => {
+    const metas: Array<Record<string, unknown> | null> = [
+      { plan: fullPlan },
+      { plan: 'free text plan' },
+      {},
+      { plan: null },
+      null,
+      { plan: ['x'] },
+      { plan: 5 },
+      { plan: false },
+    ];
+    const shapes: string[] = [];
+    for (const metadata of metas) {
+      const mock = createMockSupabase();
+      mock.resolvesWith(row({ metadata }));
+      const out = JSON.parse(await taskGet(mock.client, { id: UUID, compact: true }));
+      shapes.push(out.plan_shape);
+      if (out.plan_shape === 'text') {
+        expect(out.planned).toBe(false);
+        expect(out.plan).toBe('free text plan');
+      }
+    }
+    expect(shapes).toEqual(['object', 'text', 'none', 'none', 'none', 'other', 'other', 'other']);
+  });
+
+  it('descriptions warn about text plans', () => {
+    expect(updateDef.description).toContain(
+      "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), copy that text to `plan_text` in the same metadata_merge call, or it is lost.",
+    );
+    expect(listDef.description).toContain('plan_shape');
+    expect(getDef.description).toContain('plan_shape');
   });
 
   it('schema bounds description_chars to 0..2000', () => {

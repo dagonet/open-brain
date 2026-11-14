@@ -87,8 +87,8 @@ export const definition: ToolDefinition = {
   name: 'task_list',
   description:
     'List tasks with optional filters by project, status, and priority. Ordered by creation date descending. Default limit is 50. ' +
-    'Set compact=true for small rows {id, title (100 chars), status, priority, created_at, updated_at, planned} instead of full rows; ' +
-    "planned is true when metadata.plan = {owner, goal, next_step, done_check} is complete. Extra filters: statuses (list), stale_days (not updated for N days), priority_missing; sort='priority' orders by priority (unset last), then oldest update.",
+    'Set compact=true for small rows {id, title (100 chars), status, priority, created_at, updated_at, planned, plan_shape} instead of full rows; ' +
+    "planned is true when metadata.plan = {owner, goal, next_step, done_check} is complete. plan_shape is 'object', 'text' (metadata.plan is plain text, not a plan object), 'none' (absent or null) or 'other'. Extra filters: statuses (list), stale_days (not updated for N days), priority_missing; sort='priority' orders by priority (unset last), then oldest update.",
   schema: {
     project: z
       .string()

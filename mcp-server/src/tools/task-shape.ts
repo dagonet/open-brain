@@ -22,6 +22,13 @@ export function isPlanned(plan: unknown): boolean {
   });
 }
 
+/** Shape of metadata.plan: "object", "text" (a plain string), "none" (absent or null) or "other". */
+export function planShape(plan: unknown): 'object' | 'text' | 'none' | 'other' {
+  if (plan === undefined || plan === null) return 'none';
+  if (typeof plan === 'string') return 'text';
+  return isPlainObject(plan) ? 'object' : 'other';
+}
+
 /** Length of status_history, 0 when it is not an array. */
 export function historyLen(row: Record<string, unknown>): number {
   return Array.isArray(row.status_history) ? row.status_history.length : 0;
@@ -42,5 +49,6 @@ export function compactRow(row: Record<string, unknown>): Record<string, unknown
     created_at: row.created_at,
     updated_at: row.updated_at,
     planned: isPlanned(row.plan),
+    plan_shape: planShape(row.plan),
   };
 }

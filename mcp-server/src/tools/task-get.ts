@@ -51,7 +51,7 @@ export const definition: ToolDefinition = {
   name: 'task_get',
   description:
     "Get a single task by ID. Returns the task row or {error:'not found'} if the task does not exist or has been deleted. " +
-    'Set compact=true for a small answer: the compact list row plus description (cut to description_chars, default 300), plan (metadata.plan) and history_len, without metadata or status_history.',
+    'Set compact=true for a small answer: the compact list row (incl. plan_shape: object, text, none or other) plus description (cut to description_chars, default 300), plan (metadata.plan) and history_len, without metadata or status_history.',
   schema: {
     id: z.string().uuid().describe('UUID of the task to retrieve.'),
     compact: z
