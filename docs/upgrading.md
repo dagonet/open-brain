@@ -13,6 +13,17 @@ Which components ship in which release: the product is tagged as one version (th
 
 Neither package is published to npm; "version" means what `brain --version` and the MCP `serverInfo.version` report from your checkout.
 
+## Next release: apply migration 019 before the MCP server
+
+`task_update` now writes through the SQL function `task_apply_update()` (migration 019), so concurrent notes, merges and status changes are no longer lost (#115). Only the MCP server needs it. Do the steps **in this order**:
+
+1. **Update your checkout.** `git pull`.
+2. **Apply migration 019 to the hosted database first.** `supabase db push --remote` (on CLI 2.x use `--linked` instead; add `--yes` when the CLI cannot prompt). It is additive and can be re-run: the CLI, the dashboard and an MCP server from before this release do not call the function, so nothing breaks while you do the rest.
+3. **Rebuild the MCP server on each machine.** `npm ci --prefix mcp-server && npm run build --prefix mcp-server` (the server runs the compiled `mcp-server/dist/`).
+4. **Reconnect** the MCP server in your client: run `/mcp` and reconnect `open-brain`.
+
+A new server on a database without migration 019 does not fall back to the old code: `task_update` answers `{"error": "task_update needs database migration 019 (task_apply_update): run `supabase db push --remote`, see docs/upgrading.md (...)"}`. Apply the migration and call it again. Rolling back: `DROP FUNCTION public.task_apply_update(uuid, jsonb, jsonb, text, text);` and run an MCP server from before this release.
+
 ## From 0.8 to 0.9
 
 0.9.0 locks the database down. Do the steps **in this order**; it keeps a live install working at every step. The web environment comes first, because the new dashboard code refuses the refresh, reject and resolve buttons when `OWNER_USER_IDS` is missing; without `SUPABASE_SERVICE_ROLE_KEY` it falls back to the anon key, and the edge function calls then fail with `401`. `tasks-feed` comes before the migrations, because migration 016 takes the anon key's access to `tasks` away.
