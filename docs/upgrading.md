@@ -15,10 +15,10 @@ Neither package is published to npm; "version" means what `brain --version` and 
 
 ## Next release: apply migration 019 before the MCP server
 
-`task_update` now writes through the SQL function `task_apply_update()` (migration 019), so concurrent notes, merges and status changes are no longer lost (#115). Only the MCP server needs it. Do the steps **in this order**:
+`task_update` now writes through the SQL function `task_apply_update()` (migration 019), so concurrent notes, merges and status changes are no longer lost (#115). The MCP server and the new CLI command `brain task set` need it; nothing else does. Do the steps **in this order**:
 
 1. **Update your checkout.** `git pull`.
-2. **Apply migration 019 to the hosted database first.** `supabase db push --remote` (on CLI 2.x use `--linked` instead; add `--yes` when the CLI cannot prompt). It is additive and can be re-run: the CLI, the dashboard and an MCP server from before this release do not call the function, so nothing breaks while you do the rest.
+2. **Apply migration 019 to the hosted database first.** `supabase db push --remote` (on CLI 2.x use `--linked` instead; add `--yes` when the CLI cannot prompt). It is additive and can be re-run: the dashboard, the rest of the CLI and an MCP server from before this release do not call the function, so nothing breaks while you do the rest.
 3. **Rebuild the MCP server on each machine.** `npm ci --prefix mcp-server && npm run build --prefix mcp-server` (the server runs the compiled `mcp-server/dist/`).
 4. **Reconnect** the MCP server in your client: run `/mcp` and reconnect `open-brain`.
 

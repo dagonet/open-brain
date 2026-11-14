@@ -2,7 +2,7 @@
 
 # The `brain` command
 
-Capture thoughts from a shell, import notes in bulk, export to Obsidian, compile wiki pages, audit contradictions and list tasks. The CLI is TypeScript with zero runtime dependencies (`cli/`, version 1.3.0). It talks to your Supabase project's edge functions and REST API.
+Capture thoughts from a shell, import notes in bulk, export to Obsidian, compile wiki pages, audit contradictions, and list and update tasks. The CLI is TypeScript with zero runtime dependencies (`cli/`, version 1.3.0). It talks to your Supabase project's edge functions and REST API.
 
 ## Install and rebuild
 
@@ -50,7 +50,7 @@ Or create `~/.brain/config.json`:
 - Plain `http` to a non-loopback host is refused: only `localhost`, `127.0.0.1` and `[::1]` may use `http`; any other host must use `https`. The CLI then exits with an error before sending anything. The message names the source (`BRAIN_API_URL` or `api_url in ~/.brain/config.json`) and does not print the value; when it refuses `http`, it prints only the protocol and host (and port, if any), for example `http://example.com`, never the path, credentials or query string. `import --dry-run` sends nothing and is not affected.
 - The CLI does not follow redirects, so the service key is never forwarded to another host. If a call is refused for that reason, the error shows the cause, for example `Could not reach the API (unexpected redirect)`.
 
-**The service key.** Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `task list`, `audit` and `audit --resolve` all need the service-role key. `brain "<thought>"`, `import` and `wiki reject` call `capture-thought`, which is also service-role only; `audit` and `wiki refresh` call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard > Settings > API), not an `sb_secret_...` key ([`security.md`](security.md#keys)). If neither `BRAIN_SERVICE_KEY` nor `service_key` is set, the CLI exits with an error.
+**The service key.** Database access is closed to the anon key, so `sync-vault`, `wiki get`, `wiki list`, `wiki refresh`, `task list`, `task set`, `audit` and `audit --resolve` all need the service-role key. `brain "<thought>"`, `import` and `wiki reject` call `capture-thought`, which is also service-role only; `audit` and `wiki refresh` call `detect-contradictions` / `compile-wiki`, which accept only the **legacy `service_role` JWT** (`eyJ...`, Dashboard > Settings > API), not an `sb_secret_...` key ([`security.md`](security.md#keys)). If neither `BRAIN_SERVICE_KEY` nor `service_key` is set, the CLI exits with an error.
 
 ## Capture
 
@@ -165,7 +165,36 @@ Deleted tasks are never listed. Setting a task to `cancelled` soft-deletes it (`
 
 `--count` is one GET with `Prefer: count=exact` and `limit=1`; the number is the total in the response's `Content-Range` header, so it counts every matching row and is not capped by `--limit` (`--limit` and `--sort` are ignored with `--count`, and `--count` wins over `--json`).
 
-Bad input (an unknown status, a number out of range, an unknown option) prints a message and exits 1 before any request. There is no `brain task set`; to change a task use the MCP `task_update` tool.
+Bad input (an unknown status, a number out of range, an unknown option) prints a message and exits 1 before any request.
+
+### `brain task set`
+
+`brain task set <id>` changes one task's status or priority, or adds a note to its history. It is the write companion of `task list`. It POSTs to the database function `task_apply_update` (migration 019) through PostgREST with the service key: the same function the MCP `task_update` tool uses, so each call is one atomic, row-locked write and the rules are the MCP tool's. **It needs migration 019**; on a database without it the command prints ``task set needs database migration 019 (task_apply_update): run `supabase db push --remote`, see docs/upgrading.md`` and exits 1 (see [`upgrading.md`](upgrading.md)).
+
+```bash
+brain task set 3f2b8c1e-9a4d-4c5e-8b7a-1d2e3f4a5b6c --status in_progress
+brain task set 3f2b8c1e-9a4d-4c5e-8b7a-1d2e3f4a5b6c --status done --note "shipped in #120"
+brain task set 3f2b8c1e-9a4d-4c5e-8b7a-1d2e3f4a5b6c --priority 1 --json
+brain task set 3f2b8c1e-9a4d-4c5e-8b7a-1d2e3f4a5b6c --note="--force did not help"   # note that starts with --
+```
+
+| Option | Meaning |
+| ------ | ------- |
+| `<id>` | Required. The task id, any 8-4-4-4-12 hex UUID. The id identifies the row, so there is no `--project`. |
+| `--status <s>` | One of `open`, `in_progress`, `blocked`, `done`, `cancelled`. `cancelled` soft-deletes the task (sets `deleted_at`), so it disappears from `task list`. |
+| `--priority <N>` | An integer from 1 to 5. |
+| `--note <text>` | A non-blank note. |
+| `--json` | Print the compact echo `{id, status, priority, updated_at, history_len}` instead of a line. |
+
+At least one of `--status`, `--priority` and `--note` is required. Each can be given once; a repeated flag is an error, not last-wins. Both `--flag value` and `--flag=value` work, and the flags and the id may come in any order. There is no way to clear a field (no `priority` null) and no flag for title, description or metadata; use the MCP `task_update` tool for those.
+
+What happens is decided by the database function:
+
+- A status change appends `{status, at, note}` to `status_history`, with the note when you gave one.
+- A note alone, or with a status the task already has, appends a note-only entry (`kind: "note"`). A blank note is ignored by the function, so the CLI rejects it.
+- A call that changes nothing (the same status and priority, no note) writes nothing and returns the current row; `updated_at` does not move.
+
+Default output is one line in the `task list` format (tab-separated: id, status, priority, updated date, planned, title) for the row as it is now. An id that does not exist, or whose task is deleted or already cancelled, prints `Task not found` and exits 1 (the function returns no row for those; a cancelled task cannot be changed again). A note that starts with `--` must be written `--note=<text>`: in the space form `--note --force` the next word is taken for a flag and the call fails, as in `task list`. A note that is exactly `-h` or `--help` in the space form prints the help instead (the `task` command shows help for `-h` anywhere in its arguments); write `--note=-h`. Bad input prints a message and exits 1 before any request.
 
 ## Audit contradictions
 

@@ -24,6 +24,17 @@ import {
   type TaskListOptions,
   type TaskListRow,
 } from './task-list.js';
+import {
+  MIGRATION_019_MISSING,
+  TaskSetUsageError,
+  buildTaskSetBody,
+  formatTaskSetLine,
+  isMissingTaskFunction,
+  parseTaskSetArgs,
+  taskSetEcho,
+  type TaskSetOptions,
+  type TaskSetRow,
+} from './task-set.js';
 
 // Same approach as mcp-server/src/server.ts: ../package.json is cli/package.json
 // from both src/ (tests) and dist/ (installed).
@@ -250,6 +261,7 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  brain audit [options]                Audit recent thoughts for contradictions',
       '  brain wiki <subcommand> [options]    Manage wiki pages (get|list|refresh|reject)',
       '  brain task list [options]            List tasks (read-only, one line per task)',
+      "  brain task set <id> [options]        Change a task's status, priority or note",
       '  brain help | --help | -h             Show this help',
       '  brain --version | -V                 Show the CLI version',
       '',
@@ -296,6 +308,15 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  --limit and --sort). --json prints an array of {id, title, status, priority,',
       '  created_at, updated_at, planned, plan_shape}. --project defaults to OPEN_BRAIN_DEFAULT_PROJECT;',
       '  --limit defaults to 50.',
+      '',
+      'Task set (one write through the database function task_apply_update):',
+      '  brain task set <id> [--status open|in_progress|blocked|done|cancelled] [--priority <1-5>]',
+      '                      [--note <text>] [--json]',
+      '  Give at least one of --status, --priority, --note; each at most once. A status change',
+      '  appends a history entry (with the note); a note alone appends a note-only entry;',
+      '  cancelled soft-deletes the task. A note that starts with -- must be written --note=<text>.',
+      '  Prints one task line, or with --json {id, status, priority, updated_at, history_len}.',
+      '  Fails with "task not found" for an unknown, deleted or cancelled id. Needs migration 019.',
       '',
     ].join('\n'),
   );
@@ -898,6 +919,26 @@ async function postFunction(
   return { ok: response.ok, status: response.status, data };
 }
 
+async function postToPostgrestRpc(
+  restBase: string,
+  apiKey: string,
+  fn: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const response = await fetch(`${restBase}/rpc/${fn}`, {
+    redirect: 'error',
+    method: 'POST',
+    headers: {
+      apikey: apiKey,
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, data };
+}
+
 async function getFromPostgrest(
   restBase: string,
   apiKey: string,
@@ -1380,7 +1421,7 @@ async function wikiCommand(): Promise<void> {
   }
 }
 
-// --- task command (read-only) ---
+// --- task command ---
 
 /** `brain task list`: GET requests to the tasks table only. Never writes. */
 export async function taskListCommand(args: string[]): Promise<void> {
@@ -1435,6 +1476,55 @@ export async function taskListCommand(args: string[]): Promise<void> {
   for (const row of rows) console.log(formatTaskLine(row));
 }
 
+/**
+ * `brain task set <id>`: one atomic, row-locked write through the database function
+ * task_apply_update (the one MCP task_update uses). All the rules live in the function.
+ */
+export async function taskSetCommand(args: string[]): Promise<void> {
+  let opts: TaskSetOptions;
+  try {
+    opts = parseTaskSetArgs(args);
+  } catch (err) {
+    if (err instanceof TaskSetUsageError) {
+      console.error('Error: brain task set: ' + err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  const config = loadConfig();
+  if (!config) {
+    printSetupInstructions();
+    process.exit(1);
+  }
+  const result = await postToPostgrestRpc(
+    config.endpoints.restBase,
+    serviceKeyOrExit(config),
+    'task_apply_update',
+    buildTaskSetBody(opts),
+  );
+  if (!result.ok) {
+    const reason = describeFailure(result.status, result.data);
+    console.error(
+      isMissingTaskFunction(result.data)
+        ? `✗ ${MIGRATION_019_MISSING} (${reason})`
+        : `✗ Failed: ${reason}`,
+    );
+    process.exit(1);
+  }
+  if (!Array.isArray(result.data)) {
+    console.error('✗ Failed: unexpected response from the server (expected a list of tasks)');
+    process.exit(1);
+  }
+  // The function returns no row for an id that is unknown, soft-deleted or cancelled.
+  const row = result.data[0] as TaskSetRow | undefined;
+  if (!row) {
+    console.error(`✗ Task not found: ${opts.id} (unknown id, or the task is deleted or cancelled)`);
+    process.exit(1);
+  }
+  console.log(opts.json ? JSON.stringify(taskSetEcho(row)) : formatTaskSetLine(row));
+}
+
 async function taskCommand(): Promise<void> {
   const sub = process.argv[3];
   const rest = process.argv.slice(4);
@@ -1445,6 +1535,9 @@ async function taskCommand(): Promise<void> {
   switch (sub) {
     case 'list':
       await taskListCommand(rest);
+      return;
+    case 'set':
+      await taskSetCommand(rest);
       return;
     default:
       console.error('Error: unknown task subcommand: ' + (sub ?? '(none)'));
