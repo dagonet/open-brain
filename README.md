@@ -32,7 +32,7 @@ People, projects and technologies you mention become a co-occurrence graph. Expl
 
 ### Tasks
 
-`task_create`, `task_get`, `task_list` and `task_update` track action items from Claude Code, with a status history. In a terminal or a hook, `brain task list` filters and counts tasks, and `brain task set` changes a status, a priority or a note. A token-protected `tasks-feed` gives a local tool a read-only list.
+`task_create`, `task_get`, `task_list` and `task_update` track action items from Claude Code, with a status history. In a terminal or a hook, `brain task list` filters and counts tasks, and `brain task set` changes a task's status or priority, or adds a note to its history. A token-protected `tasks-feed` gives a local tool a read-only list.
 
 ### A dashboard
 

@@ -13,7 +13,7 @@ Which components ship in which release: the product is tagged as one version (th
 
 Neither package is published to npm; "version" means what `brain --version` and the MCP `serverInfo.version` report from your checkout.
 
-> Every hosted `supabase` command on this page (`db push`, `functions deploy`, `secrets set`) acts on the linked project. If this checkout is not linked yet: `supabase login` (once per machine), then `supabase link --project-ref <project-ref>`. Details: [`install.md`](install.md#3-deploy-the-database).
+> Every hosted `supabase` command on this page (`db push`, `functions deploy`, `secrets set`) acts on the linked project. If this checkout is not linked yet: `supabase login` (once per machine, or set `SUPABASE_ACCESS_TOKEN`), then `supabase link --project-ref <project-ref>`. Details: [`install.md`](install.md#3-deploy-the-database).
 
 ## Next release: apply migration 019 before the MCP server and `brain task set`
 
@@ -21,7 +21,7 @@ Neither package is published to npm; "version" means what `brain --version` and 
 
 1. **Update your checkout.** `git pull`.
 2. **Apply migration 019 to the hosted database first.** If this checkout is not linked yet: `supabase login` (once per machine), then `supabase link --project-ref <project-ref>`. Then `supabase db push --remote` (on CLI 2.x use `--linked` instead; add `--yes` when the CLI cannot prompt). It is additive and can be re-run: the dashboard, the rest of the CLI and an MCP server from before this release do not call the function, so nothing breaks while you do the rest.
-3. **Rebuild the MCP server on each machine.** It needs Node 22 or later (`node --version`); `openai` 7 does not run on older Node. `npm ci --prefix mcp-server && npm run build --prefix mcp-server` (the server runs the compiled `mcp-server/dist/`).
+3. **Rebuild the MCP server on each machine.** It needs Node 22 or later (`node --version`); `mcp-server/package.json` and `openai` 7 declare `engines.node >=22`. `npm ci --prefix mcp-server && npm run build --prefix mcp-server` (the server runs the compiled `mcp-server/dist/`).
 4. **Rebuild the CLI** (for `brain task list` and `brain task set`). `npm ci --prefix cli && npm run build --prefix cli`. `brain` runs the compiled `cli/dist/`; if you installed it globally with `npm install -g --install-links=false ./cli`, that link points at your checkout, so the rebuild is enough.
 5. **Reconnect** the MCP server in your client: run `/mcp` and reconnect `open-brain`.
 

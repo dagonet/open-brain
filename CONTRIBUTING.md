@@ -77,7 +77,7 @@ You can run the whole database and the edge functions on your machine with Docke
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Ensure the gate passes (`cct-gate` or `bash scripts/gate.sh`), plus the Deno tests when you touched `supabase/functions/` and `supabase test db` when you touched `supabase/migrations/`
+3. Ensure the gate passes (`cct-gate` or `bash scripts/gate.sh`), plus the Deno tests when you touched `supabase/functions/` and `supabase test db` when you touched `supabase/migrations/` or `supabase/tests/`
 4. Commit with a clear message describing what and why
 5. Open a pull request
 

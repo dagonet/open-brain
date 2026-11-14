@@ -2,7 +2,7 @@
 
 ## Current State
 
-- **v0.9.0**: Released 2026-10-17 (locked-down database, owner scope, `tasks-feed`, CLI fixes, docs restructure). MCP server 0.9.0, CLI 1.3.0, web 1.0.0; migrations up to 018. On `main` after it, unreleased: migration 019 (atomic `task_update`), `brain task list`/`set`, compact task tools, deps security upgrade. The README is the front page; setup, upgrade, security, CLI, MCP, dashboard, functions, configuration, operations and troubleshooting live in `docs/` (start at `docs/install.md`). Release notes: `CHANGELOG.md`.
+- **v0.9.0**: Released 2026-10-17 (locked-down database, owner scope, `tasks-feed`, CLI fixes, docs restructure). MCP server 0.9.0, CLI 1.3.0, web 1.0.0; migrations up to 018. What is unreleased on `main`: see `CHANGELOG.md` [Unreleased]. The README is the front page; setup, upgrade, security, CLI, MCP, dashboard, functions, configuration, operations and troubleshooting live in `docs/` (start at `docs/install.md`). Release notes: `CHANGELOG.md`.
 - **Sprint 7**: Complete — Wiki layer + contradiction surfacing (T3 Standard, single PR)
 - **Sprint 5/6**: Complete — Obsidian export (`brain sync-vault`) + Vercel-deployed read-only Next.js dashboard
 - **Sprint 4**: Complete — MCP Capture Tool (T2 Simple)

@@ -10,8 +10,8 @@ Symptoms, causes and fixes. Each entry names the document with the details.
 - [A direct REST read with the anon key returns 401 or 42501](#a-direct-rest-read-with-the-anon-key-returns-401-or-42501)
 - [`brain` runs old code after a pull](#brain-runs-old-code-after-a-pull)
 - [`task_update` or `brain task set` says it needs migration 019](#task_update-or-brain-task-set-says-it-needs-migration-019)
-- [`supabase db push` or `link` says the project is not linked, or there is no access token](#supabase-db-push-or-link-says-the-project-is-not-linked-or-there-is-no-access-token)
-- [The MCP server fails on Node older than 22](#the-mcp-server-fails-on-node-older-than-22)
+- [`supabase link` or `db push` fails with `ProjectRefNotLinkedError` or `AccessTokenRequiredError`](#supabase-link-or-db-push-fails-with-projectrefnotlinkederror-or-accesstokenrequirederror)
+- [The MCP server on Node older than 22](#the-mcp-server-on-node-older-than-22)
 - [The CLI tests need Node 22.12 or newer](#the-cli-tests-need-node-2212-or-newer)
 - [`entrypoint path does not exist` on Windows](#entrypoint-path-does-not-exist-on-windows)
 - [The near-duplicate hint never appears](#the-near-duplicate-hint-never-appears)
@@ -77,11 +77,14 @@ The message starts `task_update needs database migration 019 (task_apply_update)
 supabase db push --remote
 ```
 
-Link the checkout first if it is not linked (next entry). See [`upgrading.md`](upgrading.md).
+On CLI 2.x use `--linked` instead of `--remote`. Link the checkout first if it is not linked (next entry). See [`upgrading.md`](upgrading.md).
 
-## `supabase db push` or `link` says the project is not linked, or there is no access token
+## `supabase link` or `db push` fails with `ProjectRefNotLinkedError` or `AccessTokenRequiredError`
 
-`ProjectRefNotLinkedError` or `Access token not provided` means this checkout is not logged in or linked to your hosted project. Log in once per machine (or export `SUPABASE_ACCESS_TOKEN`), link, then repeat the command:
+- **`supabase db push --remote` prints `ProjectRefNotLinkedError` ("Cannot find project ref. Have you run supabase link?").** This checkout is not linked to your hosted project.
+- **`supabase link` prints `AccessTokenRequiredError` ("Access token not provided").** There is no access token on this machine: you have not run `supabase login` and `SUPABASE_ACCESS_TOKEN` is not set.
+
+Log in once per machine (or set `SUPABASE_ACCESS_TOKEN`), link this checkout, then repeat the command:
 
 ```bash
 supabase login
@@ -90,9 +93,9 @@ supabase link --project-ref <project-ref>
 
 See [`install.md`](install.md#3-deploy-the-database).
 
-## The MCP server fails on Node older than 22
+## The MCP server on Node older than 22
 
-The MCP server needs Node 22 or later (`engines.node >=22`; `openai` 7 does not run on older Node). On an older Node `npm ci --prefix mcp-server` warns `EBADENGINE` and the server fails to start. Check `node --version`, upgrade to Node 22 or later, then rebuild: `npm ci --prefix mcp-server && npm run build --prefix mcp-server`, and reconnect `open-brain` with `/mcp`.
+The MCP server needs Node 22 or later: `mcp-server/package.json` declares `engines.node >=22`, and so does `openai` 7. On an older Node, `npm ci --prefix mcp-server` prints `EBADENGINE` (Unsupported engine) warnings and still installs; it stops with an error only when npm's `engine-strict` is set. Older Node is unsupported and untested, so do not rely on it even if the server starts. Check `node --version`, upgrade to Node 22 or later, then rebuild: `npm ci --prefix mcp-server && npm run build --prefix mcp-server`, and reconnect `open-brain` with `/mcp`.
 
 ## The CLI tests need Node 22.12 or newer
 
