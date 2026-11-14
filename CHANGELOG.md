@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MCP `task_list`, `task_get` and `task_update` take optional parameters for small answers: `task_list` `compact`, `statuses`, `stale_days`, `priority_missing` and `sort`; `task_get` `compact` and `description_chars`; `task_update` `echo: "compact"` and `metadata_merge` (shallow merge, `null` deletes a key, guarded against concurrent writes). Calls without them behave as before. The plan convention is `metadata.plan = {owner, goal, next_step, done_check}`.
 
+- MCP compact task rows (`task_list` and `task_get` with `compact`) gain `plan_shape` after `planned`: `object`, `text` (older tasks with a plain-text `metadata.plan`; never `planned`), `none` or `other`. The `task_update` description warns that `metadata_merge` replaces `metadata.plan` whole, so text must be moved to another key first. Writes and non-compact answers are unchanged.
+
 ### Changed
 
 - MCP `task_update`: a `note` sent without a status change, or with the same status, is now appended to `status_history` as `{status, at, note, kind: "note"}`. It was dropped before. A call that changes nothing returns the current row. A call that carries a `note` without a status change (for example `{id, title, note}`) is guarded as a whole, including its other fields, and can return `conflict, re-read and retry`. A blank note on that path is ignored. Known gap: a status change racing a note or merge can drop the note; atomic append is tracked in #115.
