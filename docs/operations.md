@@ -19,7 +19,7 @@ The per-job details and the manual-trigger contract are in [`edge-functions.md`]
 
 ### Set it up
 
-1. **Deploy the orchestrator**, by name: `supabase functions deploy run-nightly-jobs` (add `--use-api` on Windows, see [`edge-functions.md`](edge-functions.md#deploy-and-secrets)).
+1. **Deploy the orchestrator**, by name (this targets the linked project, so run `supabase login` and `supabase link` first, see [`install.md`](install.md#3-deploy-the-database)): `supabase functions deploy run-nightly-jobs` (add `--use-api` on Windows, see [`edge-functions.md`](edge-functions.md#deploy-and-secrets)).
 2. **Set the budget secrets** (optional; the defaults apply if you skip them):
 
    ```bash
@@ -91,6 +91,6 @@ Also worth a glance on a hosted project: **Project Settings > API > Exposed sche
 
 These are suggestions, not requirements of Open Brain; adapt them to your own risk.
 
-- **Rotating `TASKS_FEED_TOKEN`.** Generate a new value (`openssl rand -hex 32`), run `supabase secrets set TASKS_FEED_TOKEN=<new>`, then update the consumer. Until both match, the consumer gets `401`.
+- **Rotating `TASKS_FEED_TOKEN`.** Generate a new value (`openssl rand -hex 32`), run `supabase secrets set TASKS_FEED_TOKEN=<new>` (this and `db dump` below target the linked project: `supabase login` and `supabase link` first, see [`install.md`](install.md#3-deploy-the-database)), then update the consumer. Until both match, the consumer gets `401`.
 - **Rotating the service-role key.** If the key may have leaked, reset the JWT secret in Supabase and then update every place that holds a copy: the dashboard's `SUPABASE_SERVICE_ROLE_KEY` (Vercel Production and Preview, `web/.env.local`), the CLI (`BRAIN_SERVICE_KEY` or `~/.brain/config.json`), the MCP server's `.mcp.json`, the function secret `SUPABASE_SERVICE_ROLE_KEY`, and the Vault secret behind pg_cron (re-run the Vault step of `cron-setup.sql`). Rotating the JWT secret also changes the anon key, so redeploy the dashboard.
 - **Backups.** Supabase offers daily backups on paid plans (and point-in-time recovery as an add-on). On the free tier, take a copy yourself now and then with `supabase db dump -f backup.sql` (add `--data-only` for rows only), and keep it somewhere private: it contains all your notes.

@@ -1,7 +1,7 @@
 {
   "name": "@open-brain/web",
   "version": "1.0.0",
-  "description": "Open Brain dashboard - read-only web UI for your second brain",
+  "description": "Open Brain dashboard: browse thoughts, wiki pages, contradictions and the entity graph, with refresh, reject and resolve actions",
   "type": "module",
   "private": true,
   "repository": {

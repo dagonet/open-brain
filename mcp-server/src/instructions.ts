@@ -35,7 +35,7 @@ const CORE_INSTRUCTIONS = [
   '  thoughts_supersede to mark the new thought as replacing it.',
   '  Do not ask permission — capture and mention it briefly.',
   '',
-  'SUPERSEEDING:',
+  'SUPERSEDING:',
   '- thoughts_supersede: Mark one thought as superseding another.',
   '  The superseded thought is excluded from default search results.',
   '  Use this after capture returns a duplicate_candidate to replace the old entry.',

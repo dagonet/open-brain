@@ -32,3 +32,4 @@ What actually happened. Include any error messages.
 - OS:
 - Node.js version:
 - Claude Code version (if MCP server):
+- Supabase CLI version:

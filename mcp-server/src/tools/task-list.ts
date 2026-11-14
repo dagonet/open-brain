@@ -97,7 +97,9 @@ export const definition: ToolDefinition = {
     status: z
       .string()
       .optional()
-      .describe('Filter by status: open, in_progress, blocked, done, cancelled.'),
+      .describe(
+        'Filter by status: open, in_progress, blocked, done (cancelled tasks are soft-deleted and never listed).',
+      ),
     priority: z.number().int().min(1).max(5).optional().describe('Filter by priority 1-5.'),
     limit: z
       .number()

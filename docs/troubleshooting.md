@@ -9,6 +9,9 @@ Symptoms, causes and fixes. Each entry names the document with the details.
 - [The dashboard shows no data, or refuses a button](#the-dashboard-shows-no-data-or-refuses-a-button)
 - [A direct REST read with the anon key returns 401 or 42501](#a-direct-rest-read-with-the-anon-key-returns-401-or-42501)
 - [`brain` runs old code after a pull](#brain-runs-old-code-after-a-pull)
+- [`task_update` or `brain task set` says it needs migration 019](#task_update-or-brain-task-set-says-it-needs-migration-019)
+- [`supabase db push` or `link` says the project is not linked, or there is no access token](#supabase-db-push-or-link-says-the-project-is-not-linked-or-there-is-no-access-token)
+- [The MCP server fails on Node older than 22](#the-mcp-server-fails-on-node-older-than-22)
 - [The CLI tests need Node 22.12 or newer](#the-cli-tests-need-node-2212-or-newer)
 - [`entrypoint path does not exist` on Windows](#entrypoint-path-does-not-exist-on-windows)
 - [The near-duplicate hint never appears](#the-near-duplicate-hint-never-appears)
@@ -65,6 +68,31 @@ npm ci --prefix cli && npm run build --prefix cli
 ```
 
 The same applies to the MCP server (`npm run build` in `mcp-server/`, then restart Claude Code). Check the CLI version with `brain --version`.
+
+## `task_update` or `brain task set` says it needs migration 019
+
+The message starts `task_update needs database migration 019 (task_apply_update)` (MCP) or `task set needs database migration 019 (task_apply_update)` (CLI). The tool or command is newer than the hosted database: `task_apply_update()` does not exist there yet, and there is no fallback. Apply the migration, then call again:
+
+```bash
+supabase db push --remote
+```
+
+Link the checkout first if it is not linked (next entry). See [`upgrading.md`](upgrading.md).
+
+## `supabase db push` or `link` says the project is not linked, or there is no access token
+
+`ProjectRefNotLinkedError` or `Access token not provided` means this checkout is not logged in or linked to your hosted project. Log in once per machine (or export `SUPABASE_ACCESS_TOKEN`), link, then repeat the command:
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>
+```
+
+See [`install.md`](install.md#3-deploy-the-database).
+
+## The MCP server fails on Node older than 22
+
+The MCP server needs Node 22 or later (`engines.node >=22`; `openai` 7 does not run on older Node). On an older Node `npm ci --prefix mcp-server` warns `EBADENGINE` and the server fails to start. Check `node --version`, upgrade to Node 22 or later, then rebuild: `npm ci --prefix mcp-server && npm run build --prefix mcp-server`, and reconnect `open-brain` with `/mcp`.
 
 ## The CLI tests need Node 22.12 or newer
 

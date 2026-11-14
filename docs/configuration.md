@@ -46,6 +46,7 @@ All optional; the defaults apply when unset.
 | `BRAIN_API_URL` | `api_url` | API base URL: `https://<project-ref>.supabase.co` (or `http://127.0.0.1:54321` locally). The older capture-function URL form still works. |
 | `BRAIN_SERVICE_KEY` | `service_key` | Service-role key. Required by every command. |
 | `BRAIN_API_KEY` | `api_key` | **Unused.** No command sends it; old configs may keep it. |
+| `OPEN_BRAIN_DEFAULT_PROJECT` | none | Optional. Default project for `brain task list`; `--project` wins. `brain task set` does not read it (it takes a task id). |
 
 The environment wins over `~/.brain/config.json`, field by field. Details and URL rules: [`cli.md`](cli.md#configuration).
 

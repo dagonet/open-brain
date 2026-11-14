@@ -30,6 +30,7 @@ The CLI reads environment variables first, then `~/.brain/config.json`. Each fie
 | API base URL | `BRAIN_API_URL` | `api_url` | Required. |
 | Service-role key | `BRAIN_SERVICE_KEY` | `service_key` | Required by every command. |
 | Anon key | `BRAIN_API_KEY` | `api_key` | Unused: no command sends it. Old configs may keep it. |
+| Default project | `OPEN_BRAIN_DEFAULT_PROJECT` | none | Optional. Default `--project` for `brain task list`; `brain task set` does not read it. |
 
 ```bash
 export BRAIN_API_URL="https://<project-ref>.supabase.co"

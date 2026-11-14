@@ -2,9 +2,9 @@
 
 ## Now
 
-- **Goal:** Keep open-brain secure and on the current claude-code-toolkit template (v5.1.0).
-- **Current step:** v0.9.0 is released (2026-10-17): migrations 016-018 live, tasks-feed live, docs restructured, CLI 1.3.0.
-- **Next step:** No sprint planned; see GitHub Issues.
+- **Goal:** Keep open-brain secure and on the current claude-code-toolkit template (v6.2.0).
+- **Current step:** Release prep after #114-#120: compact task tools, `brain task list` and `brain task set`, atomic `task_update` (migration 019 is live on the hosted database), deps security upgrade.
+- **Next step:** Docs consistency pass (this PR), then the release.
 
 ## Current Sprint
 

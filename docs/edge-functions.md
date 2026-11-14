@@ -15,7 +15,7 @@ Six Supabase edge functions (Deno) in `supabase/functions/`. Shared code is in `
 
 ## Deploy and secrets
 
-Deploy each function **by name**:
+Deploy each function **by name**. These commands target the linked project, so run `supabase login` and `supabase link` first ([`install.md`](install.md#3-deploy-the-database)):
 
 ```bash
 supabase functions deploy capture-thought
