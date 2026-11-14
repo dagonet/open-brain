@@ -9,7 +9,7 @@ A Next.js 16 app (App Router, Supabase SSR, Tailwind) in `web/`. It lets you bro
 ## Prerequisites
 
 - Node.js 20.9+ (Next.js 16).
-- A Supabase project with all migrations (001 to 018) applied.
+- A Supabase project with all migrations (001 to 019) applied.
 - The **Email auth provider** enabled (Authentication > Providers > Email > ON).
 - At least one user (Authentication > Users > Add user > Auto Confirm User ON), listed in `public.owners` ([`install.md`](install.md#7-set-up-the-dashboard), step 2).
 - On a hosted project: sign-ups and anonymous sign-ins turned off ([`security.md`](security.md#dashboard)).

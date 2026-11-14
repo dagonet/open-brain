@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { taskList, definition as listDef } from '../task-list.js';
 import { taskGet, definition as getDef, type TaskGetParams } from '../task-get.js';
@@ -9,7 +10,6 @@ type Mocks = Record<string, ReturnType<typeof vi.fn>>;
 const mocks = (x: unknown) => x as Mocks;
 
 const NOW = new Date('2026-06-15T12:00:00.000Z');
-const NOW_ISO = NOW.toISOString();
 const UUID = '11111111-1111-4111-8111-111111111111';
 
 beforeEach(() => {
@@ -330,14 +330,17 @@ describe('task_get', () => {
 });
 
 describe('task_update', () => {
-  function setup(current: Record<string, unknown>, written: unknown, err?: unknown) {
-    return createMultiQueryMockSupabase([
-      { data: current },
-      { data: written, error: err as { message: string } | null | undefined },
-    ]);
+  type RpcResult = { data: unknown; error?: { message: string; code?: string } | null };
+
+  /** A client whose rpc resolves with `result`; from() answers the blank-title read. */
+  function setup(result: RpcResult, titleRead: unknown = row()) {
+    const fromChain = createMultiQueryMockSupabase([{ data: titleRead }]);
+    const rpc = vi.fn().mockResolvedValue({ error: null, ...result });
+    const client = { from: fromChain.client.from, rpc } as unknown as SupabaseClient;
+    return { client, rpc, chains: fromChain.chains };
   }
 
-  it('baseline: status change with note keeps the exact payload shape', async () => {
+  it('baseline: status change with note sends only the pre-114 arguments', async () => {
     const params = z.object(updateDef.schema).parse({
       id: UUID,
       status: 'done',
@@ -345,102 +348,63 @@ describe('task_update', () => {
     }) as unknown as TaskUpdateParams;
     expect(params).toEqual({ id: UUID, status: 'done', note: 'ok' });
     const written = row({ status: 'done' });
-    const { client, chains } = setup(row(), written);
+    const { client, rpc } = setup({ data: [written] });
     const out = await taskUpdate(client, params);
     expect(out).toBe(JSON.stringify(written));
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      status: 'done',
-      status_history: [{ status: 'done', at: NOW_ISO, note: 'ok' }],
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('task_apply_update', {
+      p_id: UUID,
+      p_patch: {},
+      p_status: 'done',
+      p_note: 'ok',
     });
-    expect(w.eq.mock.calls).toEqual([['id', UUID]]);
-    expect(w.select).toHaveBeenCalledTimes(1);
-    expect(w.single).toHaveBeenCalledTimes(1);
-  });
-
-  it('baseline: plain field update has no guard', async () => {
-    const { client, chains } = setup(row(), row({ title: 'N' }));
-    await taskUpdate(client, { id: UUID, title: 'N', priority: 2 });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({ title: 'N', priority: 2 });
-    expect(w.eq.mock.calls).toEqual([['id', UUID]]);
-  });
-
-  it('status change without note records note: null and no kind', async () => {
-    const { client, chains } = setup(row(), row());
-    await taskUpdate(client, { id: UUID, status: 'blocked' });
-    expect((chains[1] as Mocks).update).toHaveBeenCalledWith({
-      status: 'blocked',
-      status_history: [{ status: 'blocked', at: NOW_ISO, note: null }],
-    });
-  });
-
-  it('note only appends a kind:note entry and guards on updated_at', async () => {
-    const prior = { status: 'open', at: 'x', note: null };
-    const { client, chains } = setup(row({ status_history: [prior] }), row());
-    await taskUpdate(client, { id: UUID, note: 'hello' });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      status_history: [prior, { status: 'open', at: NOW_ISO, note: 'hello', kind: 'note' }],
-    });
-    expect(w.eq.mock.calls).toEqual([
-      ['id', UUID],
-      ['updated_at', '2026-01-02T00:00:00Z'],
-    ]);
-  });
-
-  it('same status plus note is a note-only entry and does not rewrite status', async () => {
-    const { client, chains } = setup(row({ status: 'blocked' }), row());
-    await taskUpdate(client, { id: UUID, status: 'blocked', note: 'still stuck' });
-    expect((chains[1] as Mocks).update).toHaveBeenCalledWith({
-      status_history: [{ status: 'blocked', at: NOW_ISO, note: 'still stuck', kind: 'note' }],
-    });
-  });
-
-  it('note only with non-array history starts a new array', async () => {
-    const { client, chains } = setup(row({ status_history: null }), row());
-    await taskUpdate(client, { id: UUID, note: 'n' });
-    expect((chains[1] as Mocks).update).toHaveBeenCalledWith({
-      status_history: [{ status: 'open', at: NOW_ISO, note: 'n', kind: 'note' }],
-    });
-  });
-
-  it('metadata_merge merges shallowly, null deletes, and guards', async () => {
-    const { client, chains } = setup(
-      row({ metadata: { keep: 1, drop: 2, plan: { old: true } } }),
-      row(),
-    );
-    await taskUpdate(client, {
-      id: UUID,
-      metadata_merge: { drop: null, plan: fullPlan, added: 'x' },
-    });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      metadata: { keep: 1, plan: fullPlan, added: 'x' },
-    });
-    expect(w.eq.mock.calls).toContainEqual(['updated_at', '2026-01-02T00:00:00Z']);
-  });
-
-  it('metadata_merge treats null and non-object metadata as {}', async () => {
-    for (const metadata of [null, 'str', ['a']]) {
-      const { client, chains } = setup(row({ metadata }), row());
-      await taskUpdate(client, { id: UUID, metadata_merge: { a: 1, b: null } });
-      expect((chains[1] as Mocks).update).toHaveBeenCalledWith({ metadata: { a: 1 } });
-    }
-  });
-
-  it('rejects metadata together with metadata_merge before any query', async () => {
-    const { client } = setup(row(), row());
-    const out = JSON.parse(
-      await taskUpdate(client, { id: UUID, metadata: { a: 1 }, metadata_merge: { b: 2 } }),
-    );
-    expect(out.error).toBeTypeOf('string');
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it('echo compact returns the small shape from the written row', async () => {
+  it('plain fields go in p_patch only; undefined keys are absent', async () => {
+    const { client, rpc } = setup({ data: [row({ title: 'N' })] });
+    await taskUpdate(client, { id: UUID, title: 'N', priority: 2, linked_thought_ids: [UUID] });
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('task_apply_update', {
+      p_id: UUID,
+      p_patch: { title: 'N', priority: 2, linked_thought_ids: [UUID] },
+    });
+  });
+
+  it('metadata goes in p_patch, metadata_merge in p_metadata_merge', async () => {
+    const { client, rpc } = setup({ data: [row()] });
+    await taskUpdate(client, { id: UUID, metadata: { a: 1 } });
+    await taskUpdate(client, { id: UUID, metadata_merge: { drop: null, plan: fullPlan } });
+    expect(rpc.mock.calls).toEqual([
+      ['task_apply_update', { p_id: UUID, p_patch: { metadata: { a: 1 } } }],
+      [
+        'task_apply_update',
+        { p_id: UUID, p_patch: {}, p_metadata_merge: { drop: null, plan: fullPlan } },
+      ],
+    ]);
+  });
+
+  it('note, status and merge are passed through untouched (the database decides entries)', async () => {
+    const { client, rpc } = setup({ data: [row()] });
+    await taskUpdate(client, { id: UUID, status: 'cancelled', note: '', metadata_merge: { b: 2 } });
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('task_apply_update', {
+      p_id: UUID,
+      p_patch: {},
+      p_metadata_merge: { b: 2 },
+      p_status: 'cancelled',
+      p_note: '',
+    });
+  });
+
+  it('a bare {id} still calls the function, which returns the row without writing', async () => {
+    const current = row();
+    const { client, rpc } = setup({ data: [current] });
+    const out = await taskUpdate(client, { id: UUID });
+    expect(out).toBe(JSON.stringify(current));
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('task_apply_update', { p_id: UUID, p_patch: {} });
+  });
+
+  it('echo compact returns the small shape from the returned row', async () => {
     const written = row({ status: 'done', priority: 3, status_history: [1, 2], title: 'big' });
-    const { client } = setup(row(), written);
+    const { client } = setup({ data: [written] });
     const out = JSON.parse(await taskUpdate(client, { id: UUID, status: 'done', echo: 'compact' }));
     expect(out).toEqual({
       id: UUID,
@@ -449,106 +413,85 @@ describe('task_update', () => {
       updated_at: '2026-01-02T00:00:00Z',
       history_len: 2,
     });
+    expect(Object.keys(out)).toEqual(['id', 'status', 'priority', 'updated_at', 'history_len']);
   });
 
   it("echo 'full' equals the default answer", async () => {
     const written = row({ title: 'N' });
-    const { client } = setup(row(), written);
+    const { client } = setup({ data: [written] });
     const out = await taskUpdate(client, { id: UUID, title: 'N', echo: 'full' });
     expect(out).toBe(JSON.stringify(written));
   });
 
-  it('guarded write with no matching row returns a conflict error', async () => {
-    const { client } = setup(row(), null, { message: 'Cannot coerce', code: 'PGRST116' });
-    const out = JSON.parse(await taskUpdate(client, { id: UUID, note: 'n' }));
-    expect(out).toEqual({ error: 'conflict, re-read and retry' });
+  it('no row back means not found (missing or already deleted task)', async () => {
+    for (const data of [[], null]) {
+      const { client } = setup({ data });
+      expect(JSON.parse(await taskUpdate(client, { id: UUID, note: 'n' }))).toEqual({
+        error: 'not found',
+      });
+    }
   });
 
-  it('other write errors on a guarded write keep their message', async () => {
-    const { client } = setup(row(), null, { message: 'boom', code: '500' });
-    const out = JSON.parse(await taskUpdate(client, { id: UUID, note: 'n' }));
-    expect(out).toEqual({ error: 'boom' });
-  });
-
-  it('unguarded write keeps the raw PGRST116 message', async () => {
-    const { client } = setup(row(), null, { message: 'Cannot coerce', code: 'PGRST116' });
-    const out = JSON.parse(await taskUpdate(client, { id: UUID, title: 'N' }));
-    expect(out).toEqual({ error: 'Cannot coerce' });
-  });
-
-  it('cancel keeps its exact unguarded payload', async () => {
-    const { client, chains } = setup(row(), row());
-    await taskUpdate(client, { id: UUID, status: 'cancelled', note: 'dropped' });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      status: 'cancelled',
-      status_history: [{ status: 'cancelled', at: NOW_ISO, note: 'dropped' }],
-      deleted_at: NOW_ISO,
-    });
-    expect(w.eq.mock.calls).toEqual([['id', UUID]]);
-  });
-
-  it('{id, title, note} keeps the note and guards the whole write', async () => {
-    const { client, chains } = setup(row(), row());
-    await taskUpdate(client, { id: UUID, title: 'N', note: 'why' });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      title: 'N',
-      status_history: [{ status: 'open', at: NOW_ISO, note: 'why', kind: 'note' }],
-    });
-    expect(w.eq.mock.calls).toEqual([
-      ['id', UUID],
-      ['updated_at', '2026-01-02T00:00:00Z'],
-    ]);
-  });
-
-  it('status change plus metadata_merge is guarded, history entry has no kind', async () => {
-    const { client, chains } = setup(row({ metadata: { a: 1 } }), row());
-    await taskUpdate(client, { id: UUID, status: 'done', metadata_merge: { b: 2 } });
-    const w = chains[1] as Mocks;
-    expect(w.update).toHaveBeenCalledExactlyOnceWith({
-      metadata: { a: 1, b: 2 },
-      status: 'done',
-      status_history: [{ status: 'done', at: NOW_ISO, note: null }],
-    });
-    expect(w.eq.mock.calls).toContainEqual(['updated_at', '2026-01-02T00:00:00Z']);
-  });
-
-  it('blank note on the note-only path appends nothing', async () => {
-    const current = row();
-    const { client } = setup(current, null);
-    const out = await taskUpdate(client, { id: UUID, note: '   ' });
-    expect(out).toBe(JSON.stringify(current));
-    expect(client.from).toHaveBeenCalledTimes(1);
-
-    const { client: c2, chains } = setup(current, row());
-    await taskUpdate(c2, { id: UUID, title: 'N', note: '' });
-    expect((chains[1] as Mocks).update).toHaveBeenCalledExactlyOnceWith({ title: 'N' });
-    expect((chains[1] as Mocks).eq.mock.calls).toEqual([['id', UUID]]);
-  });
-
-  it('blank note with a status change keeps the existing entry', async () => {
-    const { client, chains } = setup(row(), row());
-    await taskUpdate(client, { id: UUID, status: 'done', note: '' });
-    expect((chains[1] as Mocks).update).toHaveBeenCalledWith({
-      status: 'done',
-      status_history: [{ status: 'done', at: NOW_ISO, note: '' }],
+  it('other errors keep their message', async () => {
+    const { client } = setup({ data: null, error: { message: 'boom', code: '500' } });
+    expect(JSON.parse(await taskUpdate(client, { id: UUID, note: 'n' }))).toEqual({
+      error: 'boom',
     });
   });
 
-  it('{id, status: same} returns the current row without a write', async () => {
-    const current = row();
-    const { client } = setup(current, null);
-    const out = await taskUpdate(client, { id: UUID, status: 'open' });
-    expect(out).toBe(JSON.stringify(current));
-    expect(client.from).toHaveBeenCalledTimes(1);
+  it('a missing function is a hard error that names migration 019, with no fallback', async () => {
+    for (const error of [
+      { code: 'PGRST202', message: 'Could not find the function public.task_apply_update' },
+      { code: '42883', message: 'function public.task_apply_update(uuid) does not exist' },
+      { message: 'function public.task_apply_update does not exist' },
+    ]) {
+      const { client } = setup({ data: null, error });
+      const out = JSON.parse(await taskUpdate(client, { id: UUID, status: 'done' }));
+      expect(out.error).toContain('migration 019');
+      expect(out.error).toContain('docs/upgrading.md');
+      expect(out.error).toContain(error.message);
+      expect(client.from).not.toHaveBeenCalled();
+    }
   });
 
-  it('a call that changes nothing returns the current row without writing', async () => {
-    const current = row();
-    const { client } = setup(current, null);
-    const out = await taskUpdate(client, { id: UUID });
-    expect(out).toBe(JSON.stringify(current));
-    expect(client.from).toHaveBeenCalledTimes(1);
+  it('unrelated SQL errors are not mapped to the migration message', async () => {
+    for (const error of [
+      { code: '42883', message: 'operator does not exist: text = integer' },
+      { code: '23514', message: 'new row violates check constraint "tasks_status_check"' },
+      { message: 'function other_fn(uuid) does not exist' },
+    ]) {
+      const { client } = setup({ data: null, error });
+      const out = JSON.parse(await taskUpdate(client, { id: UUID, status: 'done' }));
+      expect(out).toEqual({ error: error.message });
+    }
+  });
+
+  it('rejects metadata together with metadata_merge before any query', async () => {
+    const { client, rpc } = setup({ data: [row()] });
+    const out = JSON.parse(
+      await taskUpdate(client, { id: UUID, metadata: { a: 1 }, metadata_merge: { b: 2 } }),
+    );
+    expect(out.error).toBe('Pass either metadata or metadata_merge, not both.');
+    expect(client.from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('a blank title reads only: a missing task is not found, an existing one is the title error', async () => {
+    const missing = setup({ data: [row()] }, null);
+    expect(JSON.parse(await taskUpdate(missing.client, { id: UUID, title: '  ' }))).toEqual({
+      error: 'not found',
+    });
+    const present = setup({ data: [row()] });
+    expect(JSON.parse(await taskUpdate(present.client, { id: UUID, title: '  ' }))).toEqual({
+      error: 'title must be non-empty.',
+    });
+    expect(missing.rpc).not.toHaveBeenCalled();
+    expect(present.rpc).not.toHaveBeenCalled();
+  });
+
+  it('the tool description no longer mentions the conflict guard or #115', () => {
+    expect(updateDef.description).not.toContain('conflict');
+    expect(updateDef.description).not.toContain('#115');
+    expect(updateDef.description).toContain('atomically');
   });
 });

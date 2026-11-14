@@ -115,7 +115,7 @@ The functions are documented in [`edge-functions.md`](edge-functions.md); who ma
 
 ## Data model, by migration
 
-Migrations are in `supabase/migrations/` and applied in order by `supabase db push --remote`. All use `IF NOT EXISTS` / `CREATE OR REPLACE` patterns where the change can be repeated; 016 to 018 are idempotent. Upgrade notes per release: [`upgrading.md`](upgrading.md).
+Migrations are in `supabase/migrations/` and applied in order by `supabase db push --remote`. All use `IF NOT EXISTS` / `CREATE OR REPLACE` patterns where the change can be repeated; 016 to 019 are idempotent. Upgrade notes per release: [`upgrading.md`](upgrading.md).
 
 | # | File | What it adds |
 | - | ---- | ------------ |
@@ -137,5 +137,6 @@ Migrations are in `supabase/migrations/` and applied in order by `supabase db pu
 | 016 | `restrict_to_authenticated` | Anon lockdown: anon/PUBLIC policies and privileges dropped, views switched to `security_invoker`, `EXECUTE` on the RPCs revoked from anon. [`security.md`](security.md#database-lockdown-migration-by-migration) |
 | 017 | `scope_authenticated_to_owner` | `public.owners` and owner-scoped policies for the signed-in role; bootstrap seeds the owner when there is exactly one user. |
 | 018 | `narrow_grants_private_helper` | Narrower grants for the signed-in role (SELECT, plus UPDATE of `contradictions.status` and `resolved_at`), the owner check moved to `private.is_owner()`, `search_path` pinned on the `SECURITY DEFINER` functions, `CREATE` on `public` revoked. Rollback steps are in the file header. |
+| 019 | `task_apply_update` | `task_apply_update()`: the one atomic write behind the MCP `task_update` tool. It locks the task row and applies the status entry, note entry, cancel and metadata merge to the latest version, so concurrent writes do not drop history or keys. `SECURITY INVOKER`, `EXECUTE` for `service_role` only. Apply it before rebuilding the MCP server. Rollback in the file header. |
 
 Tables in the end state: `thoughts`, `entity_descriptions`, `wiki_pages`, `wiki_sources`, `contradictions`, `tasks`, `owners`. Views: `current_wiki_pages`, `wiki_page_staleness`, `topic_counts`, `entity_nodes`, `entity_edges`.

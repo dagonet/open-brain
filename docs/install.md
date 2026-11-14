@@ -45,7 +45,7 @@ Fill in `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `OP
 
 ## 3. Deploy the database
 
-Link your project and push the migrations (001 to 018):
+Link your project and push the migrations (001 to 019):
 
 ```bash
 supabase link --project-ref <project-ref>
@@ -239,7 +239,7 @@ Everything above except the hosted-only parts (Vercel, Slack, hosted Auth settin
 ```bash
 supabase start                      # API 54321, DB 54322, Studio 54323
 supabase status -o env              # API_URL, ANON_KEY, SERVICE_ROLE_KEY (the legacy JWT form), DB_URL
-supabase db reset --yes             # applies migrations 001-018 locally; stands in for `supabase db push --remote`
+supabase db reset --yes             # applies migrations 001-019 locally; stands in for `supabase db push --remote`
 
 # load the local keys into this shell (API_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL)
 set -a; eval "$(supabase status -o env)"; set +a
