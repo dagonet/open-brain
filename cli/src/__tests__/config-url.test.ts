@@ -43,6 +43,7 @@ describe('api_url handling in loadConfig and commands', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({ success: true, status: 'compiled', findings: [] }),
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -165,6 +166,7 @@ describe('api_url handling in loadConfig and commands', () => {
       fetchMock.mockImplementation(async (url: string) => ({
         ok: true,
         status: 200,
+        headers: new Headers(),
         json: async () =>
           String(url).includes('/rest/v1/')
             ? String(url).includes('/contradictions?')

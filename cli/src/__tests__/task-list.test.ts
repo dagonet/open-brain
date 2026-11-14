@@ -347,12 +347,71 @@ describe('brain task list', () => {
       expect(stdout.join('\n')).not.toContain(SERVICE);
     });
 
+    it.each([
+      ['an object', { message: 'nope' }],
+      ['null', null],
+      ['a string', 'ok'],
+    ])('a 2xx body that is %s exits 1 with a clear message and no key', async (_n, body) => {
+      respond(body);
+      expect(await run('list')).toBe(1);
+      const err = stderr.join('\n');
+      expect(err).toMatch(/unexpected response from the server/);
+      expect(err).not.toContain(SERVICE);
+      expect(err).not.toContain(BASE);
+      expect(stdout).toEqual([]);
+    });
+
     it('a missing service key exits 1 before any request', async () => {
       vi.stubEnv('BRAIN_SERVICE_KEY', '');
       expect(await run('list')).toBe(1);
       expect(stderr.join('\n')).toMatch(/service-role key/);
       expect(fetchMock).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('capture still works for text that starts with the word task', () => {
+  const fetchMock = vi.fn();
+  const origArgv = process.argv;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.stubEnv('BRAIN_API_URL', BASE);
+    vi.stubEnv('BRAIN_SERVICE_KEY', SERVICE);
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ success: true }),
+    });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.argv = origArgv;
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  async function capturedText(...args: string[]): Promise<string> {
+    process.argv = ['node', 'brain', ...args];
+    await main();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(`${BASE}/functions/v1/capture-thought`);
+    expect(init.method).toBe('POST');
+    return (JSON.parse(init.body as string) as { text: string }).text;
+  }
+
+  it('one quoted argument "task force meeting ..." is captured', async () => {
+    expect(await capturedText('task force meeting notes')).toBe('task force meeting notes');
+  });
+
+  it('brain -- task captures the word', async () => {
+    expect(await capturedText('--', 'task')).toBe('task');
   });
 });
 

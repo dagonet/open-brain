@@ -908,9 +908,9 @@ async function getFromPostgrest(
   const response = await fetch(url, {
     redirect: 'error',
     headers: {
+      ...extraHeaders,
       apikey: apiKey,
       Authorization: 'Bearer ' + apiKey,
-      ...extraHeaders,
     },
   });
   const data = await response.json().catch(() => ({}));
@@ -918,7 +918,7 @@ async function getFromPostgrest(
     ok: response.ok,
     status: response.status,
     data,
-    contentRange: response.headers?.get('content-range') ?? null,
+    contentRange: response.headers.get('content-range') ?? null,
   };
 }
 
@@ -1423,7 +1423,11 @@ export async function taskListCommand(args: string[]): Promise<void> {
     return;
   }
 
-  const rows = Array.isArray(result.data) ? (result.data as TaskListRow[]) : [];
+  if (!Array.isArray(result.data)) {
+    console.error('✗ Failed: unexpected response from the server (expected a list of tasks)');
+    process.exit(1);
+  }
+  const rows = result.data as TaskListRow[];
   if (opts.json) {
     console.log(JSON.stringify(rows.map(compactTask)));
     return;
