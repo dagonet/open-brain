@@ -60,7 +60,10 @@ export const definition: ToolDefinition = {
       .array(z.string().uuid())
       .optional()
       .describe('Optional UUIDs of linked thoughts.'),
-    metadata: z.record(z.unknown()).optional().describe('Optional arbitrary metadata JSON object.'),
+    metadata: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe('Optional arbitrary metadata JSON object.'),
   },
   handler: (deps, params) => taskCreate(deps.supabase, params as unknown as TaskCreateParams),
 };

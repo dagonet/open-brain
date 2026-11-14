@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MCP compact task rows (`task_list` and `task_get` with `compact`) gain `plan_shape` after `planned`: `object`, `text` (older tasks with a plain-text `metadata.plan`; never `planned`), `none` or `other`. The `task_update` description warns that `metadata_merge` replaces `metadata.plan` whole, so text must be copied to `plan_text` in the same call. Writes and non-compact answers are unchanged.
 
+### Security
+
+- Cleared every `npm audit` finding in `mcp-server`, `cli` and `web` (0 vulnerabilities). `mcp-server` moves to `zod` 4 (`^4.6.7`) and `openai` 7 (`^7.57.0`); `npm audit fix` updates the transitive `@modelcontextprotocol/sdk` dependencies (body-parser, hono, @hono/node-server, qs, fast-uri). The dev-only `minimatch` finding behind `typescript-eslint` has no patched release inside typescript-estree's range, so each package overrides `@typescript-eslint/typescript-estree`'s `minimatch` to `^11.0.8`. Tool names, parameters, defaults and answers are unchanged; the `tools/list` JSON Schema loses `additionalProperties: false` on the input object (unknown keys are still stripped), gains a UUID `pattern` and `propertyNames` on metadata objects, and `task_list.limit` gains a `maximum` of 2^53-1.
+
 ### Changed
 
 - CLI: `task` is now a reserved first word, like `import`, `wiki` and `audit`. `brain "task force meeting"` (one argument) and `brain -- task` still capture; an unquoted multi-word `brain task ...` runs the `task` command and fails on an unknown subcommand. `docs/cli.md` lists the reserved words.

@@ -155,7 +155,7 @@ export const definition: ToolDefinition = {
     priority: z.number().int().min(1).max(5).optional().describe('New priority 1-5.'),
     linked_thought_ids: z.array(z.string().uuid()).optional().describe('New linked thought IDs.'),
     metadata: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe('New metadata JSON object (replaces existing).'),
     status: z
@@ -169,7 +169,7 @@ export const definition: ToolDefinition = {
         'Optional note appended to status_history. Applies with a status change, and also alone or with an unchanged status (note-only entry).',
       ),
     metadata_merge: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe(
         'Shallow top-level merge into metadata; a null value deletes that key. Nested objects (e.g. plan) are replaced whole. Cannot be combined with metadata.',
