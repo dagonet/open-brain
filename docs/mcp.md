@@ -8,7 +8,7 @@ A local [Model Context Protocol](https://modelcontextprotocol.io) server that gi
 
 ## Prerequisites
 
-- Node.js 18+ and npm.
+- Node.js 22+ and npm.
 - A Supabase project with all migrations (001 to 018) applied: [`install.md`](install.md#3-deploy-the-database).
 - The legacy service-role key ([`security.md`](security.md#keys)) and an OpenAI API key (used to embed search queries).
 

@@ -96,13 +96,9 @@ export const definition: ToolDefinition = {
   description:
     'Mark new_thought_id as superseding old_thought_id — the old thought is excluded from default search results. Use this when a capture returned a duplicate_candidate and the new thought replaces the old one.',
   schema: {
-    new_thought_id: z
-      .string()
-      .uuid()
-      .describe('UUID of the new thought that replaces the old one.'),
+    new_thought_id: z.guid().describe('UUID of the new thought that replaces the old one.'),
     old_thought_id: z
-      .string()
-      .uuid()
+      .guid()
       .describe(
         'UUID of the thought being superseded. It will be excluded from default search results.',
       ),

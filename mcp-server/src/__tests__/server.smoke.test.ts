@@ -113,4 +113,20 @@ describe('MCP server smoke test (in-memory transport)', () => {
       { topic: 'b', count: 1, last_mentioned_at: '2026-01-01T00:00:00Z' },
     ]);
   });
+
+  it('accepts a tools/call with an unknown key and strips it before the handler', async () => {
+    const recent = allTools.find((t) => t.name === 'thoughts_recent');
+    expect(recent).toBeDefined();
+    const handler = vi.spyOn(recent!, 'handler').mockResolvedValue('ok');
+    const { client } = await connect();
+
+    const result = await client.callTool({
+      name: 'thoughts_recent',
+      arguments: { limit: 3, bogus: 'x' },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][1]).toEqual({ days: 7, limit: 3 });
+  });
 });

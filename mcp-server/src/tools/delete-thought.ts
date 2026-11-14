@@ -36,7 +36,7 @@ export const definition: ToolDefinition = {
   description:
     'Soft-delete a thought by ID. Sets deleted_at timestamp; does not permanently remove data.',
   schema: {
-    id: z.string().uuid().describe('UUID of the thought to delete'),
+    id: z.guid().describe('UUID of the thought to delete'),
   },
   handler: (deps, params) => deleteThought(deps.supabase, params as unknown as DeleteThoughtParams),
 };

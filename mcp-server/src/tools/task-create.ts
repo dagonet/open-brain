@@ -56,11 +56,11 @@ export const definition: ToolDefinition = {
       .string()
       .optional()
       .describe('Project scope. Falls back to OPEN_BRAIN_DEFAULT_PROJECT if omitted.'),
-    linked_thought_ids: z
-      .array(z.string().uuid())
+    linked_thought_ids: z.array(z.guid()).optional().describe('Optional UUIDs of linked thoughts.'),
+    metadata: z
+      .record(z.string(), z.unknown())
       .optional()
-      .describe('Optional UUIDs of linked thoughts.'),
-    metadata: z.record(z.unknown()).optional().describe('Optional arbitrary metadata JSON object.'),
+      .describe('Optional arbitrary metadata JSON object.'),
   },
   handler: (deps, params) => taskCreate(deps.supabase, params as unknown as TaskCreateParams),
 };

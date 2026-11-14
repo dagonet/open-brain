@@ -82,7 +82,7 @@ export const definition: ToolDefinition = {
         'The thought to capture. Can be a decision, insight, meeting note, action item, or general note.',
       ),
     metadata: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe("Optional metadata (e.g., { session_context: 'sprint planning' })"),
     project: z

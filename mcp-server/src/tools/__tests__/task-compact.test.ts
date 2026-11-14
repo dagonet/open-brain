@@ -209,7 +209,7 @@ describe('task_list', () => {
 
 describe('task_get', () => {
   it('baseline: unchanged answer and builder calls', async () => {
-    const params = z.object(getDef.schema).parse({ id: UUID }) as TaskGetParams;
+    const params = z.object(getDef.schema).parse({ id: UUID }) as unknown as TaskGetParams;
     expect(params).toEqual({ id: UUID });
     const mock = createMockSupabase();
     const data = row({ description: 'd'.repeat(500), metadata: { plan: fullPlan } });
@@ -342,7 +342,7 @@ describe('task_update', () => {
       id: UUID,
       status: 'done',
       note: 'ok',
-    }) as TaskUpdateParams;
+    }) as unknown as TaskUpdateParams;
     expect(params).toEqual({ id: UUID, status: 'done', note: 'ok' });
     const written = row({ status: 'done' });
     const { client, chains } = setup(row(), written);
