@@ -102,7 +102,7 @@ export const definition: ToolDefinition = {
     "A note also applies without a status change: it is appended to status_history as a note-only entry (kind 'note') when status is absent or unchanged. " +
     'metadata_merge is a SHALLOW top-level merge into the current metadata (null value deletes the key), so to change metadata.plan send the whole plan object {owner, goal, next_step, done_check}; it cannot be combined with metadata. ' +
     "metadata_merge replaces a key whole: if metadata.plan is text (plan_shape 'text' in compact rows), copy that text to `plan_text` in the same metadata_merge call, or it is lost. " +
-    "echo='compact' returns only {id, status, priority, updated_at, history_len}. A call that changes nothing returns the current row. " +
+    "echo='compact' returns only {id, status, priority, updated_at, history_len}. A call with no field changes, an unchanged status and no note writes nothing and returns the current row (a field patch always writes, even to the same value, and moves updated_at). " +
     'Each call is applied atomically on the server (row lock), so concurrent notes, merges and status changes are not lost.',
   schema: {
     id: z.guid().describe('UUID of the task to update.'),

@@ -368,9 +368,9 @@ describe('brain task list', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('unknown and missing subcommands, including task set, exit 1', async () => {
-      expect(await run('set')).toBe(1);
-      expect(stderr.join('\n')).toMatch(/unknown task subcommand: set/);
+    it('unknown and missing subcommands exit 1', async () => {
+      expect(await run('remove')).toBe(1);
+      expect(stderr.join('\n')).toMatch(/unknown task subcommand: remove/);
       stderr.length = 0;
       expect(await run()).toBe(1);
       expect(stderr.join('\n')).toMatch(/unknown task subcommand: \(none\)/);
