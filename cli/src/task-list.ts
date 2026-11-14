@@ -40,6 +40,8 @@ export interface TaskListRow {
   plan?: unknown;
 }
 
+export type PlanShape = 'object' | 'text' | 'none' | 'other';
+
 export interface CompactTask {
   id: string;
   title: string;
@@ -48,6 +50,7 @@ export interface CompactTask {
   created_at: string;
   updated_at: string;
   planned: boolean;
+  plan_shape: PlanShape;
 }
 
 function parseInteger(flag: string, raw: string, min: number, max?: number): number {
@@ -193,6 +196,13 @@ export function isPlanned(plan: unknown): boolean {
   });
 }
 
+/** Shape of metadata.plan: "object", "text" (a plain string), "none" (absent or null) or "other". */
+export function planShape(plan: unknown): PlanShape {
+  if (plan === undefined || plan === null) return 'none';
+  if (typeof plan === 'string') return 'text';
+  return typeof plan === 'object' && !Array.isArray(plan) ? 'object' : 'other';
+}
+
 export function compactTask(row: TaskListRow): CompactTask {
   return {
     id: row.id,
@@ -202,6 +212,7 @@ export function compactTask(row: TaskListRow): CompactTask {
     created_at: row.created_at,
     updated_at: row.updated_at,
     planned: isPlanned(row.plan),
+    plan_shape: planShape(row.plan),
   };
 }
 

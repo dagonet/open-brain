@@ -157,7 +157,7 @@ brain task list --json --limit 200                       # compact JSON array
 | `--sort created\|priority` | MCP `sort`. `created` (default): newest first. `priority`: priority 1 first, unset last, then oldest update first. |
 | `--limit <N>` | MCP `limit`. Max rows, default 50. |
 | `--count` | CLI only. Print only the number of matching tasks. |
-| `--json` | CLI only. Print a JSON array of `{id, title, status, priority, created_at, updated_at, planned}` (the rows MCP returns with `compact: true`). |
+| `--json` | CLI only. Print a JSON array of `{id, title, status, priority, created_at, updated_at, planned, plan_shape}` (the rows MCP returns with `compact: true`). `plan_shape` is `object`, `text` (an older plain-text `metadata.plan`; such a task is never `planned`), `none` (no plan) or `other`. The tab-separated output has no `plan_shape` column. |
 
 MCP's single `status` and `priority` filters have no CLI flag (use `--status` with one value; there is no priority filter).
 

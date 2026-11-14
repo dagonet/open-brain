@@ -294,7 +294,7 @@ function printUsage(print: (message: string) => void = console.error): void {
       '  Default output is one tab-separated line per task: id, status, priority, updated date,',
       '  planned (yes/no), title. --count prints only the number of matching tasks (ignores',
       '  --limit and --sort). --json prints an array of {id, title, status, priority,',
-      '  created_at, updated_at, planned}. --project defaults to OPEN_BRAIN_DEFAULT_PROJECT;',
+      '  created_at, updated_at, planned, plan_shape}. --project defaults to OPEN_BRAIN_DEFAULT_PROJECT;',
       '  --limit defaults to 50.',
       '',
     ].join('\n'),

@@ -246,13 +246,58 @@ describe('brain task list', () => {
       await run('list', '--json');
       expect(stdout).toHaveLength(1);
       const parsed = JSON.parse(stdout[0]) as Record<string, unknown>[];
-      expect(Object.keys(parsed[0]).sort()).toEqual(
-        ['created_at', 'id', 'planned', 'priority', 'status', 'title', 'updated_at'].sort(),
-      );
+      expect(Object.keys(parsed[0])).toEqual([
+        'id',
+        'title',
+        'status',
+        'priority',
+        'created_at',
+        'updated_at',
+        'planned',
+        'plan_shape',
+      ]);
       expect(parsed[0].planned).toBe(true);
       expect(parsed[0].title).toBe('x'.repeat(100) + '…');
       expect(parsed[1].planned).toBe(false);
       expect(parsed[1].updated_at).toBe('2026-10-17T12:30:00.123456+00:00');
+    });
+
+    it('--json reports plan_shape: object, text, none, other', async () => {
+      respond([
+        row({ plan: PLAN }),
+        row({ plan: { owner: 'me' } }),
+        row({ plan: 'write it up' }),
+        row({ plan: null }),
+        row({ plan: undefined }),
+        row({ plan: ['a'] }),
+        row({ plan: 42 }),
+      ]);
+      await run('list', '--json');
+      const parsed = JSON.parse(stdout[0]) as { planned: boolean; plan_shape: string }[];
+      expect(parsed.map((r) => r.plan_shape)).toEqual([
+        'object',
+        'object',
+        'text',
+        'none',
+        'none',
+        'other',
+        'other',
+      ]);
+      expect(parsed.map((r) => r.planned)).toEqual([
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+      ]);
+    });
+
+    it('tab-separated output has no plan_shape column', async () => {
+      respond([row({ plan: 'text plan' })]);
+      await run('list');
+      expect(stdout[0].split('\t')).toHaveLength(6);
     });
 
     it('--json prints [] for no rows', async () => {
