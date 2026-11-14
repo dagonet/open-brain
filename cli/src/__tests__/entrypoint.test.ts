@@ -43,7 +43,7 @@ describe('entry point via a bin symlink', () => {
       const env: Record<string, string> = { PATH: process.env.PATH ?? '', HOME: tmp };
       const out = execFileSync(process.execPath, [link, '--version'], { env, encoding: 'utf-8' });
 
-      expect(out.trim()).toBe('1.3.0');
+      expect(out.trim()).toBe('1.4.0');
     },
   );
 });

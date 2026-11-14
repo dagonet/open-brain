@@ -1,6 +1,6 @@
 {
   "name": "@open-brain/web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Open Brain dashboard: browse thoughts, wiki pages, contradictions and the entity graph, with refresh, reject and resolve actions",
   "type": "module",
   "private": true,
