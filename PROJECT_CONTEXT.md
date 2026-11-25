@@ -54,7 +54,7 @@
 
 ## Workflow Configuration
 
-- **Task source**: `plan-files`
+- **Task source**: `github-issues`
 - **Max parallel workstreams**: 5
 - **Commit convention**: `feat:`, `fix:`, `chore:`, `test:`, `docs:` prefixes
 <!-- EXTRA path prefixes the PO may Edit/Write directly, on top of the built-in
